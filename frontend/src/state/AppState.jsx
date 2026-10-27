@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { loginApi } from '@/api'
 
 export const ROLES = [
   { id: 'admin', label: 'Super Admin', short: 'Admin' },
@@ -78,13 +79,8 @@ export function AppStateProvider({ children }) {
     sessionStorage.setItem('railopt_email', email)
 
     try {
-      const res = await fetch('http://localhost:8000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: 'password123' }),
-      })
-      if (res.ok) {
-        const data = await res.json()
+      const data = await loginApi(email, 'password123')
+      if (data?.access_token) {
         sessionStorage.setItem('railopt_token', data.access_token)
       }
     } catch {

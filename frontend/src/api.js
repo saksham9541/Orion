@@ -1,8 +1,27 @@
 import axios from 'axios';
 import { getStoredToken, getStoredEmail, setStoredToken } from '@/state/AppState';
 
+// Base API and WebSocket URLs derived from Vite environment variable
+export const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+export const WS_BASE = API_BASE.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+
+export const getWsNotificationsUrl = (token) => {
+  return `${WS_BASE}/ws/notifications?token=${encodeURIComponent(token)}`;
+};
+
+/**
+ * Shared login helper to avoid duplicated fetch/axios logic across the frontend.
+ */
+export async function loginApi(email, password = 'password123') {
+  const res = await axios.post(`${API_BASE}/api/auth/login`, {
+    email,
+    password,
+  });
+  return res.data;
+}
+
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: `${API_BASE}/api`,
 });
 
 // Token management: use stored token from login, with lazy refresh
@@ -17,13 +36,9 @@ async function ensureToken() {
   if (tokenPromise) return tokenPromise;
 
   const email = getStoredEmail() || 'admin@railopt.gov.in';
-  tokenPromise = axios
-    .post('http://localhost:8000/api/auth/login', {
-      email,
-      password: 'password123',
-    })
-    .then((res) => {
-      const token = res.data.access_token;
+  tokenPromise = loginApi(email, 'password123')
+    .then((data) => {
+      const token = data.access_token;
       setStoredToken(token);
       return token;
     })

@@ -1,18 +1,12 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { getStoredToken, useAppState } from '@/state/AppState'
+import { API_BASE, getWsNotificationsUrl } from '@/api'
 
 const NotificationContext = createContext(null)
 
-const getBackendBase = () => {
-  const host = typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost'
-  return `http://${host}:8000/api`
-}
+const getBackendBase = () => `${API_BASE}/api`
 
-const getWsUrl = (token) => {
-  const host = typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost'
-  const proto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${proto}//${host}:8000/ws/notifications?token=${token}`
-}
+const getWsUrl = (token) => getWsNotificationsUrl(token)
 
 export function useNotifications() {
   const ctx = useContext(NotificationContext)
