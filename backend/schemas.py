@@ -167,3 +167,26 @@ class NotificationResponse(BaseModel):
 class UnreadCountResponse(BaseModel):
     unread_count: int
 
+
+# ── Multi-Agent System ──────────────────────────────────────────────
+
+class AgentNegotiationRequest(BaseModel):
+    horizon: PlanHorizon = PlanHorizon.WEEKLY
+
+
+class AgentNegotiationResponse(BaseModel):
+    plan_id: str
+    total_tasks_scheduled: int
+    total_merge_savings_hours: float
+    agreements_count: int
+    merged_blocks_count: int
+    conflict_resolutions: list[dict]
+    early_warnings_count: int
+    summary: dict
+    plan: BlockPlan
+
+
+class AgentStatusResponse(BaseModel):
+    agents: list[dict]
+
+

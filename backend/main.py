@@ -48,6 +48,7 @@ from ml.defect_text_classifier import DefectTextClassifier
 from railopt.data_integration import DataIntegrationService
 from pydantic import BaseModel
 from backend.notifications import manager, dispatch_issue_alert
+from agents import AgentOrchestrator, EarlyWarningAgent, ReplanningAgent
 
 from backend.auth import (
     create_access_token,
@@ -86,6 +87,9 @@ from backend.schemas import (
     TimetableImportResponse,
     NotificationResponse,
     UnreadCountResponse,
+    AgentNegotiationRequest,
+    AgentNegotiationResponse,
+    AgentStatusResponse,
 )
 from railopt.models import (
     AssetType,
@@ -1636,6 +1640,130 @@ def get_map_blocks(plan_id: str, current_user: User = Depends(require_viewer_or_
             "status": "SCHEDULED"
         })
     return {"blocks": blocks_data}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Multi-Agent System (Collaborative Negotiation & Risk Governance)
+# ──────────────────────────────────────────────────────────────────────
+
+@app.get("/api/agents/status", response_model=AgentStatusResponse)
+def get_agents_status(current_user: User = Depends(require_viewer_or_above)):
+    """Returns the operational status, domain profiles, and capabilities of all agents."""
+    agents_info = [
+        {
+            "id": "agent-eng",
+            "name": "Engineering Department Agent",
+            "department": "ENGINEERING",
+            "role": "Track Infrastructure Domain Representative",
+            "capabilities": ["Heavy machine possession bidding", "Rail replacement priority ranking", "Traffic block enforcement"],
+            "status": "ACTIVE",
+        },
+        {
+            "id": "agent-snt",
+            "name": "S&T Department Agent",
+            "department": "SNT",
+            "role": "Signaling & Telecommunication Domain Representative",
+            "capabilities": ["Point & interlocking checks", "Shadow block co-utilization", "Non-traffic possession flexibility"],
+            "status": "ACTIVE",
+        },
+        {
+            "id": "agent-trd",
+            "name": "TRD Department Agent",
+            "department": "TRD",
+            "role": "Traction Distribution & OHE Domain Representative",
+            "capabilities": ["Power block switching isolation", "Tower wagon coordination", "Catenary wire maintenance"],
+            "status": "ACTIVE",
+        },
+        {
+            "id": "agent-arbitrator",
+            "name": "Central Traffic & Maintenance Arbitrator Agent",
+            "department": "CROSS_DEPARTMENT",
+            "role": "Conflict Resolution & Block Merging Arbiter",
+            "capabilities": ["Multi-department block merging", "Priority arbitration via ML criticality", "Downtime minimization"],
+            "status": "ACTIVE",
+        },
+        {
+            "id": "agent-early-warning",
+            "name": "Predictive Early Warning Agent",
+            "department": "SAFETY_GOVERNANCE",
+            "role": "Compounding Risk & Failure Hotspot Monitor",
+            "capabilities": ["Recurrence clustering analysis", "Seasonal thermal/monsoon risk detection", "Fatigue alert generation"],
+            "status": "ACTIVE",
+        },
+        {
+            "id": "agent-replanning",
+            "name": "Emergency Dynamic Replanning Agent",
+            "department": "OPERATIONS_RECOVERY",
+            "role": "Mid-Schedule Disruption Repair",
+            "capabilities": ["Emergency force-scheduling", "Minimal perturbation repair", "Logistics preservation"],
+            "status": "ACTIVE",
+        },
+    ]
+    return AgentStatusResponse(agents=agents_info)
+
+
+@app.post("/api/agents/negotiate", response_model=AgentNegotiationResponse)
+def run_agent_negotiation(
+    request: AgentNegotiationRequest,
+    current_user: User = Depends(require_controller),
+):
+    """
+    Executes collaborative multi-agent negotiation across Engineering, S&T, and TRD agents.
+    Mediates conflicts via the Arbitrator Agent and merges compatible track possessions.
+    """
+    orchestrator = AgentOrchestrator()
+    consensus = orchestrator.run_planning_cycle(
+        tasks=app.state.tasks,
+        available_windows=app.state.windows,
+        sections=app.state.sections,
+        corridors=app.state.corridors,
+        horizon=request.horizon,
+    )
+
+    plan = consensus.plan
+    app.state.plans[plan.plan_id] = plan
+
+    session = get_session(engine)
+    try:
+        save_plan(session, plan)
+        save_tasks(session, app.state.tasks)
+    finally:
+        session.close()
+
+    conflict_data = [
+        {
+            "section_id": cr.contested_section_id,
+            "date": cr.target_date.isoformat(),
+            "departments": [d.value for d in cr.departments_involved],
+            "resolution": cr.resolution_type,
+            "explanation": cr.explanation,
+        }
+        for cr in consensus.conflict_resolutions
+    ]
+
+    return AgentNegotiationResponse(
+        plan_id=plan.plan_id,
+        total_tasks_scheduled=plan.total_tasks_scheduled,
+        total_merge_savings_hours=plan.total_merge_savings_hours,
+        agreements_count=len(consensus.agreements),
+        merged_blocks_count=consensus.orchestration_summary["merged_blocks_count"],
+        conflict_resolutions=conflict_data,
+        early_warnings_count=len(consensus.early_warnings),
+        summary=consensus.orchestration_summary,
+        plan=plan,
+    )
+
+
+@app.post("/api/agents/early-warning/scan")
+def scan_early_warnings(current_user: User = Depends(require_viewer_or_above)):
+    """Triggers the Early Warning Agent to evaluate corridor failure trends and risks."""
+    agent = EarlyWarningAgent()
+    warnings = agent.scan_corridor_risks(
+        tasks=app.state.tasks,
+        corridors=app.state.corridors,
+        sections=app.state.sections,
+    )
+    return {"early_warnings": [w.model_dump(mode="json") for w in warnings]}
 
 
 # ──────────────────────────────────────────────────────────────────────
