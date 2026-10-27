@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Navigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, ShieldAlert, CheckCircle2, X, Bell, ClipboardCheck, PlayCircle, CircleCheck, Flame, RefreshCw } from 'lucide-react'
+import {
+  AlertTriangle,
+  ShieldAlert,
+  CheckCircle2,
+  XCircle,
+  X,
+  Bell,
+  ClipboardCheck,
+  PlayCircle,
+  CircleCheck,
+  Flame,
+  RefreshCw,
+  Clock,
+  RotateCcw
+} from 'lucide-react'
 import PortalLayout from '@/components/app/PortalLayout'
 import { useAppState } from '@/state/AppState'
 import { useNotifications } from '@/state/NotificationContext'
@@ -9,11 +23,9 @@ import IndiaRailwayMap from '@/components/network/IndiaRailwayMap'
 import { fetchLiveTrains, fetchTasks, updateTaskStatus } from '@/api'
 
 /**
- * The status flow every issue moves through. One admin action is available
- * at a time — whichever one advances the issue to the next stage — rather
- * than four buttons sitting there decoratively.
+ * Super Admin operations statuses and transitions.
  */
-const STATUS_FLOW = ['NEW', 'ACKNOWLEDGED', 'DEPARTMENT NOTIFIED', 'IN PROGRESS', 'RESOLVED']
+const STATUS_FLOW = ['NEW', 'ACKNOWLEDGED', 'DEPARTMENT NOTIFIED', 'IN PROGRESS', 'RESOLVED', 'REJECTED']
 
 function statusIndex(status) {
   const i = STATUS_FLOW.indexOf(status)
@@ -26,9 +38,7 @@ function nextStatus(status) {
 }
 
 /**
- * The one action available for an issue's current status. Returns null at
- * RESOLVED — there is nothing further to do, so no button is shown rather
- * than a disabled or dead one.
+ * The primary forward action for an issue.
  */
 function getNextAction(issue) {
   switch (issue.status) {
@@ -51,6 +61,8 @@ const STATUS_BADGE = {
   'DEPARTMENT NOTIFIED': 'tag tag-info',
   'IN PROGRESS': 'tag tag-warn',
   RESOLVED: 'tag tag-ok',
+  COMPLETED: 'tag tag-ok',
+  REJECTED: 'tag tag-danger',
 }
 
 const SEVERITY_FILTERS = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM']
@@ -61,7 +73,9 @@ const uiToBackendStatus = {
   'ACKNOWLEDGED': 'ESCALATED',
   'DEPARTMENT NOTIFIED': 'SCHEDULED',
   'IN PROGRESS': 'IN_PROGRESS',
-  'RESOLVED': 'COMPLETED'
+  'RESOLVED': 'COMPLETED',
+  'COMPLETED': 'COMPLETED',
+  'REJECTED': 'REJECTED',
 }
 
 const backendToUiStatus = {
@@ -74,7 +88,7 @@ const backendToUiStatus = {
   'IN_PROGRESS': 'IN PROGRESS',
   'COMPLETED': 'RESOLVED',
   'DEFERRED': 'RESOLVED',
-  'REJECTED': 'RESOLVED'
+  'REJECTED': 'REJECTED',
 }
 
 const VALID_STATION_IDS = ['NDLS', 'LDH', 'ASR', 'JP', 'LKO', 'BCT', 'HWH', 'MAS', 'SBC', 'SC']
@@ -214,24 +228,39 @@ export default function AdminDashboard() {
     return <Navigate to="/restricted" replace />
   }
 
-  const handleAdvance = async (id) => {
+  const [actionLoading, setActionLoading] = useState(null)
+  const [toastMessage, setToastMessage] = useState(null)
+
+  const handleStatusChange = async (id, targetStatus) => {
+    setActionLoading(targetStatus)
     // 1. Local state update
-    const issue = issues.find(i => i.id === id)
-    const newStatus = nextStatus(issue.status)
-    setIssues(issues.map(i => {
+    setIssues(prev => prev.map(i => {
       if (i.id === id) {
-        return { ...i, status: newStatus }
+        return { ...i, status: targetStatus }
       }
       return i
     }))
 
     // 2. Call real backend API to update database task
     try {
-      const backendStatus = uiToBackendStatus[newStatus]
+      const backendStatus = uiToBackendStatus[targetStatus] || targetStatus
       await updateTaskStatus(id, { status: backendStatus })
+      setToastMessage(`Issue ${id} marked as ${targetStatus}`)
+      setTimeout(() => setToastMessage(null), 3000)
     } catch (e) {
-      console.error(e)
+      console.error('Failed to update task status:', e)
+      setToastMessage(`Failed to update issue status: ${e.message || 'Error'}`)
+      setTimeout(() => setToastMessage(null), 3000)
+    } finally {
+      setActionLoading(null)
     }
+  }
+
+  const handleAdvance = async (id) => {
+    const issue = issues.find(i => i.id === id)
+    if (!issue) return
+    const newStatus = nextStatus(issue.status)
+    await handleStatusChange(id, newStatus)
   }
 
   const getSeverityColor = (severity) => {
@@ -483,7 +512,7 @@ export default function AdminDashboard() {
 
         {/* RIGHT: ISSUE DETAIL PANEL */}
         {selectedIssue && (
-          <div className="w-full lg:w-5/12 bg-surface/90 border border-line/80 rounded-[32px] shadow-xl overflow-hidden flex flex-col">
+          <div className="w-full lg:w-5/12 bg-surface/90 border border-line/80 rounded-[32px] shadow-xl overflow-hidden flex flex-col lg:sticky lg:top-24 max-h-[calc(100vh-120px)]">
             <div className="bg-bar text-onbar px-6 py-4 flex justify-between items-center shrink-0">
               <div>
                 <h2 className="text-sm font-bold uppercase tracking-wider font-sans text-onbar">Issue Details</h2>
@@ -492,6 +521,86 @@ export default function AdminDashboard() {
               <button type="button" onClick={() => setSelectedIssueId(null)} aria-label="Close issue details" className="text-barmuted hover:text-onbar transition-colors">
                 <X size={20} />
               </button>
+            </div>
+
+            {/* SUPER ADMIN QUICK ACTION COMMAND BAR (ALWAYS VISIBLE AT TOP) */}
+            <div className="bg-raised/95 border-b border-line px-6 py-3.5 shrink-0 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-mono font-bold uppercase tracking-widest text-muted">
+                  Super Admin Actions
+                </span>
+                <span className={`text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full border ${
+                  selectedIssue.status === 'RESOLVED' || selectedIssue.status === 'COMPLETED'
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                    : selectedIssue.status === 'REJECTED'
+                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                    : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                }`}>
+                  {selectedIssue.status}
+                </span>
+              </div>
+
+              {/* 4 PRIMARY EXECUTIVE BUTTONS */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* 1. Complete / Mark Resolved */}
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(selectedIssue.id, 'RESOLVED')}
+                  disabled={selectedIssue.status === 'RESOLVED' || actionLoading}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-mono text-[11px] font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                  title="Mark this issue as Completed / Resolved"
+                >
+                  <CheckCircle2 size={13} />
+                  <span>Complete</span>
+                </button>
+
+                {/* 2. Reject */}
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(selectedIssue.id, 'REJECTED')}
+                  disabled={selectedIssue.status === 'REJECTED' || actionLoading}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-mono text-[11px] font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                  title="Reject or close this issue as invalid / duplicate"
+                >
+                  <XCircle size={13} />
+                  <span>Reject</span>
+                </button>
+
+                {/* 3. In Progress */}
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(selectedIssue.id, 'IN PROGRESS')}
+                  disabled={selectedIssue.status === 'IN PROGRESS' || actionLoading}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-mono text-[11px] font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                  title="Set issue to In Progress"
+                >
+                  <PlayCircle size={13} />
+                  <span>In Progress</span>
+                </button>
+
+                {/* 4. Sanction / Notify Dept */}
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(selectedIssue.id, 'DEPARTMENT NOTIFIED')}
+                  disabled={selectedIssue.status === 'DEPARTMENT NOTIFIED' || actionLoading}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-line bg-surface hover:bg-raised text-ink disabled:opacity-40 font-mono text-[11px] font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                  title="Sanction & notify designated department"
+                >
+                  <Bell size={13} />
+                  <span>Notify</span>
+                </button>
+              </div>
+
+              {(selectedIssue.status === 'RESOLVED' || selectedIssue.status === 'REJECTED') && (
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(selectedIssue.id, 'NEW')}
+                  className="mt-1.5 flex items-center justify-center gap-1.5 w-full text-[11px] font-mono text-muted hover:text-ink transition-colors py-1"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reopen / Reset Issue to New</span>
+                </button>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
@@ -621,33 +730,52 @@ export default function AdminDashboard() {
 
             </div>
 
-            {/* Actions */}
-            <div className="bg-raised border-t border-line p-4 shrink-0">
-              {(() => {
-                const action = getNextAction(selectedIssue)
-                if (!action) {
-                  return (
-                    <div className="w-full bg-ok/10 border border-ok/30 text-ok py-3 rounded-lg text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2">
-                      <CheckCircle2 size={16} />
-                      Issue Resolved
-                    </div>
-                  )
-                }
-                const Icon = action.icon
-                return (
-                  <button
-                    onClick={() => handleAdvance(selectedIssue.id)}
-                    className="btn-action w-full py-3 text-xs"
-                  >
-                    <Icon size={16} />
-                    {action.label}
-                  </button>
-                )
-              })()}
+            {/* Bottom Actions Bar */}
+            <div className="bg-raised border-t border-line p-4 shrink-0 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(selectedIssue.id, 'RESOLVED')}
+                  disabled={selectedIssue.status === 'RESOLVED' || actionLoading}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
+                >
+                  <CheckCircle2 size={14} />
+                  <span>Mark Complete</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(selectedIssue.id, 'REJECTED')}
+                  disabled={selectedIssue.status === 'REJECTED' || actionLoading}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
+                >
+                  <XCircle size={14} />
+                  <span>Reject</span>
+                </button>
+              </div>
+
+              {selectedIssue.status !== 'RESOLVED' && selectedIssue.status !== 'REJECTED' && (
+                <button
+                  onClick={() => handleAdvance(selectedIssue.id)}
+                  disabled={actionLoading}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-line bg-surface hover:bg-raised text-ink font-mono text-xs font-bold uppercase tracking-wider transition-colors"
+                >
+                  <PlayCircle size={14} />
+                  <span>Advance Status (Next Stage)</span>
+                </button>
+              )}
             </div>
           </div>
         )}
       </motion.div>
+
+      {/* Floating Action Confirmation Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[999999] bg-ink text-deep px-5 py-3 rounded-2xl shadow-2xl font-mono text-xs font-bold flex items-center gap-2.5 border border-line animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 size={16} className="text-emerald-500" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </PortalLayout>
   )
 }

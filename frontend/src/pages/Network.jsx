@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Activity, Radio, Train } from 'lucide-react'
+import { Activity, Radio, Train, Map, LayoutGrid } from 'lucide-react'
 import PageHeader from '@/components/app/PageHeader'
 import StageFooter from '@/components/app/StageFooter'
 import RailwayNetwork from '@/components/network/RailwayNetwork'
+import IndiaRailwayMap, { STATIONS } from '@/components/network/IndiaRailwayMap'
 import TimeSlider from '@/components/network/TimeSlider'
 import SectionPanel from '@/components/network/SectionPanel'
 import RiskHeatmap from '@/components/network/RiskHeatmap'
@@ -25,6 +26,7 @@ export default function Network() {
   const [playing, setPlaying] = useState(false)
   const [selected, setSelected] = useState('DER–KRJ')
   const [explainId, setExplainId] = useState(null)
+  const [viewMode, setViewMode] = useState('leaflet') // 'leaflet' (OpenRailwayMap) | 'schematic'
 
   useEffect(() => {
     document.title = 'Digital twin — RailOpt'
@@ -37,6 +39,23 @@ export default function Network() {
   const handleTime = useCallback((next) => {
     setMinutes((m) => (typeof next === 'function' ? next(m) : next))
   }, [])
+
+  // Geographically map simulation section states onto real station coordinates
+  const simulatedIssues = useMemo(() => {
+    return Object.entries(snapshot.sections).map(([secId, state], idx) => {
+      const stationId = STATIONS[idx % STATIONS.length].id
+      const severity = state === 'critical' || state === 'conflict' ? 'CRITICAL' : state === 'active' ? 'HIGH' : state === 'planned' ? 'MEDIUM' : 'LOW'
+      return {
+        id: secId,
+        locationId: stationId,
+        severity,
+        status: state === 'active' ? 'IN PROGRESS' : state === 'planned' ? 'DEPARTMENT NOTIFIED' : 'NEW',
+        type: `Block Window (${state})`,
+        exactLocation: secId,
+        department: 'ENGINEERING',
+      }
+    })
+  }, [snapshot.sections])
 
   return (
     <>
@@ -77,21 +96,70 @@ export default function Network() {
             className="panel overflow-hidden"
           >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hair px-5 py-4 sm:px-6">
-              <h2 className="text-[15px] font-semibold">Division schematic</h2>
-              <DataTag kind="demo" />
+              <div>
+                <h2 className="text-[15px] font-semibold text-ink">
+                  {viewMode === 'leaflet' ? 'Geographic Railway Network (OpenRailwayMap)' : 'Division schematic'}
+                </h2>
+                <p className="text-xs text-muted font-sans mt-0.5">
+                  {viewMode === 'leaflet'
+                    ? 'Interactive OpenRailwayMap Leaflet tracks & live corridor heatmaps'
+                    : 'Signal diagram of trunks and division sections'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-1 rounded-full border border-line bg-raised p-1 text-xs font-mono font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('leaflet')}
+                    className={`px-3 py-1 rounded-full uppercase transition-all ${
+                      viewMode === 'leaflet'
+                        ? 'bg-ink text-deep shadow-sm'
+                        : 'text-muted hover:text-ink'
+                    }`}
+                  >
+                    OpenRailwayMap
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('schematic')}
+                    className={`px-3 py-1 rounded-full uppercase transition-all ${
+                      viewMode === 'schematic'
+                        ? 'bg-ink text-deep shadow-sm'
+                        : 'text-muted hover:text-ink'
+                    }`}
+                  >
+                    Schematic
+                  </button>
+                </div>
+                <DataTag kind="simulation" />
+              </div>
             </div>
-            <div className="px-2 py-4 sm:px-4">
-              <RailwayNetwork
-                sectionStates={snapshot.sections}
-                selected={selected}
-                onSelect={setSelected}
-              />
-            </div>
+
+            {viewMode === 'leaflet' ? (
+              <div className="p-3 sm:p-4">
+                <div className="h-[460px] sm:h-[520px] w-full overflow-hidden rounded-xl border border-line bg-surface relative z-0 isolate">
+                  <IndiaRailwayMap
+                    issues={simulatedIssues}
+                    selectedIssueId={selected}
+                    onSelectIssue={(id) => setSelected(id)}
+                    showHeatmap={true}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="px-2 py-4 sm:px-4">
+                <RailwayNetwork
+                  sectionStates={snapshot.sections}
+                  selected={selected}
+                  onSelect={setSelected}
+                />
+              </div>
+            )}
             <div className="border-t border-hair px-5 py-3.5 sm:px-6">
               <StatusLegend />
-              <p className="mt-2.5 text-[12px] leading-relaxed text-faint">
-                Station codes and corridor shapes follow real trunk routes. The states on them
-                are this prototype&rsquo;s plan, not live block working.
+              <p className="mt-2.5 text-[12px] leading-relaxed text-faint font-sans">
+                Station codes and rail infrastructure track geometry follow real OpenRailwayMap trunk routes.
               </p>
             </div>
           </motion.section>

@@ -20,6 +20,7 @@ import DeptTag from '@/components/common/DeptTag'
 import ScoreMeter from '@/components/common/ScoreMeter'
 import StatusChip, { DataTag, StatusLegend } from '@/components/common/StatusChip'
 import RailwayNetwork from '@/components/network/RailwayNetwork'
+import IndiaRailwayMap, { STATIONS } from '@/components/network/IndiaRailwayMap'
 import ConflictRadar from '@/components/optimize/ConflictRadar'
 import OptimizationRun from '@/components/optimize/OptimizationRun'
 import PreventedPanel from '@/components/optimize/PreventedPanel'
@@ -154,17 +155,61 @@ function KpiRow({ revealed }) {
 /** Monday 02:15 — the busiest moment of the week's night work. */
 function TwinPreview() {
   const snapshot = useMemo(() => networkStateAt(0, 135), [])
+  const [viewMode, setViewMode] = useState('leaflet')
+
+  const simulatedIssues = useMemo(() => {
+    return Object.entries(snapshot.sections).map(([secId, state], idx) => {
+      const stationId = STATIONS[idx % STATIONS.length].id
+      const severity = state === 'critical' || state === 'conflict' ? 'CRITICAL' : state === 'active' ? 'HIGH' : state === 'planned' ? 'MEDIUM' : 'LOW'
+      return {
+        id: secId,
+        locationId: stationId,
+        severity,
+        status: state === 'active' ? 'IN PROGRESS' : state === 'planned' ? 'DEPARTMENT NOTIFIED' : 'NEW',
+        type: `Block Window (${state})`,
+        exactLocation: secId,
+        department: 'ENGINEERING',
+      }
+    })
+  }, [snapshot.sections])
+
   return (
     <section className="panel overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hair px-5 py-4 sm:px-6">
         <div>
-          <h2 className="text-[15px] font-semibold">Network digital twin</h2>
-          <p className="mt-0.5 text-[12.5px] text-muted">
+          <h2 className="text-[15px] font-semibold text-ink">
+            {viewMode === 'leaflet' ? 'Network digital twin (OpenRailwayMap)' : 'Network digital twin'}
+          </h2>
+          <p className="mt-0.5 text-[12.5px] text-muted font-sans">
             Monday 02:15 · {snapshot.activeBlocks.length} possessions in force ·{' '}
             {snapshot.trainsAffected} estimated movements impacted
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-full border border-line bg-raised p-0.5 text-xs font-mono font-bold">
+            <button
+              type="button"
+              onClick={() => setViewMode('leaflet')}
+              className={`px-2.5 py-0.5 rounded-full uppercase transition-all ${
+                viewMode === 'leaflet'
+                  ? 'bg-ink text-deep shadow-sm'
+                  : 'text-muted hover:text-ink'
+              }`}
+            >
+              Map
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('schematic')}
+              className={`px-2.5 py-0.5 rounded-full uppercase transition-all ${
+                viewMode === 'schematic'
+                  ? 'bg-ink text-deep shadow-sm'
+                  : 'text-muted hover:text-ink'
+              }`}
+            >
+              Schematic
+            </button>
+          </div>
           <DataTag kind="simulation" />
           <Link
             to="/app/network"
@@ -175,9 +220,20 @@ function TwinPreview() {
           </Link>
         </div>
       </div>
-      <div className="px-2 py-3 sm:px-4">
-        <RailwayNetwork sectionStates={snapshot.sections} compact />
-      </div>
+      {viewMode === 'leaflet' ? (
+        <div className="p-3">
+          <div className="h-[340px] w-full overflow-hidden rounded-xl border border-line bg-surface relative z-0 isolate">
+            <IndiaRailwayMap
+              issues={simulatedIssues}
+              showHeatmap={true}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="px-2 py-3 sm:px-4">
+          <RailwayNetwork sectionStates={snapshot.sections} compact />
+        </div>
+      )}
       <div className="border-t border-hair px-5 py-3.5 sm:px-6">
         <StatusLegend />
       </div>

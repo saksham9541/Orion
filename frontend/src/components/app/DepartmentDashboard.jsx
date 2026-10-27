@@ -1054,135 +1054,148 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         </div>
       </motion.div>
 
-      {/* BOTTOM SECTION: 2-COLUMN BENTO GRID (Suggested Knowledge Table + Live Railway Telemetry Map) */}
+      {/* FULL-WIDTH SUGGESTED KNOWLEDGE & DEFECT REGISTRY TABLE (NO HORIZONTAL SCROLLING/SLIDING NEEDED) */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10"
+        className="w-full bg-surface/90 border border-line/80 rounded-[32px] shadow-sm p-7 sm:p-9 flex flex-col mb-10"
       >
-        
-        {/* Left (7 cols): Suggested Knowledge & Defect Registry Table (Matches screenshot table!) */}
-        <div className="lg:col-span-7 bg-surface/90 border border-line/80 rounded-[32px] shadow-sm p-7 sm:p-8 flex flex-col">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-line/60">
-            <div>
-              <h2 className="text-base font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
-                <FileText size={18} className="text-blue-500" />
-                Suggested Knowledge & Defect Registry
-              </h2>
-              <p className="text-xs text-muted mt-0.5">
-                Official maintenance ledger. Click any row to pop-through full action controls.
-              </p>
-            </div>
-
-            <span className="text-xs font-mono font-bold text-muted bg-raised px-3 py-1 rounded-full border border-line">
-              {filteredTasks.length} Records
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-line/60">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
+              <FileText size={20} className="text-blue-500" />
+              Suggested Knowledge & Defect Registry
+            </h2>
+            <p className="text-xs text-muted mt-1 font-sans">
+              Official maintenance ledger and active work orders. Click any row or action to pop-through full controls.
+            </p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-line bg-raised/50 text-[11px] font-mono font-bold uppercase tracking-wider text-muted">
-                  <th className="px-4 py-3 rounded-l-xl">Subject / Task</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Location</th>
-                  <th className="px-4 py-3">Severity</th>
-                  <th className="px-4 py-3 text-right rounded-r-xl">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line/40">
-                {filteredTasks.slice(0, 6).map((task) => {
-                  const isSelected = selectedTask?.id === task.id
-                  return (
-                    <tr
-                      key={`row-${task.id}`}
-                      onClick={() => {
-                        setSelectedTaskId(task.id)
-                        openTaskModal(task)
-                      }}
-                      className={`cursor-pointer transition-colors group ${
-                        isSelected ? 'bg-info/10' : 'hover:bg-raised/60'
-                      }`}
-                    >
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <span className="font-mono font-bold text-ink">{task.id}</span>
-                          <span className="text-muted truncate max-w-[170px]">{task.defectType}</span>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3.5">
-                        <span className={`inline-block rounded-full px-3 py-1 text-[10px] font-mono font-bold uppercase border ${getStatusBadge(task.status)}`}>
-                          {task.status}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3.5 text-muted">
-                        <span className="font-medium text-ink block">{task.sectionId}</span>
-                        <span className="text-xs font-mono">{task.exactLocation}</span>
-                      </td>
-
-                      <td className="px-4 py-3.5">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase border ${getSeverityBadge(task.severity)}`}>
-                          {task.severity}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            openTaskModal(task)
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-xs font-mono font-bold uppercase text-info hover:bg-info hover:text-white transition-colors shadow-sm"
-                        >
-                          <span>Pop-up</span>
-                          <ExternalLink size={12} />
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-bold text-muted bg-raised px-3.5 py-1.5 rounded-full border border-line">
+              {filteredTasks.length} Records In Scope
+            </span>
           </div>
         </div>
 
-        {/* Right (5 cols): Live Railway Network & Telemetry Map */}
-        <div className="lg:col-span-5 bg-surface/90 border border-line/80 rounded-[32px] shadow-sm p-7 sm:p-8 flex flex-col">
-          <div className="flex items-center justify-between gap-4 mb-4 pb-4 border-b border-line/60">
-            <div>
-              <h2 className="text-base font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
-                <MapPin size={18} className="text-rose-500" />
-                Live Railway Network & Telemetry
-              </h2>
-              <p className="text-xs text-muted mt-0.5">Real-time corridor telemetry & defect heatmap</p>
-            </div>
-            <span className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-ok">
-              <span className="h-2.5 w-2.5 rounded-full bg-ok animate-pulse" /> Live GPS
-            </span>
-          </div>
+        {/* Full-width responsive table with generous column spacing */}
+        <div className="w-full overflow-hidden">
+          <table className="w-full text-left text-xs border-collapse table-auto">
+            <thead>
+              <tr className="border-b border-line bg-raised/60 text-[11px] font-mono font-bold uppercase tracking-wider text-muted">
+                <th className="px-5 py-3.5 rounded-l-2xl">Subject / Defect Type</th>
+                <th className="px-5 py-3.5">Status</th>
+                <th className="px-5 py-3.5">Location & Corridor</th>
+                <th className="px-5 py-3.5">Severity</th>
+                <th className="px-5 py-3.5 text-right rounded-r-2xl">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line/40">
+              {filteredTasks.slice(0, 8).map((task) => {
+                const isSelected = selectedTask?.id === task.id
+                return (
+                  <tr
+                    key={`row-${task.id}`}
+                    onClick={() => {
+                      setSelectedTaskId(task.id)
+                      openTaskModal(task)
+                    }}
+                    className={`cursor-pointer transition-colors group ${
+                      isSelected ? 'bg-info/10' : 'hover:bg-raised/70'
+                    }`}
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                        <span className="font-mono font-bold text-ink bg-raised px-2.5 py-1 rounded-md border border-line shrink-0">
+                          {task.id}
+                        </span>
+                        <span className="font-semibold text-ink group-hover:text-blue-600 transition-colors">
+                          {task.defectType}
+                        </span>
+                      </div>
+                    </td>
 
-          <div className="h-96 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-sm relative z-0 isolate">
-            <IndiaRailwayMap
-              issues={tasks}
-              selectedIssueId={selectedTask?.id}
-              onSelectIssue={(id) => {
-                const found = tasks.find((t) => t.id === id)
-                if (found) {
-                  setSelectedTaskId(id)
-                  openTaskModal(found)
-                }
-              }}
-              showHeatmap={true}
-              trains={liveTrains}
-            />
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <span className={`inline-block rounded-full px-3 py-1 text-[11px] font-mono font-bold uppercase border ${getStatusBadge(task.status)}`}>
+                        {task.status}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4 text-muted whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-ink">{task.sectionId}</span>
+                        <span className="text-faint">·</span>
+                        <span className="font-mono text-xs">{task.exactLocation}</span>
+                      </div>
+                    </td>
+
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <span className={`inline-block rounded-full px-3 py-1 text-[11px] font-mono font-bold uppercase border ${getSeverityBadge(task.severity)}`}>
+                        {task.severity}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openTaskModal(task)
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface hover:bg-info hover:text-white px-3.5 py-1.5 text-xs font-mono font-bold uppercase text-info transition-all shadow-sm"
+                      >
+                        <span>Pop-through</span>
+                        <ExternalLink size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
+
+      {/* FULL-WIDTH LIVE RAILWAY NETWORK & TELEMETRY OPENRAILWAYMAP */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="w-full bg-surface/90 border border-line/80 rounded-[32px] shadow-sm p-7 sm:p-9 flex flex-col mb-10"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-5 pb-4 border-b border-line/60">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
+              <MapPin size={20} className="text-rose-500" />
+              Live Railway Network & Telemetry (OpenRailwayMap)
+            </h2>
+            <p className="text-xs text-muted mt-1 font-sans">
+              Geographic OpenRailwayMap track infrastructure, real station coordinates, and corridor defect telemetry.
+            </p>
           </div>
+          <span className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-ok bg-ok/10 border border-ok/30 px-3.5 py-1 rounded-full">
+            <span className="h-2.5 w-2.5 rounded-full bg-ok animate-pulse" /> Live Telemetry Online
+          </span>
         </div>
 
+        <div className="h-[460px] sm:h-[500px] w-full overflow-hidden rounded-[24px] border border-line bg-surface shadow-sm relative z-0 isolate">
+          <IndiaRailwayMap
+            issues={tasks}
+            selectedIssueId={selectedTask?.id}
+            onSelectIssue={(id) => {
+              const found = tasks.find((t) => t.id === id)
+              if (found) {
+                setSelectedTaskId(id)
+                openTaskModal(found)
+              }
+            }}
+            showHeatmap={true}
+            trains={liveTrains}
+          />
+        </div>
       </motion.div>
 
       {/* SELECTED TASK INTELLIGENCE ANALYSIS SECTION */}
