@@ -373,7 +373,8 @@ def load_tasks(session: Session) -> tuple[list[MaintenanceTask], int]:
 
 def save_plan(session: Session, plan: BlockPlan):
     plan_data = plan.model_dump(mode='json')
-    record = BlockPlanRecord(**plan_data)
+    valid_cols = {c.name for c in BlockPlanRecord.__table__.columns}
+    record = BlockPlanRecord(**{k: v for k, v in plan_data.items() if k in valid_cols})
     if hasattr(plan, "start_date") and plan.start_date:
         record.start_date = plan.start_date
     if hasattr(plan, "end_date") and plan.end_date:

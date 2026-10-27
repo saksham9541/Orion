@@ -497,6 +497,7 @@ class BlockPlan(BaseModel):
     # Deferred tasks
     deferred_task_ids: list[str] = Field(default_factory=list)
     escalated_task_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
     def compute_metrics(self, tasks: list[MaintenanceTask]) -> None:
         """Compute summary metrics from scheduled blocks."""

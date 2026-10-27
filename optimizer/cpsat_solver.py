@@ -12,9 +12,12 @@ finish and prove the answer is optimal instead of stopping at "FEASIBLE".
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
+import logging
 from typing import Dict
 
 from ortools.sat.python import cp_model
+
+logger = logging.getLogger(__name__)
 
 from optimizer.block_merger import BlockMerger
 from railopt.models import (
@@ -71,7 +74,6 @@ class BlockScheduler:
         if time_limit_seconds is not None:  # only override the config if the caller asks
             cfg.time_limit_seconds = time_limit_seconds
 
-        model = cp_model.CpModel()
         SCALE = 10  # CP-SAT needs integers: keep 1 decimal
         num_tasks, num_windows = len(tasks), len(windows)
 
@@ -85,92 +87,136 @@ class BlockScheduler:
             d = _dur(t)
             compat[i] = [j for j in windows_by_section.get(t.section_id, []) if d <= windows[j].duration_hours]
 
-        x = {}
-        tasks_in_window = defaultdict(list)
-        for i, js in compat.items():
-            for j in js:
-                x[i, j] = model.NewBoolVar(f"x_t{i}_w{j}")
-                tasks_in_window[j].append(i)
-
-        # ---- merge tracking --------------------------------------------------
-        dept_present = {}
-        is_merged = {}
-        for j in range(num_windows):
-            for d in Department:
-                v = model.NewBoolVar(f"dept_{d.value}_w{j}")
-                dept_present[j, d] = v
-                in_j = [x[i, j] for i in tasks_in_window[j] if tasks[i].department == d]
-                if in_j:
-                    model.AddMaxEquality(v, in_j)
-                else:
-                    model.Add(v == 0)
-            is_merged[j] = model.NewBoolVar(f"merged_w{j}")
-            # merged only if at least 2 departments are present
-            model.Add(2 * is_merged[j] <= sum(dept_present[j, d] for d in Department))
-
-        # ---- constraints -----------------------------------------------------
-        # 1. each task in at most one window
-        for i in range(num_tasks):
-            if compat[i]:
-                model.Add(sum(x[i, j] for j in compat[i]) <= 1)
-
-        # 4 + 5. window capacity (number of tasks and total duration)
-        for j, w in enumerate(windows):
-            ids = tasks_in_window[j]
-            if not ids:
-                continue
-            model.Add(sum(x[i, j] for i in ids) <= w.max_tasks)
-            model.Add(
-                sum(x[i, j] * int(_dur(tasks[i]) * SCALE) for i in ids)
-                <= int(w.duration_hours * SCALE)
+        no_compat_emergencies = []
+        emerg_with_compat = []
+        for i, t in enumerate(tasks):
+            is_emergency = (
+                getattr(t, "raw_severity", None) in (DefectSeverity.EMERGENCY, DefectSeverity.EMERGENCY.value, "EMERGENCY")
+                or getattr(t, "ml_predicted_severity", None) in (DefectSeverity.EMERGENCY, DefectSeverity.EMERGENCY.value, "EMERGENCY")
             )
+            if is_emergency:
+                if not compat[i]:
+                    logger.warning(
+                        "Emergency task %s on section %s has no compatible block window",
+                        t.task_id,
+                        t.section_id,
+                    )
+                    no_compat_emergencies.append(t)
+                else:
+                    emerg_with_compat.append(i)
 
-        # 6. emergency tasks: soft constraint with a heavy penalty
-        emergency_not_scheduled = {}
-        if cfg.emergency_must_schedule:
-            for i, t in enumerate(tasks):
-                is_emergency = (
-                    t.raw_severity == DefectSeverity.EMERGENCY.value
-                    or t.ml_predicted_severity == DefectSeverity.EMERGENCY
+        def _build_model(hard_emergency: bool):
+            model = cp_model.CpModel()
+            x = {}
+            tasks_in_window = defaultdict(list)
+            for i, js in compat.items():
+                for j in js:
+                    x[i, j] = model.NewBoolVar(f"x_t{i}_w{j}")
+                    tasks_in_window[j].append(i)
+
+            # ---- merge tracking --------------------------------------------------
+            dept_present = {}
+            is_merged = {}
+            for j in range(num_windows):
+                for d in Department:
+                    v = model.NewBoolVar(f"dept_{d.value}_w{j}")
+                    dept_present[j, d] = v
+                    in_j = [x[i, j] for i in tasks_in_window[j] if tasks[i].department == d]
+                    if in_j:
+                        model.AddMaxEquality(v, in_j)
+                    else:
+                        model.Add(v == 0)
+                is_merged[j] = model.NewBoolVar(f"merged_w{j}")
+                # merged only if at least 2 departments are present
+                model.Add(2 * is_merged[j] <= sum(dept_present[j, d] for d in Department))
+
+            # ---- constraints -----------------------------------------------------
+            # 1. each task in at most one window
+            for i in range(num_tasks):
+                if compat[i]:
+                    model.Add(sum(x[i, j] for j in compat[i]) <= 1)
+
+            # 4 + 5. window capacity (number of tasks and total duration)
+            for j, w in enumerate(windows):
+                ids = tasks_in_window[j]
+                if not ids:
+                    continue
+                model.Add(sum(x[i, j] for i in ids) <= w.max_tasks)
+                model.Add(
+                    sum(x[i, j] * int(_dur(tasks[i]) * SCALE) for i in ids)
+                    <= int(w.duration_hours * SCALE)
                 )
-                if is_emergency and compat[i]:
-                    not_sched = model.NewBoolVar(f"emerg_not_sched_{i}")
-                    scheduled_sum = sum(x[i, j] for j in compat[i])
-                    model.Add(scheduled_sum >= 1).OnlyEnforceIf(not_sched.Not())
-                    model.Add(scheduled_sum == 0).OnlyEnforceIf(not_sched)
-                    emergency_not_scheduled[i] = not_sched
 
-        # 7. crew limit: max tasks per department per day
-        windows_by_date = defaultdict(list)
-        for j, w in enumerate(windows):
-            windows_by_date[w.date].append(j)
-        for js in windows_by_date.values():
-            for d in Department:
-                terms = [x[i, j] for j in js for i in tasks_in_window[j] if tasks[i].department == d]
-                if terms:
-                    model.Add(sum(terms) <= cfg.max_tasks_per_dept_per_day)
+            # 6. emergency tasks
+            emergency_not_scheduled = {}
+            if cfg.emergency_must_schedule:
+                if hard_emergency:
+                    for i in emerg_with_compat:
+                        model.Add(sum(x[i, j] for j in compat[i]) >= 1)
+                else:
+                    for i in emerg_with_compat:
+                        not_sched = model.NewBoolVar(f"emerg_not_sched_{i}")
+                        scheduled_sum = sum(x[i, j] for j in compat[i])
+                        model.Add(scheduled_sum >= 1).OnlyEnforceIf(not_sched.Not())
+                        model.Add(scheduled_sum == 0).OnlyEnforceIf(not_sched)
+                        emergency_not_scheduled[i] = not_sched
 
-        # ---- objective (minimize) -------------------------------------------
-        obj = []
-        for (i, j), var in x.items():
-            impact = int(windows[j].ml_traffic_impact_score * SCALE)
-            crit = int(tasks[i].ml_criticality_score * SCALE)
-            # + traffic disruption, - reward for scheduling a critical task
-            obj.append(var * (cfg.alpha * impact - (cfg.beta + cfg.delta) * crit))
+            # 7. crew limit: max tasks per department per day
+            windows_by_date = defaultdict(list)
+            for j, w in enumerate(windows):
+                windows_by_date[w.date].append(j)
+            for js in windows_by_date.values():
+                for d in Department:
+                    terms = [x[i, j] for j in js for i in tasks_in_window[j] if tasks[i].department == d]
+                    if terms:
+                        model.Add(sum(terms) <= cfg.max_tasks_per_dept_per_day)
 
-        avg_crit = sum(int(t.ml_criticality_score * SCALE) for t in tasks) // max(num_tasks, 1)
-        for j in range(num_windows):
-            obj.append(is_merged[j] * (-cfg.gamma * avg_crit))  # merge incentive
+            # ---- objective (minimize) -------------------------------------------
+            obj = []
+            for (i, j), var in x.items():
+                impact = int(windows[j].ml_traffic_impact_score * SCALE)
+                crit = int(tasks[i].ml_criticality_score * SCALE)
+                # + traffic disruption, - reward for scheduling a critical task
+                obj.append(var * (cfg.alpha * impact - (cfg.beta + cfg.delta) * crit))
 
-        for i, not_sched in emergency_not_scheduled.items():
-            obj.append(not_sched * (cfg.emergency_penalty * SCALE))
+            avg_crit = sum(int(t.ml_criticality_score * SCALE) for t in tasks) // max(num_tasks, 1)
+            for j in range(num_windows):
+                obj.append(is_merged[j] * (-cfg.gamma * avg_crit))  # merge incentive
 
-        model.Minimize(sum(obj))
+            if emergency_not_scheduled:
+                total_max_reward = sum(
+                    max(0, (cfg.beta + cfg.delta) * int(getattr(t, "ml_criticality_score", 1.0) * SCALE))
+                    for t in tasks
+                ) + cfg.gamma * SCALE * max(num_windows, 1)
+                penalty = max(cfg.emergency_penalty * SCALE, total_max_reward + 10000)
+                for i, not_sched in emergency_not_scheduled.items():
+                    obj.append(not_sched * penalty)
+
+            model.Minimize(sum(obj))
+            return model, x, tasks_in_window
 
         # ---- solve -----------------------------------------------------------
-        solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = float(cfg.time_limit_seconds)
-        status = solver.Solve(model)
+        fell_back_to_soft = False
+        if cfg.emergency_must_schedule and emerg_with_compat:
+            model, x, tasks_in_window = _build_model(hard_emergency=True)
+            solver = cp_model.CpSolver()
+            solver.parameters.max_time_in_seconds = float(cfg.time_limit_seconds)
+            status = solver.Solve(model)
+            if status == cp_model.INFEASIBLE:
+                fell_back_to_soft = True
+                logger.warning(
+                    "Emergency task hard constraints resulted in INFEASIBLE model; falling back to soft penalty."
+                )
+                model, x, tasks_in_window = _build_model(hard_emergency=False)
+                solver = cp_model.CpSolver()
+                solver.parameters.max_time_in_seconds = float(cfg.time_limit_seconds)
+                status = solver.Solve(model)
+        else:
+            model, x, tasks_in_window = _build_model(hard_emergency=False)
+            solver = cp_model.CpSolver()
+            solver.parameters.max_time_in_seconds = float(cfg.time_limit_seconds)
+            status = solver.Solve(model)
+
         solver_status_name = solver.StatusName(status)
         solve_time_ms = round(solver.WallTime() * 1000, 1)
 
@@ -182,6 +228,18 @@ class BlockScheduler:
         )
         plan.solver_status = solver_status_name
         plan.solve_time_ms = solve_time_ms
+
+        if fell_back_to_soft:
+            plan.warnings.append(
+                "Emergency tasks could not all be scheduled as hard constraints (model infeasible); fell back to soft penalty."
+            )
+
+        for t in no_compat_emergencies:
+            plan.warnings.append(
+                f"Emergency task {t.task_id} on section {t.section_id} has no compatible window and was deferred."
+            )
+            if t.task_id not in plan.escalated_task_ids:
+                plan.escalated_task_ids.append(t.task_id)
 
         scheduled_blocks = {}
         scheduled_task_ids = set()
