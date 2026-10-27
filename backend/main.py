@@ -680,8 +680,18 @@ def _run_multi_layer_analysis(tasks: list[MaintenanceTask]) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Health
+# Health & Root
 # ──────────────────────────────────────────────────────────────────────
+
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "name": "RailOpt API",
+        "docs": "/docs",
+        "health": "/api/health",
+    }
+
 
 @app.get("/api/health")
 def health_check():

@@ -218,8 +218,8 @@ export default function IndiaRailwayMap({
   showHeatmap = false,
   trains = [],
 }) {
-  // Default to premium CARTO Dark Matter as requested
-  const [mapMode, setMapMode] = useState('dark') // 'dark' | 'satellite'
+  // Photorealistic satellite imagery as default basemap
+  const mapMode = 'satellite'
   const [showCorridors, setShowCorridors] = useState(true)
 
   const issuesByStation = useMemo(
@@ -246,32 +246,12 @@ export default function IndiaRailwayMap({
     <div className="railopt-map-container w-full h-full relative overflow-hidden bg-[#070b14] border border-slate-800 rounded-lg isolate z-0">
       {/* Top-Right Refined Command Bar */}
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-slate-700/70 shadow-2xl text-[11px] font-mono text-slate-300">
-        {/* Basemap Toggle */}
-        <div className="flex items-center bg-slate-900/90 rounded-md p-0.5 border border-slate-800">
-          <button
-            type="button"
-            onClick={() => setMapMode('dark')}
-            className={`px-2.5 py-1 rounded transition-all font-medium flex items-center gap-1 ${
-              mapMode === 'dark'
-                ? 'bg-slate-800 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="CARTO Dark Matter (Command Center View)"
-          >
-            <span>⬛ Dark</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMapMode('satellite')}
-            className={`px-2.5 py-1 rounded transition-all font-medium flex items-center gap-1 ${
-              mapMode === 'satellite'
-                ? 'bg-slate-800 text-amber-300 border border-amber-500/30 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Esri Photorealistic Satellite View"
-          >
-            <span>🛰️ Satellite</span>
-          </button>
+        {/* Satellite Mode Badge */}
+        <div
+          className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-900/90 border border-amber-500/30 text-amber-300 font-medium shadow-sm"
+          title="Esri Photorealistic Satellite View"
+        >
+          <span>🛰️ Satellite</span>
         </div>
 
         <div className="w-[1px] h-4 bg-slate-800 mx-0.5" />
