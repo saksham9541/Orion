@@ -523,34 +523,32 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            {/* SUPER ADMIN QUICK ACTION COMMAND BAR (ALWAYS VISIBLE AT TOP) */}
-            <div className="bg-raised/95 border-b border-line px-6 py-3.5 shrink-0 space-y-2.5">
+            {/* SUPER ADMIN QUICK ACTION COMMAND BAR (CLEAN, MINIMALIST MONOCHROME) */}
+            <div className="bg-raised/70 border-b border-line px-6 py-3.5 shrink-0 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10.5px] font-mono font-bold uppercase tracking-widest text-muted">
                   Super Admin Actions
                 </span>
-                <span className={`text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full border ${
-                  selectedIssue.status === 'RESOLVED' || selectedIssue.status === 'COMPLETED'
-                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                    : selectedIssue.status === 'REJECTED'
-                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                    : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
-                }`}>
+                <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full border border-line bg-surface text-muted">
                   {selectedIssue.status}
                 </span>
               </div>
 
-              {/* 4 PRIMARY EXECUTIVE BUTTONS */}
+              {/* 4 CLEAN MONOCHROMATIC BUTTONS */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {/* 1. Complete / Mark Resolved */}
                 <button
                   type="button"
                   onClick={() => handleStatusChange(selectedIssue.id, 'RESOLVED')}
                   disabled={selectedIssue.status === 'RESOLVED' || actionLoading}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-mono text-[11px] font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-mono font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95 ${
+                    selectedIssue.status === 'RESOLVED'
+                      ? 'bg-ink text-deep border-transparent'
+                      : 'bg-surface border-line text-ink hover:bg-raised hover:border-line-hover'
+                  } disabled:opacity-40`}
                   title="Mark this issue as Completed / Resolved"
                 >
-                  <CheckCircle2 size={13} />
+                  <CheckCircle2 size={13} className={selectedIssue.status === 'RESOLVED' ? 'text-deep' : 'text-muted'} />
                   <span>Complete</span>
                 </button>
 
@@ -559,10 +557,14 @@ export default function AdminDashboard() {
                   type="button"
                   onClick={() => handleStatusChange(selectedIssue.id, 'REJECTED')}
                   disabled={selectedIssue.status === 'REJECTED' || actionLoading}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-mono text-[11px] font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-mono font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95 ${
+                    selectedIssue.status === 'REJECTED'
+                      ? 'bg-ink text-deep border-transparent'
+                      : 'bg-surface border-line text-ink hover:bg-raised hover:border-line-hover'
+                  } disabled:opacity-40`}
                   title="Reject or close this issue as invalid / duplicate"
                 >
-                  <XCircle size={13} />
+                  <XCircle size={13} className={selectedIssue.status === 'REJECTED' ? 'text-deep' : 'text-muted'} />
                   <span>Reject</span>
                 </button>
 
@@ -571,10 +573,14 @@ export default function AdminDashboard() {
                   type="button"
                   onClick={() => handleStatusChange(selectedIssue.id, 'IN PROGRESS')}
                   disabled={selectedIssue.status === 'IN PROGRESS' || actionLoading}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-mono text-[11px] font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-mono font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95 ${
+                    selectedIssue.status === 'IN PROGRESS'
+                      ? 'bg-ink text-deep border-transparent'
+                      : 'bg-surface border-line text-ink hover:bg-raised hover:border-line-hover'
+                  } disabled:opacity-40`}
                   title="Set issue to In Progress"
                 >
-                  <PlayCircle size={13} />
+                  <PlayCircle size={13} className={selectedIssue.status === 'IN PROGRESS' ? 'text-deep' : 'text-muted'} />
                   <span>In Progress</span>
                 </button>
 
@@ -583,10 +589,14 @@ export default function AdminDashboard() {
                   type="button"
                   onClick={() => handleStatusChange(selectedIssue.id, 'DEPARTMENT NOTIFIED')}
                   disabled={selectedIssue.status === 'DEPARTMENT NOTIFIED' || actionLoading}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-line bg-surface hover:bg-raised text-ink disabled:opacity-40 font-mono text-[11px] font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-mono font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95 ${
+                    selectedIssue.status === 'DEPARTMENT NOTIFIED'
+                      ? 'bg-ink text-deep border-transparent'
+                      : 'bg-surface border-line text-ink hover:bg-raised hover:border-line-hover'
+                  } disabled:opacity-40`}
                   title="Sanction & notify designated department"
                 >
-                  <Bell size={13} />
+                  <Bell size={13} className={selectedIssue.status === 'DEPARTMENT NOTIFIED' ? 'text-deep' : 'text-muted'} />
                   <span>Notify</span>
                 </button>
               </div>
@@ -730,40 +740,14 @@ export default function AdminDashboard() {
 
             </div>
 
-            {/* Bottom Actions Bar */}
-            <div className="bg-raised border-t border-line p-4 shrink-0 space-y-2.5">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleStatusChange(selectedIssue.id, 'RESOLVED')}
-                  disabled={selectedIssue.status === 'RESOLVED' || actionLoading}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
-                >
-                  <CheckCircle2 size={14} />
-                  <span>Mark Complete</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleStatusChange(selectedIssue.id, 'REJECTED')}
-                  disabled={selectedIssue.status === 'REJECTED' || actionLoading}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
-                >
-                  <XCircle size={14} />
-                  <span>Reject</span>
-                </button>
-              </div>
-
-              {selectedIssue.status !== 'RESOLVED' && selectedIssue.status !== 'REJECTED' && (
-                <button
-                  onClick={() => handleAdvance(selectedIssue.id)}
-                  disabled={actionLoading}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-line bg-surface hover:bg-raised text-ink font-mono text-xs font-bold uppercase tracking-wider transition-colors"
-                >
-                  <PlayCircle size={14} />
-                  <span>Advance Status (Next Stage)</span>
-                </button>
-              )}
+            {/* Footer Summary Bar */}
+            <div className="bg-raised/80 border-t border-line px-6 py-3.5 shrink-0 flex items-center justify-between">
+              <span className="text-[11px] font-mono text-muted">
+                Task Reference: <strong className="text-ink">{selectedIssue.id}</strong>
+              </span>
+              <span className="text-[11px] font-mono text-muted uppercase">
+                Active State: <strong className="text-ink">{selectedIssue.status}</strong>
+              </span>
             </div>
           </div>
         )}
