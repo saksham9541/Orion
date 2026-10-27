@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowUpDown, Search } from 'lucide-react'
+import { ArrowUpDown, Search, AlertTriangle } from 'lucide-react'
 import PageHeader from '@/components/app/PageHeader'
 import StageFooter from '@/components/app/StageFooter'
 import DeptTag from '@/components/common/DeptTag'
 import ScoreMeter from '@/components/common/ScoreMeter'
 import TaskDetail from '@/components/tasks/TaskDetail'
 import ExplainDrawer from '@/components/optimize/ExplainDrawer'
+import ReportComplaintModal from '@/components/app/ReportComplaintModal'
 import { tasks } from '@/data/tasks'
 import { corridors } from '@/data/corridors'
 import { DEPT_LIST } from '@/lib/constants'
@@ -33,6 +34,7 @@ export default function Tasks() {
   const [sort, setSort] = useState('score')
   const [selected, setSelected] = useState(null)
   const [explainId, setExplainId] = useState(null)
+  const [isReportOpen, setIsReportOpen] = useState(false)
 
   useEffect(() => {
     document.title = 'Pending work — RailOpt'
@@ -108,13 +110,24 @@ export default function Tasks() {
             ))}
           </div>
 
-          <button
-            onClick={() => setSort(sort === 'score' ? 'overdue' : 'score')}
-            className="ml-auto flex items-center gap-2 rounded-panel border border-line px-3 py-1.5 text-[13px] text-muted transition-all duration-200 hover:text-ink hover:shadow-sm"
-          >
-            <ArrowUpDown size={13} />
-            {sort === 'score' ? 'By urgency' : 'By days overdue'}
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => setSort(sort === 'score' ? 'overdue' : 'score')}
+              className="flex items-center gap-2 rounded-panel border border-line px-3 py-1.5 text-[13px] text-muted transition-all duration-200 hover:text-ink hover:shadow-sm"
+            >
+              <ArrowUpDown size={13} />
+              {sort === 'score' ? 'By urgency' : 'By days overdue'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsReportOpen(true)}
+              className="flex items-center gap-1.5 rounded-panel border border-red-500/30 bg-red-500/10 px-3.5 py-1.5 text-[13px] font-bold text-red-500 hover:bg-red-500/20 transition-all shadow-sm"
+            >
+              <AlertTriangle size={14} />
+              <span>Report Defect</span>
+            </button>
+          </div>
         </motion.div>
 
         <motion.p
@@ -227,6 +240,7 @@ export default function Tasks() {
         }}
       />
       <ExplainDrawer taskId={explainId} onClose={() => setExplainId(null)} />
+      <ReportComplaintModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} />
       <StageFooter reason="see where this work landed in the schedule" />
     </>
   )

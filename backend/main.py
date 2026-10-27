@@ -846,6 +846,8 @@ class ComplaintRequest(BaseModel):
     corridor_id: str
     section_id: str
     km_location: float
+    department_designated: Optional[str] = None
+    severity: Optional[str] = None
 
 
 @app.post("/api/tasks/complaint", response_model=MaintenanceTask)
@@ -868,18 +870,39 @@ async def submit_complaint(
         category = DefectCategory.GAUGE_IRREGULARITY
 
     # Validate severity against DefectSeverity enum
-    raw_sev = classification.get("severity", "")
-    try:
-        severity = DefectSeverity(raw_sev)
-    except ValueError:
-        severity = DefectSeverity.MEDIUM
+    if request.severity:
+        try:
+            severity = DefectSeverity(request.severity.strip().upper())
+        except ValueError:
+            severity = DefectSeverity.MEDIUM
+    else:
+        raw_sev = classification.get("severity", "")
+        try:
+            severity = DefectSeverity(raw_sev)
+        except ValueError:
+            severity = DefectSeverity.MEDIUM
 
-    department, asset_type = CATEGORY_DEPARTMENT_ASSET_MAP.get(
-        category, (Department.ENGINEERING, AssetType.RAIL)
-    )
+    if request.department_designated:
+        dept_input = request.department_designated.strip().upper()
+        try:
+            department = Department(dept_input)
+            if department == Department.TRD:
+                asset_type = AssetType.OHE_WIRE
+            elif department == Department.SNT:
+                asset_type = AssetType.POINT_MACHINE
+            else:
+                asset_type = AssetType.RAIL
+        except ValueError:
+            department, asset_type = CATEGORY_DEPARTMENT_ASSET_MAP.get(
+                category, (Department.ENGINEERING, AssetType.RAIL)
+            )
+    else:
+        department, asset_type = CATEGORY_DEPARTMENT_ASSET_MAP.get(
+            category, (Department.ENGINEERING, AssetType.RAIL)
+        )
 
-    # DEPT_USER can only submit for their own department
-    if current_user.role == UserRole.DEPT_USER and current_user.department:
+    # When department_designated is NOT specified, DEPT_USER can only submit for their own department
+    if not request.department_designated and current_user.role == UserRole.DEPT_USER and current_user.department:
         if department != current_user.department:
             raise HTTPException(
                 status_code=403,
