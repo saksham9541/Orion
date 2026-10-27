@@ -269,6 +269,33 @@ def check_connection_with_retry(engine, max_retries: int = 1, delay_s: float = 2
                 raise
 
 
+def seed_default_users(session: Session):
+    """Ensures standard department and admin users exist for login and alert routing."""
+    from backend.auth import hash_password
+    default_users = [
+        ("usr_admin_1", "admin@railopt.gov.in", "Super Admin", "ADMIN", None),
+        ("usr_eng_1", "eng@railopt.gov.in", "Engineering Officer", "DEPT_USER", "ENGINEERING"),
+        ("usr_snt_1", "snt@railopt.gov.in", "S&T Officer", "DEPT_USER", "SNT"),
+        ("usr_trd_1", "trd@railopt.gov.in", "TRD Officer", "DEPT_USER", "TRD"),
+        ("usr_tech_1", "tech@railopt.gov.in", "Track Technician", "DEPT_USER", "ENGINEERING"),
+    ]
+    for uid, email, name, role, dept in default_users:
+        existing = session.query(UserRecord).filter(UserRecord.email == email).first()
+        if not existing:
+            session.add(
+                UserRecord(
+                    id=uid,
+                    name=name,
+                    email=email,
+                    password_hash=hash_password("password123"),
+                    role=role,
+                    department=dept,
+                    is_active=True,
+                )
+            )
+    session.commit()
+
+
 def init_db(engine):
     """Fallback table creation for SQLite local tests; production uses Alembic migrations."""
     url = str(engine.url)
@@ -291,6 +318,13 @@ def init_db(engine):
                         conn.commit()
                 except Exception as e:
                     logger.debug("Column migration skipped for %s.%s: %s", table, col, e)
+        # Ensure default department users are seeded
+        try:
+            SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+            with SessionLocal() as s:
+                seed_default_users(s)
+        except Exception as e:
+            logger.debug("Default user seeding skipped: %s", e)
 
 
 def get_session(engine=None):

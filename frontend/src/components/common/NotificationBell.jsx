@@ -45,6 +45,13 @@ export default function NotificationBell() {
         className="btn-quiet relative flex h-9 w-9 items-center justify-center rounded-lg p-0 transition-colors"
       >
         <Bell size={17} className={unreadCount > 0 ? 'text-ink' : 'text-muted'} />
+        {/* Live connection dot */}
+        <span
+          className={`absolute bottom-1 right-1 h-2 w-2 rounded-full border border-surface ${
+            isConnected ? 'bg-emerald-500' : 'bg-amber-500'
+          }`}
+          title={isConnected ? 'Live WebSocket Active' : 'Connecting to notification server...'}
+        />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm animate-pulse">
             {unreadCount > 99 ? '99+' : unreadCount}

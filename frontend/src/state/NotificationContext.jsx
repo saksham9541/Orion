@@ -3,6 +3,17 @@ import { getStoredToken, useAppState } from '@/state/AppState'
 
 const NotificationContext = createContext(null)
 
+const getBackendBase = () => {
+  const host = typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost'
+  return `http://${host}:8000/api`
+}
+
+const getWsUrl = (token) => {
+  const host = typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost'
+  const proto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${proto}//${host}:8000/ws/notifications?token=${token}`
+}
+
 export function useNotifications() {
   const ctx = useContext(NotificationContext)
   if (!ctx) {
@@ -25,7 +36,7 @@ export function NotificationProvider({ children }) {
     const token = getStoredToken()
     if (!token) return
     try {
-      const res = await fetch('http://localhost:8000/api/notifications/unread-count', {
+      const res = await fetch(`${getBackendBase()}/notifications/unread-count`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
@@ -41,7 +52,7 @@ export function NotificationProvider({ children }) {
     const token = getStoredToken()
     if (!token) return
     try {
-      const res = await fetch('http://localhost:8000/api/notifications?limit=30', {
+      const res = await fetch(`${getBackendBase()}/notifications?limit=30`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
@@ -57,7 +68,7 @@ export function NotificationProvider({ children }) {
     const token = getStoredToken()
     if (!token) return
     try {
-      const res = await fetch(`http://localhost:8000/api/notifications/${id}/read`, {
+      const res = await fetch(`${getBackendBase()}/notifications/${id}/read`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -77,7 +88,7 @@ export function NotificationProvider({ children }) {
     const token = getStoredToken()
     if (!token) return
     try {
-      const res = await fetch(`http://localhost:8000/api/notifications/${id}/acknowledge`, {
+      const res = await fetch(`${getBackendBase()}/notifications/${id}/acknowledge`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -119,7 +130,7 @@ export function NotificationProvider({ children }) {
       const currentToken = getStoredToken()
       if (!currentToken) return
 
-      const wsUrl = `ws://localhost:8000/ws/notifications?token=${currentToken}`
+      const wsUrl = getWsUrl(currentToken)
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 
