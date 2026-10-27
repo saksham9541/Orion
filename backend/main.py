@@ -12,7 +12,7 @@ import logging
 from datetime import date, timedelta
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import (
@@ -36,10 +36,15 @@ from railopt.data_integration import DataIntegrationService
 from pydantic import BaseModel
 
 from backend.auth import (
-    MOCK_USERS,
     create_access_token,
+    create_refresh_token,
+    decode_token,
+    authenticate_user,
+    hash_password,
     get_current_user,
     require_admin,
+    require_controller,
+    require_dept_or_above,
     require_super_admin,
 )
 from backend.schemas import (
@@ -50,6 +55,11 @@ from backend.schemas import (
     ImportTasksResponse,
     LoginRequest,
     LoginResponse,
+    RefreshTokenRequest,
+    CreateUserRequest,
+    UpdateUserRequest,
+    ResetPasswordRequest,
+    User,
     QueryRequest,
     QueryResponse,
     ReplanRequest,
@@ -72,6 +82,7 @@ from railopt.models import (
     Section,
     TaskStatus,
     UserRole,
+    Department,
 )
 
 # ML
@@ -204,22 +215,176 @@ def on_startup():
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Auth (Add 3-Level RBAC)
+# Auth & User Management (Role-Based Access Control)
 # ──────────────────────────────────────────────────────────────────────
 
 @app.post("/api/auth/login", response_model=LoginResponse)
-def login(request: LoginRequest):
-    from backend.auth import authenticate_user
-    user_dict = authenticate_user(request.email, request.password)
-    if not user_dict:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+def login(request: LoginRequest, http_req: Request):
+    client_ip = http_req.client.host if http_req.client else None
+    user_record, error = authenticate_user(request.email, request.password, client_ip=client_ip)
     
-    token = create_access_token(user_dict)
-    return LoginResponse(
-        access_token=token,
-        token_type="bearer",
-        user=user_dict
+    if error:
+        status_code = 429 if "locked" in error else 401
+        raise HTTPException(status_code=status_code, detail=error)
+
+    access_token = create_access_token(user_record)
+    refresh_token = create_refresh_token(user_record)
+
+    user_schema = User(
+        id=user_record.id,
+        email=user_record.email,
+        role=UserRole(user_record.role),
+        department=Department(user_record.department) if user_record.department else None,
+        name=user_record.name,
+        is_active=user_record.is_active,
     )
+
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=user_schema,
+    )
+
+
+@app.post("/api/auth/refresh")
+def refresh_token_endpoint(request: RefreshTokenRequest):
+    try:
+        payload = decode_token(request.refresh_token)
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type (refresh token required)")
+        user_id = payload.get("sub")
+        session = get_session(engine)
+        try:
+            from backend.database import get_user_by_id
+            user = get_user_by_id(session, user_id)
+            if not user or not user.is_active:
+                raise HTTPException(status_code=401, detail="User account not found or disabled")
+            new_access_token = create_access_token(user)
+            return {"access_token": new_access_token, "token_type": "bearer"}
+        finally:
+            session.close()
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+
+@app.get("/api/auth/me", response_model=User)
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@app.get("/api/auth/users", response_model=list[User])
+def list_users(admin: User = Depends(require_admin)):
+    """Admin-only: list all system users."""
+    session = get_session(engine)
+    try:
+        from backend.database import UserRecord
+        records = session.query(UserRecord).all()
+        return [
+            User(
+                id=u.id,
+                email=u.email,
+                role=UserRole(u.role),
+                department=Department(u.department) if u.department else None,
+                name=u.name,
+                is_active=u.is_active,
+            )
+            for u in records
+        ]
+    finally:
+        session.close()
+
+
+@app.post("/api/auth/users", response_model=User)
+def create_user(request: CreateUserRequest, admin: User = Depends(require_admin)):
+    """Admin-only: create a new user. DEPT_USER must have a department."""
+    if request.role == UserRole.DEPT_USER and not request.department:
+        raise HTTPException(status_code=400, detail="DEPT_USER must specify a department (ENGINEERING, SNT, or TRD)")
+
+    clean_email = request.email.strip().lower()
+    session = get_session(engine)
+    try:
+        from backend.database import get_user_by_email, UserRecord
+        import uuid
+        existing = get_user_by_email(session, clean_email)
+        if existing:
+            raise HTTPException(status_code=400, detail=f"User with email '{clean_email}' already exists")
+
+        new_user = UserRecord(
+            id=f"usr_{uuid.uuid4().hex[:12]}",
+            name=request.name.strip(),
+            email=clean_email,
+            password_hash=hash_password(request.password),
+            role=request.role.value,
+            department=request.department.value if request.department else None,
+            is_active=True,
+        )
+        session.add(new_user)
+        session.commit()
+        return User(
+            id=new_user.id,
+            email=new_user.email,
+            role=UserRole(new_user.role),
+            department=Department(new_user.department) if new_user.department else None,
+            name=new_user.name,
+            is_active=new_user.is_active,
+        )
+    finally:
+        session.close()
+
+
+@app.patch("/api/auth/users/{user_id}", response_model=User)
+def update_user(user_id: str, request: UpdateUserRequest, admin: User = Depends(require_admin)):
+    """Admin-only: update user details, role, department or active status."""
+    session = get_session(engine)
+    try:
+        from backend.database import get_user_by_id
+        user = get_user_by_id(session, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if request.name is not None:
+            user.name = request.name.strip()
+        if request.role is not None:
+            user.role = request.role.value
+        if request.department is not None:
+            user.department = request.department.value
+        if request.is_active is not None:
+            user.is_active = request.is_active
+
+        if user.role == UserRole.DEPT_USER.value and not user.department:
+            raise HTTPException(status_code=400, detail="DEPT_USER must have a department")
+
+        session.commit()
+        return User(
+            id=user.id,
+            email=user.email,
+            role=UserRole(user.role),
+            department=Department(user.department) if user.department else None,
+            name=user.name,
+            is_active=user.is_active,
+        )
+    finally:
+        session.close()
+
+
+@app.post("/api/auth/users/{user_id}/reset-password")
+def reset_user_password(user_id: str, request: ResetPasswordRequest, admin: User = Depends(require_admin)):
+    """Admin-only: reset user password."""
+    if len(request.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+    session = get_session(engine)
+    try:
+        from backend.database import get_user_by_id
+        user = get_user_by_id(session, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        user.password_hash = hash_password(request.new_password)
+        session.commit()
+        return {"status": "ok", "message": f"Password reset successfully for user {user.email}"}
+    finally:
+        session.close()
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Helpers
@@ -616,13 +781,31 @@ from backend.database import get_session, save_live_status, load_live_status
 
 @app.post("/api/trains/live/sync")
 def sync_live_trains():
+    adapter = app.state.data_integration.railradar_adapter
+    if adapter is None:
+        raise HTTPException(status_code=503, detail="RailRadar not configured — set RAILRADAR_API_KEYS in .env")
+
     try:
-        train_ids = [12015, 12016, 12951, 12952, 12229, 12230, 22691, 22692, 12431, 12432, 12423, 12424, 12859, 12860, 12137, 12138, 12903, 12904]
+        from railopt.real_train_registry import resolve_train_corridor_map
+        train_corridor_map = resolve_train_corridor_map(app.state.corridors)
+
+        # Use trains from the registry (real train numbers mapped to corridors)
+        train_ids = list(train_corridor_map.keys())
+        if not train_ids:
+            # Fallback to hardcoded list if registry is empty
+            train_ids = ["12015", "12016", "12951", "12952", "12229", "12230",
+                         "22691", "22692", "12431", "12432", "12423", "12424",
+                         "12859", "12860", "12137", "12138", "12903", "12904"]
+
         statuses = []
+        import time
         for tid in train_ids:
             try:
-                st = app.state.data_integration.railradar_adapter.fetch_train_status(tid)
-                statuses.append(st)
+                raw = adapter.get_train_status(str(tid))
+                corridor_id = train_corridor_map.get(str(tid), "")
+                status = adapter.parse_live_status(raw, corridor_id=corridor_id)
+                statuses.append(status)
+                time.sleep(0.5)  # Throttle to avoid connection resets
             except Exception as e:
                 logger.warning(f"RailRadar sync failed for {tid}: {e}")
         

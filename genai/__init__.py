@@ -1,0 +1,3 @@
+"""
+GenAI layer for RailOpt.
+"""

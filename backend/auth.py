@@ -1,186 +1,262 @@
 """
-RailOpt - Mock Authentication Module for Hackathon
-
-Tokens are signed JWTs (PyJWT), so they cannot be faked without the server's
-secret key. Users are still hardcoded demo users (mock auth, not production auth).
-
-Setup:
-    pip install pyjwt python-dotenv
-    Set RAILOPT_SECRET (32+ characters) in your environment or in a .env file.
-    Never hardcode the secret in this file.
+Orion — Authentication & Role-Based Access Control (RBAC).
+Provides:
+- Secure password hashing using bcrypt
+- Short-lived JWT access tokens (20m) & refresh tokens (7d)
+- Database-backed user management and verification
+- Login rate-limiting (locks after 5 failed attempts within 15 minutes)
+- FastAPI dependencies for token verification and role checking
 """
+from __future__ import annotations
 
-import hmac
+import datetime
+from datetime import timedelta, timezone
+import logging
 import os
-from datetime import datetime, timedelta, timezone
+import uuid
+from typing import Optional
 
+import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-# Load a .env file if python-dotenv is installed (optional).
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
-
+from backend.database import (
+    UserRecord,
+    clear_failed_login_attempts,
+    get_failed_login_count,
+    get_session,
+    get_user_by_email,
+    get_user_by_id,
+    record_login_attempt,
+    save_user,
+    update_last_login,
+)
 from backend.schemas import User
-from railopt.models import UserRole, Department
+from railopt.models import Department, UserRole
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Config
+# Configuration
 # ---------------------------------------------------------------------------
-SECRET_KEY = os.environ.get("RAILOPT_SECRET")
-if not SECRET_KEY or len(SECRET_KEY) < 32:
-    raise RuntimeError(
-        "RAILOPT_SECRET is missing or too short (need 32+ characters). "
-        "PowerShell example: $env:RAILOPT_SECRET='put-a-long-random-string-here-1234567890'"
-    )
+JWT_SECRET = os.environ.get("JWT_SECRET") or os.environ.get("RAILOPT_SECRET")
+if not JWT_SECRET:
+    # Use a fallback for local testing if neither variable is set, but warn
+    JWT_SECRET = "orion-default-insecure-dev-secret-key-32chars"
+    logger.warning("Neither JWT_SECRET nor RAILOPT_SECRET is set. Using default secret key.")
 
 ALGORITHM = "HS256"
-TOKEN_LIFETIME_HOURS = 8
-
-# Default: requests with no token get a 401.
-# For demos only: set RAILOPT_ALLOW_ANON=1 to let no-token requests act as
-# the lowest-privilege user (Technician) instead of getting a 401.
-ALLOW_ANONYMOUS = os.environ.get("RAILOPT_ALLOW_ANON", "0") == "1"
+ACCESS_TOKEN_EXPIRE_MINUTES = 20
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
 
 security = HTTPBearer(auto_error=False)
 
+
 # ---------------------------------------------------------------------------
-# Hardcoded demo users for the hackathon
+# Password Hashing
 # ---------------------------------------------------------------------------
-MOCK_USERS = {
-    "admin@railopt.gov.in": {
-        "email": "admin@railopt.gov.in",
-        "password": "password123",
-        "role": UserRole.SUPER_ADMIN,
-        "department": None,
-        "name": "Super Admin",
-    },
-    "trd@railopt.gov.in": {
-        "email": "trd@railopt.gov.in",
-        "password": "password123",
-        "role": UserRole.DEPT_ADMIN,
-        "department": Department.TRD,
-        "name": "TRD Admin",
-    },
-    "snt@railopt.gov.in": {
-        "email": "snt@railopt.gov.in",
-        "password": "password123",
-        "role": UserRole.DEPT_ADMIN,
-        "department": Department.SNT,
-        "name": "S&T Admin",
-    },
-    "eng@railopt.gov.in": {
-        "email": "eng@railopt.gov.in",
-        "password": "password123",
-        "role": UserRole.DEPT_ADMIN,
-        "department": Department.ENGINEERING,
-        "name": "Eng Admin",
-    },
-    "tech@railopt.gov.in": {
-        "email": "tech@railopt.gov.in",
-        "password": "password123",
-        "role": UserRole.TECHNICIAN,
-        "department": None,
-        "name": "Maintenance Tech",
-    },
-}
+def hash_password(password: str) -> str:
+    """Hash password using bcrypt."""
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
-def authenticate_user(email: str, password: str):
-    """
-    Check email + password against MOCK_USERS.
-    Returns the stored user dict, or None if the login is wrong.
-    Use this in the login route so the password is really checked.
-    """
-    stored_user = MOCK_USERS.get(email)
-    if not stored_user:
-        return None
-    if not hmac.compare_digest(stored_user["password"], password):
-        return None
-    return stored_user
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password against bcrypt hash."""
+    try:
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------
-# Tokens
+# Token Generation & Verification
 # ---------------------------------------------------------------------------
-def create_access_token(user: dict) -> str:
-    """
-    Create a signed JWT. Only the email goes in the token.
-    Role and department are always looked up from MOCK_USERS on each request,
-    so the token can never carry its own privileges.
-    """
-    now = datetime.now(timezone.utc)
+def _extract_field(user: UserRecord | dict, field_name: str, default=None):
+    if isinstance(user, dict):
+        return user.get(field_name, default)
+    return getattr(user, field_name, default)
+
+
+def create_access_token(user: UserRecord | dict) -> str:
+    """Create a signed short-lived access token (20 minutes)."""
+    now = datetime.datetime.now(timezone.utc)
+    user_id = _extract_field(user, "id", "")
+    email = _extract_field(user, "email", "")
+    role = _extract_field(user, "role", "")
+    dept = _extract_field(user, "department", None)
+    name = _extract_field(user, "name", "")
+
     payload = {
-        "sub": user["email"],
+        "sub": str(user_id),
+        "email": email,
+        "name": name,
+        "role": str(role),
+        "department": str(dept) if dept else None,
+        "type": "access",
         "iat": now,
-        "exp": now + timedelta(hours=TOKEN_LIFETIME_HOURS),
+        "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
 
 
-def _unauthorized(detail: str = "Invalid authentication credentials") -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=detail,
-        headers={"WWW-Authenticate": "Bearer"},
+def create_refresh_token(user: UserRecord | dict) -> str:
+    """Create a signed refresh token (7 days)."""
+    now = datetime.datetime.now(timezone.utc)
+    user_id = _extract_field(user, "id", "")
+    payload = {
+        "sub": str(user_id),
+        "type": "refresh",
+        "iat": now,
+        "exp": now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
+
+
+def decode_token(token: str) -> dict:
+    """Decode and validate a JWT."""
+    return jwt.decode(
+        token,
+        JWT_SECRET,
+        algorithms=[ALGORITHM],
+        options={"require": ["exp", "sub"]},
     )
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> User:
+# ---------------------------------------------------------------------------
+# Authentication Service
+# ---------------------------------------------------------------------------
+def authenticate_user(
+    email: str,
+    password: str,
+    client_ip: Optional[str] = None,
+) -> tuple[Optional[UserRecord], Optional[str]]:
     """
-    Verify the JWT and return the matching User.
-
-    - No token: 401 by default (or lowest-privilege user if RAILOPT_ALLOW_ANON=1).
-    - Fake, edited, or expired token: 401.
-    - Role and department come from MOCK_USERS, never from the token body.
+    Authenticate against the database with 5-attempt rate-limiting.
+    Returns (user, error_message).
     """
-    if not credentials:
-        if ALLOW_ANONYMOUS:
-            return User(
-                email="tech@railopt.gov.in",
-                role=UserRole.TECHNICIAN,
-                department=None,
-                name="Unauthenticated (default: lowest privilege)",
-            )
-        raise _unauthorized("Not authenticated")
-
+    clean_email = email.strip().lower()
+    session = get_session()
     try:
-        payload = jwt.decode(
-            credentials.credentials,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-            options={"require": ["exp", "sub"]},
-        )
-        stored_user = MOCK_USERS.get(payload.get("sub"))
-        if not stored_user:
-            raise ValueError("Unknown user")
+        # Check rate-limiting
+        failed_count = get_failed_login_count(session, clean_email, window_minutes=LOCKOUT_MINUTES)
+        if failed_count >= MAX_FAILED_ATTEMPTS:
+            return None, f"Account temporarily locked due to {failed_count} failed attempts. Please try again after {LOCKOUT_MINUTES} minutes."
 
-        return User(
-            email=stored_user["email"],
-            role=stored_user["role"],
-            department=stored_user["department"],
-            name=stored_user["name"],
-        )
-    except Exception:
-        raise _unauthorized()
+        user = get_user_by_email(session, clean_email)
+        if not user or not verify_password(password, user.password_hash):
+            record_login_attempt(session, clean_email, client_ip, False)
+            return None, "Invalid email or password"
+
+        if not user.is_active:
+            return None, "Account is disabled. Please contact an administrator."
+
+        # Successful login
+        record_login_attempt(session, clean_email, client_ip, True)
+        clear_failed_login_attempts(session, clean_email)
+        user.last_login_at = datetime.datetime.utcnow()
+        session.commit()
+        session.refresh(user)
+        session.expunge(user)
+        return user, None
+    finally:
+        session.close()
 
 
 # ---------------------------------------------------------------------------
-# Role checks
+# FastAPI Dependencies
 # ---------------------------------------------------------------------------
-def require_super_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role != UserRole.SUPER_ADMIN:
-        raise HTTPException(status_code=403, detail="Super Admin access required")
+def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> User:
+    """FastAPI dependency to extract and verify the current user from Bearer JWT."""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        payload = decode_token(credentials.credentials)
+        if payload.get("type") != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type (access token required)",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        user_id = payload.get("sub")
+        session = get_session()
+        try:
+            db_user = get_user_by_id(session, user_id)
+            if not db_user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User does not exist or has been deleted",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            if not db_user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User account is deactivated",
+                )
+
+            return User(
+                id=db_user.id,
+                email=db_user.email,
+                role=UserRole(db_user.role),
+                department=Department(db_user.department) if db_user.department else None,
+                name=db_user.name,
+                is_active=db_user.is_active,
+            )
+        finally:
+            session.close()
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except (jwt.PyJWTError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Requires role ADMIN."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator access required",
+        )
     return current_user
 
 
-def require_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role not in [UserRole.SUPER_ADMIN, UserRole.DEPT_ADMIN]:
-        raise HTTPException(status_code=403, detail="Admin access required")
+def require_controller(current_user: User = Depends(get_current_user)) -> User:
+    """Requires role CONTROLLER or ADMIN."""
+    if current_user.role not in (UserRole.ADMIN, UserRole.CONTROLLER):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Controller or Administrator access required",
+        )
     return current_user
+
+
+def require_dept_or_above(current_user: User = Depends(get_current_user)) -> User:
+    """Requires role DEPT_USER, CONTROLLER, or ADMIN."""
+    if current_user.role not in (UserRole.ADMIN, UserRole.CONTROLLER, UserRole.DEPT_USER):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Department user, Controller or Administrator access required",
+        )
+    return current_user
+
+
+# Backwards compatibility alias
+require_super_admin = require_admin

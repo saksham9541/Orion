@@ -17,22 +17,44 @@ from railopt.models import (
     Department,
 )
 
-# ── Auth (Mock JWT) ──────────────────────────────────────────────────
+# ── Auth (JWT & Roles) ──────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):
     email: str
     password: str
 
 class User(BaseModel):
+    id: Optional[str] = None
     email: str
     role: UserRole
     department: Optional[Department] = None
     name: str
+    is_active: bool = True
 
 class LoginResponse(BaseModel):
     access_token: str
-    token_type: str
+    refresh_token: str
+    token_type: str = "bearer"
     user: User
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+class CreateUserRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: UserRole
+    department: Optional[Department] = None
+
+class UpdateUserRequest(BaseModel):
+    name: Optional[str] = None
+    role: Optional[UserRole] = None
+    department: Optional[Department] = None
+    is_active: Optional[bool] = None
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str
 
 
 

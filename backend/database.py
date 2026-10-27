@@ -1,19 +1,50 @@
-from sqlalchemy import create_engine, Column, String, Float, Integer, Boolean, Date, DateTime, Text, JSON
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
-from railopt.models import MaintenanceTask, BlockPlan, Corridor, EarlyWarning, TaskStatus, DefectSeverity, LiveTrainStatus
 import datetime
 import logging
+import os
+import time
 from typing import Optional
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    Integer,
+    JSON,
+    String,
+    Text,
+    create_engine,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+
+from railopt.models import (
+    BlockPlan,
+    Corridor,
+    DefectSeverity,
+    EarlyWarning,
+    LiveTrainStatus,
+    MaintenanceTask,
+    TaskStatus,
+)
 
 logger = logging.getLogger(__name__)
 
 Base = declarative_base()
+
+# Uses JSONB on PostgreSQL for indexing and speed, falls back to JSON on SQLite
+JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
+
 
 class TaskRecord(Base):
     __tablename__ = 'tasks'
     task_id = Column(String, primary_key=True)
     source_system = Column(String)
     source_record_id = Column(String)
+    source = Column(String(20), default="synthetic", nullable=False, index=True)  # "synthetic" | "user"
     department = Column(String)
     asset_type = Column(String)
     asset_id = Column(String)
@@ -32,7 +63,7 @@ class TaskRecord(Base):
     requires_power_block = Column(Boolean)
     requires_traffic_block = Column(Boolean)
     crew_size_required = Column(Integer)
-    tools_special = Column(JSON)
+    tools_special = Column(JSON_TYPE)
     asset_age_years = Column(Float)
     historical_failure_count = Column(Integer)
     last_maintenance_date = Column(Date, nullable=True)
@@ -41,34 +72,37 @@ class TaskRecord(Base):
     ml_predicted_duration_hours = Column(Float)
     ml_duration_confidence_lower = Column(Float)
     ml_duration_confidence_upper = Column(Float)
-    ml_shap_values = Column(JSON)
+    ml_shap_values = Column(JSON_TYPE)
     estimated_duration_hours = Column(Float)
     status = Column(String)
     assigned_block_id = Column(String, nullable=True)
     deferred_count = Column(Integer)
 
+
 class BlockPlanRecord(Base):
     __tablename__ = 'plans'
     plan_id = Column(String, primary_key=True)
+    source = Column(String(20), default="synthetic", nullable=False, index=True)  # "synthetic" | "user"
     horizon = Column(String)
     start_date = Column(Date)
     end_date = Column(Date)
     created_at = Column(DateTime)
-    scheduled_blocks = Column(JSON)
+    scheduled_blocks = Column(JSON_TYPE)
     total_tasks_scheduled = Column(Integer)
     total_tasks_deferred = Column(Integer)
     total_block_hours = Column(Float)
     total_merge_savings_hours = Column(Float)
     total_trains_affected = Column(Integer)
     sla_compliance_pct = Column(Float)
-    departments_summary = Column(JSON)
-    deferred_task_ids = Column(JSON)
-    escalated_task_ids = Column(JSON)
+    departments_summary = Column(JSON_TYPE)
+    deferred_task_ids = Column(JSON_TYPE)
+    escalated_task_ids = Column(JSON_TYPE)
     solver_status = Column(String)
     solve_time_ms = Column(Float)
     status = Column(String)
     approved_by = Column(String)
-    override_log = Column(JSON)
+    override_log = Column(JSON_TYPE)
+
 
 class CorridorRecord(Base):
     __tablename__ = 'corridors'
@@ -76,9 +110,10 @@ class CorridorRecord(Base):
     name = Column(String)
     division = Column(String)
     zone = Column(String)
-    sections = Column(JSON)
+    sections = Column(JSON_TYPE)
     total_length_km = Column(Float)
     is_rajdhani_route = Column(Boolean)
+
 
 class AlertRecord(Base):
     __tablename__ = 'alerts'
@@ -88,7 +123,7 @@ class AlertRecord(Base):
     asset_type = Column(String)
     risk_level = Column(String)
     message = Column(Text)
-    trend_data = Column(JSON)
+    trend_data = Column(JSON_TYPE)
     recommended_action = Column(Text)
     estimated_failure_window_days = Column(Integer)
     created_at = Column(DateTime)
@@ -106,14 +141,120 @@ class LiveTrainStatusRecord(Base):
     source = Column(String)
 
 
-def get_engine(db_path='railopt.db'):
-    return create_engine(f"sqlite:///{db_path}")
+class ApiUsageRecord(Base):
+    __tablename__ = 'api_usage'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    key_suffix = Column(String(10), index=True)
+    year_month = Column(String(7), index=True)  # YYYY-MM
+    endpoint = Column(String)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    status_code = Column(Integer)
+    success = Column(Boolean)
+
+
+class ApiCacheRecord(Base):
+    __tablename__ = 'api_cache'
+    cache_key = Column(String, primary_key=True)
+    endpoint = Column(String)
+    data = Column(JSON_TYPE)
+    meta = Column(JSON_TYPE, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    expires_at = Column(DateTime, index=True)
+
+
+class UserRecord(Base):
+    __tablename__ = 'users'
+    id = Column(String(36), primary_key=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False)  # ADMIN, CONTROLLER, DEPT_USER, VIEWER
+    department = Column(String(20), nullable=True)  # ENGINEERING, SNT, TRD
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    last_login_at = Column(DateTime, nullable=True)
+
+
+class LoginAttemptRecord(Base):
+    __tablename__ = 'login_attempts'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), index=True, nullable=False)
+    ip_address = Column(String(45), nullable=True)
+    attempted_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    success = Column(Boolean, default=False, nullable=False)
+
+
+def get_database_url() -> str:
+    """Retrieve normalized database URL, defaulting to local SQLite for tests."""
+    url = os.environ.get("DATABASE_URL", "").strip()
+    if not url:
+        return "sqlite:///railopt.db"
+
+    # Normalize postgres:// to postgresql://
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+
+    # Specify psycopg3 driver if unspecified generic postgresql
+    if url.startswith("postgresql://") and not url.startswith("postgresql+"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+
+    # Neon requirement: sslmode=require for non-local connections
+    if "sslmode=" not in url and "localhost" not in url and "127.0.0.1" not in url and not url.startswith("sqlite"):
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}sslmode=require"
+
+    return url
+
+
+def get_engine(db_url: Optional[str] = None):
+    """
+    Create SQLAlchemy engine.
+    For PostgreSQL/Neon: handles connection pre-pinging and connection pool recycling.
+    For SQLite: configures single-file/thread args for tests.
+    """
+    url = db_url or get_database_url()
+    if url.startswith("sqlite"):
+        return create_engine(
+            url,
+            connect_args={"check_same_thread": False},
+            pool_pre_ping=True,
+        )
+    return create_engine(
+        url,
+        pool_pre_ping=True,   # Pings connection before checkout; revives sleeping Neon instances
+        pool_recycle=300,     # Recycles connection after 5 minutes
+        pool_timeout=30,
+        max_overflow=10,
+    )
+
+
+def check_connection_with_retry(engine, max_retries: int = 1, delay_s: float = 2.0) -> bool:
+    """Check database connection, retrying once if Neon was asleep/cold."""
+    for attempt in range(max_retries + 1):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return True
+        except Exception as e:
+            if attempt < max_retries:
+                logger.warning("Database connection failed (Neon waking up?). Retrying in %.1fs: %s", delay_s, e)
+                time.sleep(delay_s)
+            else:
+                logger.error("Database connection failed after retry: %s", e)
+                raise
+
 
 def init_db(engine):
-    Base.metadata.create_all(engine)
+    """Fallback table creation for SQLite local tests; production uses Alembic migrations."""
+    url = str(engine.url)
+    if url.startswith("sqlite"):
+        Base.metadata.create_all(engine)
 
-def get_session(engine):
-    SessionLocal = sessionmaker(bind=engine)
+
+def get_session(engine=None):
+    if engine is None:
+        engine = get_engine()
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
     return SessionLocal()
 
 def save_tasks(session: Session, tasks: list[MaintenanceTask]):
@@ -241,3 +382,163 @@ def load_live_status(session: Session) -> list[LiveTrainStatus]:
         except Exception as e:
             logger.warning("Failed to reconstruct live status %s: %s", d.get("train_number", "?"), e)
     return result
+
+
+def record_api_usage(
+    session: Session,
+    key_suffix: str,
+    endpoint: str,
+    status_code: int,
+    success: bool,
+    year_month: Optional[str] = None,
+) -> None:
+    """Record an API request in api_usage table for monthly budget tracking."""
+    if not year_month:
+        year_month = datetime.datetime.utcnow().strftime("%Y-%m")
+    record = ApiUsageRecord(
+        key_suffix=key_suffix,
+        year_month=year_month,
+        endpoint=endpoint,
+        status_code=status_code,
+        success=success,
+        timestamp=datetime.datetime.utcnow(),
+    )
+    session.add(record)
+    session.commit()
+
+
+def get_api_usage_count(
+    session: Session,
+    key_suffix: str,
+    year_month: Optional[str] = None,
+) -> int:
+    """Get the request count for a given key_suffix in a calendar month."""
+    if not year_month:
+        year_month = datetime.datetime.utcnow().strftime("%Y-%m")
+    count = (
+        session.query(func.count(ApiUsageRecord.id))
+        .filter(
+            ApiUsageRecord.key_suffix == key_suffix,
+            ApiUsageRecord.year_month == year_month,
+        )
+        .scalar()
+    )
+    return count or 0
+
+
+def get_all_key_usages(
+    session: Session,
+    year_month: Optional[str] = None,
+) -> dict[str, int]:
+    """Get request counts grouped by key_suffix for a calendar month."""
+    if not year_month:
+        year_month = datetime.datetime.utcnow().strftime("%Y-%m")
+    rows = (
+        session.query(ApiUsageRecord.key_suffix, func.count(ApiUsageRecord.id))
+        .filter(ApiUsageRecord.year_month == year_month)
+        .group_by(ApiUsageRecord.key_suffix)
+        .all()
+    )
+    return {row[0]: row[1] for row in rows}
+
+
+def get_api_cache(session: Session, cache_key: str) -> Optional[dict]:
+    """Retrieve an unexpired cached API response."""
+    now = datetime.datetime.utcnow()
+    record = (
+        session.query(ApiCacheRecord)
+        .filter(
+            ApiCacheRecord.cache_key == cache_key,
+            ApiCacheRecord.expires_at > now,
+        )
+        .first()
+    )
+    if record:
+        return {
+            "data": record.data,
+            "meta": record.meta,
+            "cached_at": record.created_at.isoformat() if record.created_at else None,
+            "expires_at": record.expires_at.isoformat() if record.expires_at else None,
+        }
+    return None
+
+
+def set_api_cache(
+    session: Session,
+    cache_key: str,
+    endpoint: str,
+    data: dict | list,
+    meta: Optional[dict] = None,
+    ttl_seconds: int = 600,
+) -> None:
+    """Upsert a cached API response with TTL in seconds."""
+    now = datetime.datetime.utcnow()
+    expires_at = now + datetime.timedelta(seconds=ttl_seconds)
+    record = ApiCacheRecord(
+        cache_key=cache_key,
+        endpoint=endpoint,
+        data=data,
+        meta=meta,
+        created_at=now,
+        expires_at=expires_at,
+    )
+    session.merge(record)
+    session.commit()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# User & Authentication Queries
+# ──────────────────────────────────────────────────────────────────────
+
+def get_user_by_email(session: Session, email: str) -> Optional[UserRecord]:
+    return session.query(UserRecord).filter(func.lower(UserRecord.email) == email.strip().lower()).first()
+
+
+def get_user_by_id(session: Session, user_id: str) -> Optional[UserRecord]:
+    return session.query(UserRecord).filter(UserRecord.id == user_id).first()
+
+
+def save_user(session: Session, user: UserRecord) -> UserRecord:
+    session.merge(user)
+    session.commit()
+    return user
+
+
+def update_last_login(session: Session, user_id: str) -> None:
+    user = session.query(UserRecord).filter(UserRecord.id == user_id).first()
+    if user:
+        user.last_login_at = datetime.datetime.utcnow()
+        session.commit()
+
+
+def record_login_attempt(session: Session, email: str, ip_address: Optional[str], success: bool) -> None:
+    attempt = LoginAttemptRecord(
+        email=email.strip().lower(),
+        ip_address=ip_address,
+        attempted_at=datetime.datetime.utcnow(),
+        success=success,
+    )
+    session.add(attempt)
+    session.commit()
+
+
+def get_failed_login_count(session: Session, email: str, window_minutes: int = 15) -> int:
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(minutes=window_minutes)
+    count = (
+        session.query(func.count(LoginAttemptRecord.id))
+        .filter(
+            func.lower(LoginAttemptRecord.email) == email.strip().lower(),
+            LoginAttemptRecord.success == False,
+            LoginAttemptRecord.attempted_at >= cutoff,
+        )
+        .scalar()
+    )
+    return count or 0
+
+
+def clear_failed_login_attempts(session: Session, email: str) -> None:
+    session.query(LoginAttemptRecord).filter(
+        func.lower(LoginAttemptRecord.email) == email.strip().lower(),
+        LoginAttemptRecord.success == False,
+    ).delete(synchronize_session=False)
+    session.commit()

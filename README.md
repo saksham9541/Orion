@@ -134,6 +134,32 @@ RailOpt/
 | Frontend | React, Vite, Tailwind CSS, Recharts |
 | NLP | google-genai, regex fallback |
 
+## Environment Variables & Configuration
+
+Create a `.env` file in the project root (see `.env.example`):
+
+| Variable | Description | Default |
+|---|---|---|
+| `RAILRADAR_API_KEYS` | Comma-separated list of RailRadar API keys | `""` |
+| `RAILRADAR_BASE_URL` | Base URL for RailRadar API | `https://api.railradar.in/v1` |
+| `RAILRADAR_OFFLINE` | Set to `1` to prevent network calls and use snapshots | `0` |
+| `RAILRADAR_KEY_LIMIT` | Safe monthly request cap per key | `90` |
+| `RAILOPT_SECRET` | Secret key for JWT authentication | — |
+| `NVIDIA_API_KEY` | Optional key for LLM explanations & briefings | — |
+
+### Deployment on Render
+
+1. Create a **Web Service** pointing to this repository.
+2. In the **Environment** tab on the Render Dashboard, add:
+   - `RAILRADAR_API_KEYS`: your comma-separated keys (`key1,key2,...`)
+   - `RAILRADAR_BASE_URL`: `https://api.railradar.in/v1`
+   - `RAILRADAR_OFFLINE`: `0` (or `1` if running in pure offline mode)
+   - `RAILRADAR_KEY_LIMIT`: `90`
+   - `RAILOPT_SECRET`: a secure random string
+   - `NVIDIA_API_KEY`: your NVIDIA API key (if using LLM features)
+3. Set the build command: `pip install -r requirements.txt`
+4. Set the start command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+
 ## License
 
 Built for Smart India Hackathon 2026 — Ministry of Railways.
