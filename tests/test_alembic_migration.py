@@ -16,6 +16,7 @@ from backend.database import (
     ApiUsageRecord,
     ApiCacheRecord,
     LiveTrainStatusRecord,
+    NotificationRecord,
     utc_now,
 )
 
@@ -50,6 +51,7 @@ def test_alembic_upgrade_head_on_fresh_sqlite_and_crud(tmp_path, monkeypatch):
         "api_usage",
         "api_cache",
         "live_train_status",
+        "notifications",
     }
     for t in expected_tables:
         assert t in tables, f"Expected table '{t}' was not created by alembic migration"
@@ -156,8 +158,18 @@ def test_alembic_upgrade_head_on_fresh_sqlite_and_crud(tmp_path, monkeypatch):
         last_updated=now,
         source="live",
     )
+    notification = NotificationRecord(
+        id="notif_alembic_1",
+        issue_id="TSK-ALEMBIC-1",
+        recipient_user_id="usr_alembic_1",
+        type="ISSUE_RAISED",
+        title="Test Notification",
+        message="A test issue has been raised",
+        severity="HIGH",
+        created_at=now,
+    )
 
-    records = [task, plan, corridor, alert, user, login_attempt, usage, cache, train_status]
+    records = [task, plan, corridor, alert, user, login_attempt, usage, cache, train_status, notification]
     for r in records:
         session.add(r)
     session.commit()
@@ -172,5 +184,7 @@ def test_alembic_upgrade_head_on_fresh_sqlite_and_crud(tmp_path, monkeypatch):
     assert session.query(ApiUsageRecord).filter_by(key_suffix="1234abcd").first() is not None
     assert session.query(ApiCacheRecord).filter_by(cache_key="test_cache_key").first() is not None
     assert session.query(LiveTrainStatusRecord).filter_by(train_number="12301").first() is not None
+    assert session.query(NotificationRecord).filter_by(id="notif_alembic_1").first().severity == "HIGH"
+
 
     session.close()

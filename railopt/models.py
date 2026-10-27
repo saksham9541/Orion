@@ -359,6 +359,13 @@ class MaintenanceTask(BaseModel):
     assigned_block_id: Optional[str] = None
     deferred_count: int = 0                    # Times deferred previously
 
+    # Issue tracking & notifications
+    department_designated: Optional[str] = None
+    created_by: Optional[str] = None
+    created_by_department: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
     def model_post_init(self, __context: object) -> None:
         if self.km_end == 0.0:
             self.km_end = self.km_location

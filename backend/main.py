@@ -13,7 +13,7 @@ import os
 from datetime import date, timedelta
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request, WebSocket, WebSocketDisconnect, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import (
@@ -29,9 +29,17 @@ from backend.database import (
     save_corridors,
     save_plan,
     save_tasks,
+    save_live_status,
+    load_live_status,
+    get_user_by_id,
+    get_user_notifications,
+    get_unread_notification_count,
+    mark_notification_read,
+    acknowledge_notification,
     TaskRecord,
     BlockPlanRecord,
     CorridorRecord,
+    NotificationRecord,
 )
 # Data
 from railopt.synthetic_data import generate_full_dataset
@@ -39,6 +47,7 @@ from ml.feedback_logger import FeedbackLogger
 from ml.defect_text_classifier import DefectTextClassifier
 from railopt.data_integration import DataIntegrationService
 from pydantic import BaseModel
+from backend.notifications import manager, dispatch_issue_alert
 
 from backend.auth import (
     create_access_token,
@@ -75,7 +84,8 @@ from backend.schemas import (
     PlanModifyRequest,
     TimetableImportRequest,
     TimetableImportResponse,
-    User,
+    NotificationResponse,
+    UnreadCountResponse,
 )
 from railopt.models import (
     AssetType,
@@ -134,7 +144,6 @@ logger.addHandler(ch)
 
 app = FastAPI(title="RailOpt API", version="1.0.0")
 
-from fastapi import Request
 import time
 
 @app.middleware("http")
@@ -836,12 +845,13 @@ class ComplaintRequest(BaseModel):
 
 
 @app.post("/api/tasks/complaint", response_model=MaintenanceTask)
-def submit_complaint(
+@app.post("/api/issues", response_model=MaintenanceTask)
+async def submit_complaint(
     request: ComplaintRequest,
     current_user: User = Depends(require_dept_or_above),
 ):
     import uuid
-    from datetime import datetime
+    from datetime import datetime, timezone
     
     classifier = DefectTextClassifier()
     classification = classifier.classify(request.description)
@@ -872,6 +882,7 @@ def submit_complaint(
                 detail=f"Cannot submit complaint for department {department.value} as user belongs to {current_user.department.value}",
             )
 
+    now_utc = datetime.now(timezone.utc)
     task = MaintenanceTask(
         task_id=f"TSK-{uuid.uuid4().hex[:8].upper()}",
         source_system="USER_COMPLAINT",
@@ -891,18 +902,36 @@ def submit_complaint(
         ml_predicted_severity=None,
         ml_predicted_duration_hours=0.0,
         source="user",
+        department_designated=department.value,
+        created_by=current_user.email,
+        created_by_department=current_user.department.value if current_user.department else None,
+        created_at=now_utc,
     )
     
+    if not hasattr(app.state, "tasks") or app.state.tasks is None:
+        app.state.tasks = []
     app.state.tasks.append(task)
     session = get_session(engine)
-    save_tasks(session, [task])
-    session.close()
+    try:
+        save_tasks(session, [task])
+        # Dispatch real-time alert and persist notifications for offline users
+        await dispatch_issue_alert(
+            session=session,
+            issue_id=task.task_id,
+            title=f"New Issue Raised: {category.value}",
+            message=f"Defect reported on {task.corridor_id} ({task.section_id}) at KM {task.km_location:.1f}. Severity: {severity.value}.",
+            severity=severity.value,
+            department_designated=department.value,
+            creator_id=str(current_user.id) if hasattr(current_user, 'id') else None,
+            creator_email=current_user.email,
+        )
+    finally:
+        session.close()
     return task
 
 # ──────────────────────────────────────────────────────────────────────
 # RailRadar — Live Train Status
 # ──────────────────────────────────────────────────────────────────────
-from backend.database import get_session, save_live_status, load_live_status
 
 @app.post("/api/trains/live/sync")
 def sync_live_trains(current_user: User = Depends(require_controller)):
@@ -1607,3 +1636,125 @@ def get_map_blocks(plan_id: str, current_user: User = Depends(require_viewer_or_
             "status": "SCHEDULED"
         })
     return {"blocks": blocks_data}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Real-Time Notifications & WebSocket
+# ──────────────────────────────────────────────────────────────────────
+
+@app.websocket("/ws/notifications")
+async def websocket_notifications(
+    websocket: WebSocket,
+    token: Optional[str] = Query(None),
+):
+    """
+    Authenticated WebSocket endpoint for real-time issue notifications.
+    Accepts JWT token in query param (?token=...), Authorization header, or Sec-WebSocket-Protocol.
+    """
+    auth_token = token
+    if not auth_token:
+        auth_header = websocket.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            auth_token = auth_header[7:].strip()
+    if not auth_token:
+        protocols = websocket.headers.get("sec-websocket-protocol", "")
+        if protocols:
+            auth_token = protocols.split(",")[0].strip()
+
+    if not auth_token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    try:
+        payload = decode_token(auth_token)
+        user_id = payload.get("sub")
+        if not user_id:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+    except Exception:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    session = get_session(engine)
+    try:
+        user = get_user_by_id(session, user_id)
+        if not user or not user.is_active:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        user_role = user.role
+        user_dept = user.department
+        user_email = user.email
+    finally:
+        session.close()
+
+    await manager.connect(websocket, user_id=str(user_id), role=user_role, department=user_dept, email=user_email)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id=str(user_id))
+    except Exception:
+        manager.disconnect(websocket, user_id=str(user_id))
+
+
+@app.get("/api/notifications", response_model=list[NotificationResponse])
+def list_notifications(
+    unread_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+):
+    session = get_session(engine)
+    try:
+        notifs = get_user_notifications(
+            session=session,
+            user_id=str(current_user.id),
+            unread_only=unread_only,
+            limit=limit,
+            offset=offset,
+        )
+        return notifs
+    finally:
+        session.close()
+
+
+@app.get("/api/notifications/unread-count", response_model=UnreadCountResponse)
+def get_unread_count(current_user: User = Depends(get_current_user)):
+    session = get_session(engine)
+    try:
+        count = get_unread_notification_count(session, str(current_user.id))
+        return UnreadCountResponse(unread_count=count)
+    finally:
+        session.close()
+
+
+@app.patch("/api/notifications/{notification_id}/read", response_model=NotificationResponse)
+def mark_read(
+    notification_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    session = get_session(engine)
+    try:
+        notif = mark_notification_read(session, notification_id, str(current_user.id))
+        if not notif:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        return notif
+    finally:
+        session.close()
+
+
+@app.post("/api/notifications/{notification_id}/acknowledge", response_model=NotificationResponse)
+def acknowledge_notif(
+    notification_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    session = get_session(engine)
+    try:
+        notif = acknowledge_notification(session, notification_id, str(current_user.id))
+        if not notif:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        return notif
+    finally:
+        session.close()

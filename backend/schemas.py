@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from railopt.models import (
     BlockPlan,
@@ -145,3 +145,25 @@ class DashboardStats(BaseModel):
     active_alerts: int
     corridors_count: int
     rows_failed_to_load: dict[str, int] = {}
+
+
+# ── Notifications ───────────────────────────────────────────────────
+
+class NotificationResponse(BaseModel):
+    id: str
+    issue_id: Optional[str] = None
+    recipient_user_id: str
+    type: str = "ISSUE_RAISED"
+    title: str
+    message: str
+    severity: str
+    created_at: datetime
+    read_at: Optional[datetime] = None
+    acknowledged_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UnreadCountResponse(BaseModel):
+    unread_count: int
+

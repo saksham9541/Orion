@@ -1,0 +1,163 @@
+import { useState, useRef, useEffect } from 'react'
+import { Bell, Check, CheckCheck, AlertTriangle, AlertCircle, ExternalLink } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useNotifications } from '@/state/NotificationContext'
+
+export default function NotificationBell() {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef(null)
+  const navigate = useNavigate()
+  const { notifications, unreadCount, markAsRead, acknowledge, isConnected } = useNotifications()
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleNotificationClick = (notif) => {
+    if (!notif.read_at) {
+      markAsRead(notif.id)
+    }
+    setIsOpen(false)
+    if (notif.issue_id) {
+      navigate(`/tasks?search=${notif.issue_id}`)
+    }
+  }
+
+  const handleMarkAllRead = () => {
+    notifications.forEach((n) => {
+      if (!n.read_at) markAsRead(n.id)
+    })
+  }
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-label={`Notifications, ${unreadCount} unread`}
+        className="btn-quiet relative flex h-9 w-9 items-center justify-center rounded-lg p-0 transition-colors"
+      >
+        <Bell size={17} className={unreadCount > 0 ? 'text-ink' : 'text-muted'} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm animate-pulse">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border border-line bg-surface shadow-2xl z-50 overflow-hidden animate-in fade-in duration-150">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3 bg-surface">
+            <div className="flex items-center gap-2">
+              <span className="text-[14px] font-bold text-ink">Notifications</span>
+              {unreadCount > 0 && (
+                <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-500">
+                  {unreadCount} new
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                title={isConnected ? 'Live WebSocket Connected' : 'Reconnecting...'}
+              />
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllRead}
+                  className="text-[12px] font-medium text-muted hover:text-ink flex items-center gap-1"
+                >
+                  <CheckCheck size={14} />
+                  Mark all read
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="max-h-[380px] overflow-y-auto divide-y divide-line/60">
+            {notifications.length === 0 ? (
+              <div className="py-8 text-center text-muted">
+                <Bell size={24} className="mx-auto mb-2 opacity-30" />
+                <p className="text-[13px]">No notifications yet</p>
+                <p className="text-[11px] text-faint">Issue alerts and updates will appear here</p>
+              </div>
+            ) : (
+              notifications.map((notif) => {
+                const isUnread = !notif.read_at
+                const isEmergency = notif.severity === 'EMERGENCY'
+                const isHigh = notif.severity === 'HIGH'
+
+                return (
+                  <div
+                    key={notif.id}
+                    onClick={() => handleNotificationClick(notif)}
+                    className={`group flex items-start gap-3 p-3.5 transition-colors cursor-pointer ${
+                      isUnread ? 'bg-raised/60 hover:bg-raised' : 'hover:bg-raised/30'
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${
+                        isEmergency
+                          ? 'border-red-500/30 bg-red-500/10 text-red-500'
+                          : isHigh
+                          ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+                          : 'border-blue-500/30 bg-blue-500/10 text-blue-500'
+                      }`}
+                    >
+                      {isEmergency ? <AlertCircle size={15} /> : <AlertTriangle size={15} />}
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[13px] font-semibold text-ink truncate">{notif.title}</p>
+                        <span className="shrink-0 text-[10px] text-faint">
+                          {notif.created_at
+                            ? new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : ''}
+                        </span>
+                      </div>
+
+                      <p className="mt-0.5 text-[12px] text-muted line-clamp-2">{notif.message}</p>
+
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-faint">
+                          {notif.severity} {notif.department_designated ? `• ${notif.department_designated}` : ''}
+                        </span>
+
+                        {!notif.acknowledged_at && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              acknowledge(notif.id)
+                            }}
+                            className="rounded bg-surface px-2 py-0.5 text-[11px] font-medium border border-line text-muted hover:text-ink hover:border-line-hover flex items-center gap-1 transition-colors"
+                          >
+                            <Check size={12} />
+                            Ack
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {isUnread && (
+                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-500" aria-label="Unread" />
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

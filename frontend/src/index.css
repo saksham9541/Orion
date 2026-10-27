@@ -1,0 +1,364 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ------------------------------------------------------------------
+     THEME TOKENS
+     Every colour in the interface resolves through these variables, so a
+     component written with bg-surface / text-ink / text-muted / border-line
+     is correct in both themes without any per-theme override.
+
+     Each token is an "r g b" triplet so Tailwind's <alpha-value> opacity
+     modifiers (bg-base/90, text-ink/85, ...) keep working.
+
+     Contrast is checked, not eyeballed: every text token clears WCAG AA
+     (4.5:1) on base, surface AND raised in both themes, and every status
+     colour clears 4.5:1 as text on its own 10% tint. See tools/contrast.mjs.
+     ------------------------------------------------------------------ */
+
+  /* Dark: the control room's native mode — panel-board surfaces, cool cast. */
+  :root,
+  .dark {
+    color-scheme: dark;
+
+    --c-base: 14 24 33; /* #0E1821 page */
+    --c-deep: 10 18 26; /* #0A121A text on accent, overlays */
+    --c-surface: 21 34 48; /* #152230 cards */
+    --c-raised: 28 44 60; /* #1C2C3C inset fields, table heads */
+    --c-line: 48 70 92; /* #30465C borders */
+    --c-hair: 27 42 56; /* #1B2A38 hairlines */
+
+    --c-ink: 230 237 243; /* #E6EDF3 primary text */
+    --c-muted: 168 186 203; /* #A8BACB secondary text */
+    --c-faint: 132 152 171; /* #8498AB tertiary text / captions */
+
+    --c-eng: 242 169 59; /* #F2A93B */
+    --c-snt: 79 195 161; /* #4FC3A1 */
+    --c-trd: 139 157 255; /* #8B9DFF */
+    --c-merge: 207 227 242; /* #CFE3F2 RailOpt accent */
+
+    --c-danger: 255 116 120; /* #FF7478 */
+    --c-warn: 238 178 80; /* #EEB250 */
+    --c-ok: 79 195 161; /* #4FC3A1 */
+    --c-high: 255 149 84; /* #FF9554 orange: "High" */
+    --c-info: 122 170 255; /* #7AAAFF blue: acknowledged / notified */
+
+    /* Panel title bars: dark in BOTH themes so the white title text on them
+       never depends on the page theme. */
+    --c-bar: 10 18 26;
+    --c-onbar: 255 255 255;
+    --c-barmuted: 148 163 184;
+
+    /* Solid severity pills. Same in both themes; foreground chosen per pill. */
+    --c-sev-critical: 185 28 28;
+    --c-sev-high: 194 65 12;
+    --c-sev-medium: 250 204 21;
+    --c-sev-medium-fg: 66 32 6;
+    --c-sev-low: 21 128 61;
+
+    --grid-line: 148 180 209;
+    --grid-alpha-x: 0.14;
+    --grid-alpha-y: 0.11;
+    --glow-1: 79 195 161;
+    --glow-2: 139 157 255;
+    --glow-3: 242 169 59;
+    --glow-alpha: 0.16;
+  }
+
+  /* Light: very light grey page, white cards, dark-navy text, mid-grey
+     secondary text, light-grey borders, navy RailOpt accent. */
+  .light {
+    color-scheme: light;
+
+    --c-base: 244 246 249; /* #F4F6F9 page */
+    --c-deep: 255 255 255; /* #FFFFFF text on accent, overlays */
+    --c-surface: 255 255 255; /* #FFFFFF cards */
+    --c-raised: 238 242 247; /* #EEF2F7 inset fields, table heads */
+    --c-line: 203 213 225; /* #CBD5E1 borders */
+    --c-hair: 226 232 240; /* #E2E8F0 hairlines */
+
+    --c-ink: 15 23 42; /* #0F172A primary text */
+    --c-muted: 51 65 85; /* #334155 secondary text */
+    --c-faint: 84 100 122; /* #54647A tertiary text / captions */
+
+    --c-eng: 133 77 0; /* #854D00 */
+    --c-snt: 6 110 88; /* #066E58 */
+    --c-trd: 63 78 186; /* #3F4EBA */
+    --c-merge: 22 50 92; /* #16325C RailOpt accent */
+
+    --c-danger: 185 28 28; /* #B91C1C */
+    --c-warn: 133 77 0; /* #854D00 */
+    --c-ok: 6 110 88; /* #066E58 */
+    --c-high: 170 55 8; /* #AA3708 */
+    --c-info: 29 78 216; /* #1D4ED8 */
+
+    --grid-line: 100 116 139;
+    --grid-alpha-x: 0.06;
+    --grid-alpha-y: 0.04;
+    --glow-1: 148 163 184;
+    --glow-2: 148 163 184;
+    --glow-3: 148 163 184;
+    --glow-alpha: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-base text-ink font-sans antialiased;
+    transition: background-color 0.35s ease, color 0.35s ease;
+    position: relative;
+    min-height: 100vh;
+  }
+
+  /* Faint signalling-diagram grid, etched far back. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgb(var(--grid-line) / var(--grid-alpha-x)) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--grid-line) / var(--grid-alpha-y)) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* Three soft, slow-drifting colour pools behind every screen — the same
+     department palette used everywhere else, just diffused, so the whole
+     product feels lit rather than flat black/white panels. */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(640px 480px at 8% -6%, rgb(var(--glow-1) / var(--glow-alpha)), transparent 60%),
+      radial-gradient(560px 480px at 100% 8%, rgb(var(--glow-2) / var(--glow-alpha)), transparent 60%),
+      radial-gradient(680px 520px at 30% 110%, rgb(var(--glow-3) / calc(var(--glow-alpha) * 0.7)), transparent 60%);
+  }
+
+  ::selection {
+    background: rgb(var(--c-merge) / 0.28);
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--c-merge));
+    outline-offset: 2px;
+  }
+
+  /* Numerals in tables and timelines must line up column to column. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-surface border border-line rounded-panel shadow-panel;
+  }
+
+  .panel-quiet {
+    @apply bg-surface/60 border border-hair rounded-panel;
+  }
+
+  /* Form fields. The border is the "faint" text colour at 70%, which keeps
+     the field edge above 3:1 against its card in both themes (WCAG 1.4.11);
+     ordinary card borders are deliberately lighter than that. */
+  .field {
+    @apply w-full rounded border border-faint/70 bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint;
+  }
+  .field:focus {
+    outline: none;
+    border-color: rgb(var(--c-merge));
+    box-shadow: 0 0 0 2px rgb(var(--c-merge) / 0.25);
+  }
+
+  /* Solid severity pills. Foreground is picked per pill so each one clears
+     4.5:1 — white on red/orange/green, dark brown on yellow. */
+  .sev {
+    @apply inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest;
+  }
+  .sev-critical { background: rgb(var(--c-sev-critical)); color: #fff; }
+  .sev-high { background: rgb(var(--c-sev-high)); color: #fff; }
+  .sev-medium { background: rgb(var(--c-sev-medium)); color: rgb(var(--c-sev-medium-fg)); }
+  .sev-low { background: rgb(var(--c-sev-low)); color: #fff; }
+
+  /* Tinted status tags: a 10% wash of the status colour, the status colour
+     itself as text, and a 30% border. */
+  .tag {
+    @apply inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider;
+  }
+  .tag-neutral { @apply border-line bg-raised text-muted; }
+  .tag-info { @apply border-info/30 bg-info/10 text-info; }
+  .tag-warn { @apply border-warn/30 bg-warn/10 text-warn; }
+  .tag-high { @apply border-high/30 bg-high/10 text-high; }
+  .tag-danger { @apply border-danger/30 bg-danger/10 text-danger; }
+  .tag-ok { @apply border-ok/30 bg-ok/10 text-ok; }
+  .tag-eng { @apply border-eng/30 bg-eng/10 text-eng; }
+  .tag-snt { @apply border-snt/30 bg-snt/10 text-snt; }
+  .tag-trd { @apply border-trd/30 bg-trd/10 text-trd; }
+
+  /* Primary action button in the accent colour. */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded bg-merge font-bold uppercase tracking-widest text-deep transition-colors hover:bg-merge/90;
+  }
+  /* Operational actions on an issue (NOTIFY DEPARTMENT, ACKNOWLEDGE, START
+     ACTION, MARK RESOLVED). Deliberately not the solid accent used for
+     primary navigation, so a screen never shows two buttons that look like
+     the same kind of thing. Info-tinted: the status colour was audited as
+     text on its own 10% tint (tools/contrast.mjs). */
+  .btn-action {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-info/40 bg-info/10 font-bold uppercase tracking-widest text-info transition-colors hover:border-info/70 hover:bg-info/15;
+  }
+  .btn-quiet {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-line bg-surface text-ink transition-colors hover:bg-raised;
+  }
+
+  /* A length of track used as a section divider: two rails and a joint. */
+  .track-rule {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgb(var(--c-line)) 12%,
+      rgb(var(--c-line)) 88%,
+      transparent
+    );
+  }
+
+  .lamp {
+    box-shadow: 0 0 0 1px rgb(var(--c-ink) / 0.08), 0 0 12px -2px currentColor;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--c-line)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-line));
+    border-radius: 99px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Premium hover treatment for control-room panels: a hairline seam that
+     picks up light on hover, plus a soft lift — used across Dashboard. */
+  .panel-hover {
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s ease,
+      box-shadow 0.28s ease;
+  }
+  .panel-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgb(var(--c-merge) / 0.35);
+    box-shadow: 0 22px 48px -20px rgb(var(--c-deep) / 0.55);
+  }
+
+  /* One diffused colour pool used by AuroraBackground. Always screen-blended
+     and heavily blurred so several can overlap without ever reading as flat
+     colour blocks — atmosphere, not shapes. */
+  .aurora-blob {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(80px);
+    mix-blend-mode: screen;
+    will-change: transform;
+  }
+
+  /* Thin gradient accent bar, used at the top edge of stat tiles and panels. */
+  .accent-bar {
+    background: linear-gradient(
+      to right,
+      rgb(var(--c-eng)),
+      rgb(var(--c-snt)),
+      rgb(var(--c-trd))
+    );
+  }
+
+  /* Premium glass morphism panel for light mode */
+  .panel-glass {
+    @apply bg-surface/80 border border-line/60 rounded-panel;
+    backdrop-filter: blur(12px) saturate(1.4);
+    box-shadow: 
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 4px 16px rgb(0 0 0 / 0.04),
+      inset 0 1px 0 rgb(255 255 255 / 0.6);
+  }
+
+  /* Shimmer loading effect for premium feel */
+  .shimmer {
+    background: linear-gradient(
+      105deg,
+      transparent 40%,
+      rgb(255 255 255 / 0.5) 50%,
+      transparent 60%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2.4s ease-in-out infinite;
+  }
+
+  /* Animated gradient border glow */
+  .glow-border {
+    position: relative;
+  }
+  .glow-border::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgb(var(--c-eng) / 0.3),
+      rgb(var(--c-snt) / 0.3),
+      rgb(var(--c-trd) / 0.3)
+    );
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .glow-border:hover::after {
+    opacity: 1;
+  }
+}
+
+/* IndiaRailwayMap: Leaflet's default tooltip chrome (white box + border +
+   arrow) doesn't match the plain outlined-text station labels the map is
+   meant to have. This strips it down to just the text. Global rather than
+   scoped because Leaflet renders tooltips into its own pane, outside any
+   component-local style boundary. */
+.railopt-station-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  text-shadow:
+    1px 1px 0 #fff,
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff;
+}
+.railopt-station-label::before {
+  display: none;
+}

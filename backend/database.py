@@ -10,6 +10,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Float,
+    ForeignKey,
     Integer,
     JSON,
     String,
@@ -34,6 +35,10 @@ from railopt.models import (
 logger = logging.getLogger(__name__)
 
 Base = declarative_base()
+
+def utc_now() -> datetime.datetime:
+    """Returns timezone-aware current UTC datetime."""
+    return datetime.datetime.now(datetime.timezone.utc)
 
 # Uses JSONB on PostgreSQL for indexing and speed, falls back to JSON on SQLite
 JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
@@ -77,6 +82,10 @@ class TaskRecord(Base):
     status = Column(String)
     assigned_block_id = Column(String, nullable=True)
     deferred_count = Column(Integer)
+    department_designated = Column(String(50), nullable=True)
+    created_by = Column(String(100), nullable=True)
+    created_by_department = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=utc_now, nullable=True)
 
 
 class BlockPlanRecord(Base):
@@ -142,11 +151,6 @@ class LiveTrainStatusRecord(Base):
     source = Column(String)
 
 
-def utc_now() -> datetime.datetime:
-    """Returns timezone-aware current UTC datetime."""
-    return datetime.datetime.now(datetime.timezone.utc)
-
-
 class ApiUsageRecord(Base):
     __tablename__ = 'api_usage'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -179,6 +183,21 @@ class UserRecord(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=utc_now, nullable=False)
     last_login_at = Column(DateTime, nullable=True)
+
+
+class NotificationRecord(Base):
+    __tablename__ = 'notifications'
+    id = Column(String(36), primary_key=True)
+    issue_id = Column(String, nullable=True, index=True)
+    recipient_user_id = Column(String(36), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    type = Column(String(50), default="ISSUE_RAISED", nullable=False)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    severity = Column(String(20), nullable=False)  # EMERGENCY, HIGH, MEDIUM, LOW
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    read_at = Column(DateTime, nullable=True)
+    acknowledged_at = Column(DateTime, nullable=True)
+
 
 
 class LoginAttemptRecord(Base):
@@ -291,6 +310,8 @@ def save_tasks(session: Session, tasks: list[MaintenanceTask]):
             task_data["due_date"] = t.due_date
         if hasattr(t, "last_maintenance_date") and t.last_maintenance_date:
             task_data["last_maintenance_date"] = t.last_maintenance_date
+        if hasattr(t, "created_at") and t.created_at:
+            task_data["created_at"] = t.created_at
         mappings.append(task_data)
     if mappings:
         # Use merge for upsert semantics (bulk_insert would fail on duplicates)
@@ -577,3 +598,70 @@ def clear_failed_login_attempts(
         query = query.filter(LoginAttemptRecord.ip_address == ip_address.strip())
     query.delete(synchronize_session=False)
     session.commit()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Notifications
+# ──────────────────────────────────────────────────────────────────────
+
+def save_notification(session: Session, notification: NotificationRecord) -> NotificationRecord:
+    session.add(notification)
+    session.commit()
+    session.refresh(notification)
+    return notification
+
+
+def get_user_notifications(
+    session: Session,
+    user_id: str,
+    unread_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[NotificationRecord]:
+    query = session.query(NotificationRecord).filter(
+        NotificationRecord.recipient_user_id == user_id
+    )
+    if unread_only:
+        query = query.filter(NotificationRecord.read_at.is_(None))
+    
+    query = query.order_by(
+        NotificationRecord.read_at.is_(None).desc(),
+        NotificationRecord.created_at.desc(),
+    )
+    return query.offset(offset).limit(limit).all()
+
+
+def get_unread_notification_count(session: Session, user_id: str) -> int:
+    count = session.query(func.count(NotificationRecord.id)).filter(
+        NotificationRecord.recipient_user_id == user_id,
+        NotificationRecord.read_at.is_(None),
+    ).scalar()
+    return count or 0
+
+
+def mark_notification_read(session: Session, notification_id: str, user_id: str) -> Optional[NotificationRecord]:
+    notif = session.query(NotificationRecord).filter(
+        NotificationRecord.id == notification_id,
+        NotificationRecord.recipient_user_id == user_id,
+    ).first()
+    if notif:
+        if notif.read_at is None:
+            notif.read_at = utc_now()
+            session.commit()
+            session.refresh(notif)
+    return notif
+
+
+def acknowledge_notification(session: Session, notification_id: str, user_id: str) -> Optional[NotificationRecord]:
+    notif = session.query(NotificationRecord).filter(
+        NotificationRecord.id == notification_id,
+        NotificationRecord.recipient_user_id == user_id,
+    ).first()
+    if notif:
+        now = utc_now()
+        notif.acknowledged_at = now
+        if notif.read_at is None:
+            notif.read_at = now
+        session.commit()
+        session.refresh(notif)
+    return notif

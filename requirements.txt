@@ -32,3 +32,4 @@ python-dotenv>=1.0.0
 
 # Utils
 python-dateutil>=2.9.0
+websockets>=12.0

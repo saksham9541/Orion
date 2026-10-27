@@ -14,7 +14,7 @@ from datetime import timedelta, timezone
 import logging
 import os
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 import bcrypt
 import jwt
