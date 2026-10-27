@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from railopt.models import (
     BlockPlan,
@@ -76,6 +76,17 @@ class GeneratePlanRequest(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     scheduler_config: Optional[dict] = None  # Override scheduler weights
+
+    @field_validator("horizon", mode="before")
+    @classmethod
+    def normalize_horizon(cls, v):
+        if isinstance(v, str):
+            val = v.strip().upper()
+            if val == "WEEKLY":
+                return PlanHorizon.WEEKLY
+            if val == "MONTHLY":
+                return PlanHorizon.MONTHLY
+        return v
 
 
 class GeneratePlanResponse(BaseModel):

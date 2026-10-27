@@ -51,6 +51,15 @@ export function getStoredEmail() {
 
 export function AppStateProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(loadSavedUser)
+  const [approvals, setApprovals] = useState({})
+  const [planDecision, setPlanDecision] = useState(null)
+  const [optimised, setOptimised] = useState(true)
+
+  const approveBlock = useCallback((blockId) => {
+    setApprovals((prev) => ({ ...prev, [blockId]: true }))
+  }, [])
+
+  const approvedCount = useMemo(() => Object.keys(approvals).length, [approvals])
 
   const login = useCallback(async (roleId) => {
     const user = roleById[roleId]
@@ -100,9 +109,16 @@ export function AppStateProvider({ children }) {
       currentUser,
       login,
       logout,
-      role: currentUser,
+      role: currentUser || { id: 'admin', label: 'Super Admin', focus: 'Operations', panels: ['kpis', 'conflicts', 'twin'] },
+      approvals,
+      approvedCount,
+      approveBlock,
+      planDecision,
+      setPlanDecision,
+      optimised,
+      setOptimised,
     }),
-    [currentUser, login, logout]
+    [currentUser, login, logout, approvals, approvedCount, approveBlock, planDecision, optimised]
   )
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>

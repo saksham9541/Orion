@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   X,
   AlertTriangle,
@@ -88,17 +89,33 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-task-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150"
-    >
-      {/* Backdrop click */}
-      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+    <AnimatePresence>
+      {isOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-task-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+        >
+          {/* Backdrop click */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/75 backdrop-blur-md"
+            onClick={onClose}
+            aria-hidden="true"
+          />
 
-      <div className="relative w-full max-w-3xl rounded-[28px] border border-line/80 bg-surface shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden z-10 my-8">
-        {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 25 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 15 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="relative w-full max-w-3xl rounded-[28px] border border-line/80 bg-surface shadow-[0_25px_60px_rgba(0,0,0,0.35)] overflow-hidden z-10 my-8"
+          >
+            {/* Header */}
         <div className="border-b border-line bg-surface px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-raised text-ink">
@@ -343,7 +360,9 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
+  )}
+</AnimatePresence>
   )
 }

@@ -1122,11 +1122,35 @@ def generate_plan(
     range_start = request.start_date or date.today()
     range_end = request.end_date or (range_start + timedelta(days=horizon_days))
 
+    # Ensure window pool exists
+    if not getattr(app.state, "windows", None):
+        try:
+            from railopt.synthetic_data import generate_full_dataset
+            ds = generate_full_dataset(seed=42, num_tasks=150, window_days=30)
+            app.state.windows = ds.get("block_windows", [])
+            _batch_score_windows(app.state.windows)
+        except Exception as e:
+            logger.warning("Could not auto-generate block windows: %s", e)
+
     tasks = [t for t in app.state.tasks if t.status in (TaskStatus.PENDING, TaskStatus.ESCALATED)]
+    if not tasks:
+        # If tasks were exhausted, reset them so new plan can be generated
+        _reset_unlocked_tasks_for_regeneration(app.state.tasks, app.state.plans)
+        tasks = [t for t in app.state.tasks if t.status in (TaskStatus.PENDING, TaskStatus.ESCALATED)]
+
+    # If still no tasks, ensure default tasks are loaded
+    if not tasks and app.state.tasks:
+        for t in app.state.tasks:
+            t.status = TaskStatus.PENDING
+        tasks = [t for t in app.state.tasks if t.status in (TaskStatus.PENDING, TaskStatus.ESCALATED)]
+
     windows = [
         w for w in app.state.windows
         if w.window_id not in locked_windows and range_start <= w.date <= range_end
     ]
+    if not windows and app.state.windows:
+        # If date filtering left 0 windows, fall back to any available unlocked windows
+        windows = [w for w in app.state.windows if w.window_id not in locked_windows]
 
     if not tasks:
         raise HTTPException(status_code=400, detail="No pending tasks to schedule")
@@ -1205,6 +1229,16 @@ def generate_plan(
 
 @app.get("/api/plans")
 def list_plans(current_user: User = Depends(require_viewer_or_above)):
+    if not app.state.plans:
+        try:
+            session = get_session(engine)
+            saved = load_all_plans(session)
+            session.close()
+            for p in saved:
+                app.state.plans[p.plan_id] = p
+        except Exception as e:
+            logger.warning("Could not load plans from database: %s", e)
+
     return [
         {
             "plan_id": p.plan_id,

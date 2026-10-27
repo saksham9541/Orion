@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -676,7 +677,13 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
       </div>
 
       {/* Dynamic Metric Bento Cards — Nothing OS Widget Design */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-6"
+      >
         <div className="bg-surface/80 backdrop-blur-md p-4 border border-line rounded-2xl shadow-sm hover:border-[#d71920]/40 transition-all">
           <p className="text-[9.5px] font-mono font-bold text-muted uppercase tracking-[0.16em] mb-1">[ 01 // TOTAL TASKS ]</p>
           <p className="text-2xl font-dot tracking-tight text-ink">{stats.total}</p>
@@ -697,10 +704,16 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
           <p className="text-2xl font-dot tracking-tight text-emerald-500">{stats.resolved}</p>
           <span className="text-[10px] font-mono text-emerald-500/80 uppercase tracking-wider">SAFETY VERIFIED</span>
         </div>
-      </div>
+      </motion.div>
 
       {/* THE 4-STAGE WORKFLOW JOURNEY BOARD (Nothing OS Technical Pipeline) */}
-      <div className="mb-6 rounded-[28px] border border-line bg-raised/30 dark:bg-black/40 backdrop-blur-md p-5 sm:p-6 shadow-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="mb-6 rounded-[28px] border border-line bg-raised/30 dark:bg-black/40 backdrop-blur-md p-5 sm:p-6 shadow-sm"
+      >
         
         {/* Journey Board Header with Search & Filter Pills */}
         <div className="mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
@@ -1039,10 +1052,16 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
           </div>
 
         </div>
-      </div>
+      </motion.div>
 
       {/* BOTTOM SECTION: 2-COLUMN BENTO GRID (Suggested Knowledge Table + Live Railway Telemetry Map) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6"
+      >
         
         {/* Left (7 cols): Suggested Knowledge & Defect Registry Table (Matches screenshot table!) */}
         <div className="lg:col-span-7 bg-surface border border-line rounded-[28px] shadow-sm p-5 flex flex-col">
@@ -1164,11 +1183,17 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
           </div>
         </div>
 
-      </div>
+      </motion.div>
 
       {/* SELECTED TASK INTELLIGENCE ANALYSIS SECTION */}
       {selectedTask && (
-        <div className="bg-surface border border-line rounded-xl shadow-sm overflow-hidden mb-6 flex flex-col">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4 }}
+          className="bg-surface border border-line rounded-xl shadow-sm overflow-hidden mb-6 flex flex-col"
+        >
           <div className="bg-bar text-onbar px-6 py-4 flex flex-wrap justify-between items-center gap-3">
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2">
@@ -1417,7 +1442,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
               </button>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
     </PortalLayout>
   )

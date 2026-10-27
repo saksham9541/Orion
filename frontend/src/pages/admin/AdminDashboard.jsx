@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ShieldAlert, CheckCircle2, X, Bell, ClipboardCheck, PlayCircle, CircleCheck, Flame, RefreshCw } from 'lucide-react'
 import PortalLayout from '@/components/app/PortalLayout'
@@ -308,7 +309,11 @@ export default function AdminDashboard() {
       </div>
 
       {/* FILTERS — Modern Pill Controls (Matches the screenshot) */}
-      <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 bg-surface border border-line/80 rounded-2xl p-3 sm:px-4 shadow-sm">
+      <motion.div
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 bg-surface border border-line/80 rounded-2xl p-3 sm:px-4 shadow-sm"
+      >
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-faint uppercase tracking-widest">Severity</span>
           <div className="flex items-center gap-1">
@@ -351,9 +356,15 @@ export default function AdminDashboard() {
         <div className="ml-auto flex items-center gap-2 text-[10px] text-faint">
           <span className="font-mono">{filteredIssues.length} of {issues.length} issues shown</span>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="flex gap-6 h-[700px]">
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4 }}
+        className="flex gap-6 h-[700px]"
+      >
         {/* LEFT/MAIN: MAP & ALERTS */}
         <div className={`flex flex-col gap-6 transition-all duration-300 ${selectedIssue ? 'w-1/2' : 'w-full'}`}>
           {/* INDIA MAP */}
@@ -636,7 +647,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     </PortalLayout>
   )
 }
