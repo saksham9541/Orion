@@ -5,35 +5,16 @@
  */
 
 export const INDIAN_STATIONS = [
-  { id: 'NDLS', name: 'New Delhi', lat: 28.6435, lng: 77.2197, zone: 'NR' },
-  { id: 'LDH', name: 'Ludhiana Jn', lat: 30.9010, lng: 75.8573, zone: 'NR' },
-  { id: 'ASR', name: 'Amritsar Jn', lat: 31.6336, lng: 74.8737, zone: 'NR' },
-  { id: 'JAT', name: 'Jammu Tawi', lat: 32.7060, lng: 74.8797, zone: 'NR' },
-  { id: 'JP', name: 'Jaipur Jn', lat: 26.9196, lng: 75.7878, zone: 'NWR' },
-  { id: 'AII', name: 'Ajmer Jn', lat: 26.4499, lng: 74.6399, zone: 'NWR' },
-  { id: 'ADI', name: 'Ahmedabad Jn', lat: 23.0225, lng: 72.5714, zone: 'WR' },
-  { id: 'BCT', name: 'Mumbai Central', lat: 18.9696, lng: 72.8205, zone: 'WR' },
-  { id: 'CSMT', name: 'Mumbai CSMT', lat: 18.9400, lng: 72.8354, zone: 'CR' },
-  { id: 'PUNE', name: 'Pune Jn', lat: 18.5204, lng: 73.8567, zone: 'CR' },
-  { id: 'LKO', name: 'Lucknow Charbagh', lat: 26.8302, lng: 80.9151, zone: 'NR' },
-  { id: 'CNB', name: 'Kanpur Central', lat: 26.4499, lng: 80.3319, zone: 'NCR' },
-  { id: 'PRYJ', name: 'Prayagraj Jn', lat: 25.4358, lng: 81.8463, zone: 'NCR' },
-  { id: 'BSB', name: 'Varanasi Jn', lat: 25.3176, lng: 82.9739, zone: 'NER' },
-  { id: 'PNBE', name: 'Patna Jn', lat: 25.5941, lng: 85.1376, zone: 'ECR' },
-  { id: 'HWH', name: 'Howrah (Kolkata)', lat: 22.5831, lng: 88.3426, zone: 'ER' },
-  { id: 'GHY', name: 'Guwahati', lat: 26.1445, lng: 91.7362, zone: 'NFR' },
-  { id: 'BPL', name: 'Bhopal Jn', lat: 23.2599, lng: 77.4126, zone: 'WCR' },
-  { id: 'NGP', name: 'Nagpur Jn', lat: 21.1458, lng: 79.0882, zone: 'CR' },
-  { id: 'R', name: 'Raipur Jn', lat: 21.2514, lng: 81.6296, zone: 'SECR' },
-  { id: 'BBS', name: 'Bhubaneswar', lat: 20.2961, lng: 85.8245, zone: 'ECoR' },
-  { id: 'VSKP', name: 'Visakhapatnam', lat: 17.6868, lng: 83.2185, zone: 'ECoR' },
-  { id: 'SC', name: 'Secunderabad', lat: 17.4399, lng: 78.5011, zone: 'SCR' },
-  { id: 'BZA', name: 'Vijayawada Jn', lat: 16.5062, lng: 80.6480, zone: 'SCR' },
-  { id: 'MAS', name: 'Chennai Central', lat: 13.0827, lng: 80.2707, zone: 'SR' },
-  { id: 'SBC', name: 'Bengaluru City', lat: 12.9779, lng: 77.5713, zone: 'SWR' },
-  { id: 'MAQ', name: 'Mangaluru Jn', lat: 12.8703, lng: 74.8806, zone: 'SR' },
-  { id: 'ERS', name: 'Kochi (Ernakulam)', lat: 9.9816, lng: 76.2999, zone: 'SR' },
-  { id: 'TVC', name: 'Thiruvananthapuram', lat: 8.5241, lng: 76.9366, zone: 'SR' },
+  { id: 'NDLS', name: 'Delhi', lat: 28.6435, lng: 77.2197, zone: 'NR' },
+  { id: 'LDH', name: 'Ludhiana', lat: 30.9010, lng: 75.8573, zone: 'NR' },
+  { id: 'ASR', name: 'Amritsar', lat: 31.6336, lng: 74.8737, zone: 'NR' },
+  { id: 'JP', name: 'Jaipur', lat: 26.9196, lng: 75.7878, zone: 'NWR' },
+  { id: 'LKO', name: 'Lucknow', lat: 26.8302, lng: 80.9151, zone: 'NR' },
+  { id: 'BCT', name: 'Mumbai', lat: 18.9696, lng: 72.8205, zone: 'WR' },
+  { id: 'HWH', name: 'Kolkata', lat: 22.5831, lng: 88.3426, zone: 'ER' },
+  { id: 'MAS', name: 'Chennai', lat: 13.0827, lng: 80.2707, zone: 'SR' },
+  { id: 'SBC', name: 'Bengaluru', lat: 12.9779, lng: 77.5713, zone: 'SWR' },
+  { id: 'SC', name: 'Hyderabad', lat: 17.4399, lng: 78.5011, zone: 'SCR' },
 ]
 
 export const INDIAN_RAIL_CORRIDORS = [
@@ -338,76 +319,5 @@ export const INDIAN_RAIL_CORRIDORS = [
   },
 ]
 
-/**
- * Curated live Indian fleet of trains positioned strictly along Indian railway tracks.
- * Matches the user reference image (media_1793128237164_fb163c31.jpg) with colorful
- * trains in cyan, orange, yellow, pink, and emerald.
- */
-export const ACTIVE_INDIAN_FLEET = [
-  // Western Corridors
-  { number: '12951', name: 'Mumbai Rajdhani', lat: 26.4210, lng: 76.8120, speed: 128, color: '#38bdf8', status: 'ON TIME', route: 'NDLS → MMCT' },
-  { number: '12952', name: 'Mumbai Rajdhani (Up)', lat: 21.8410, lng: 73.0512, speed: 124, color: '#38bdf8', status: 'ON TIME', route: 'MMCT → NDLS' },
-  { number: '12953', name: 'August Kranti Tejas', lat: 24.8120, lng: 75.6120, speed: 130, color: '#06b6d4', status: 'ON TIME', route: 'MMCT → NZM' },
-  { number: '20901', name: 'Vande Bharat Express', lat: 20.9120, lng: 72.8940, speed: 145, color: '#00f0ff', status: 'ON TIME', route: 'MMCT → GNC' },
-  { number: '12009', name: 'Mumbai-Ahmedabad Shatabdi', lat: 22.1240, lng: 73.1250, speed: 120, color: '#f59e0b', status: 'ON TIME', route: 'MMCT → ADI' },
-  { number: '12903', name: 'Golden Temple Mail', lat: 27.2140, lng: 77.5810, speed: 95, color: '#f97316', status: 'DELAYED 14m', route: 'MMCT → ASR' },
-  { number: '12925', name: 'Paschim Express', lat: 23.4120, lng: 75.1120, speed: 105, color: '#ec4899', status: 'ON TIME', route: 'BDTS → ASR' },
-  { number: '12979', name: 'Jaipur Superfast', lat: 28.0120, lng: 76.7120, speed: 110, color: '#eab308', status: 'ON TIME', route: 'BDTS → JP' },
+export const ACTIVE_INDIAN_FLEET = []
 
-  // Eastern Corridors (Delhi - Kanpur - Kolkata)
-  { number: '12301', name: 'Howrah Rajdhani', lat: 26.0210, lng: 81.1240, speed: 130, color: '#38bdf8', status: 'ON TIME', route: 'HWH → NDLS' },
-  { number: '12302', name: 'Howrah Rajdhani (Up)', lat: 24.3120, lng: 85.8120, speed: 125, color: '#38bdf8', status: 'DELAYED 8m', route: 'NDLS → HWH' },
-  { number: '22436', name: 'Vande Bharat (Varanasi)', lat: 26.1120, lng: 81.4120, speed: 155, color: '#00f0ff', status: 'ON TIME', route: 'NDLS → BSB' },
-  { number: '12305', name: 'Kolkata Rajdhani', lat: 25.1240, lng: 83.6120, speed: 122, color: '#10b981', status: 'ON TIME', route: 'HWH → NDLS' },
-  { number: '12313', name: 'Sealdah Rajdhani', lat: 23.5120, lng: 87.2120, speed: 130, color: '#06b6d4', status: 'ON TIME', route: 'SDAH → NDLS' },
-  { number: '12801', name: 'Purushottam Express', lat: 24.9120, lng: 84.4120, speed: 100, color: '#f59e0b', status: 'ON TIME', route: 'PURI → NDLS' },
-  { number: '12393', name: 'Sampoorna Kranti', lat: 25.8120, lng: 82.2120, speed: 115, color: '#ec4899', status: 'ON TIME', route: 'RJPB → NDLS' },
-  { number: '12417', name: 'Prayagraj Express', lat: 26.7120, lng: 79.6120, speed: 120, color: '#f97316', status: 'ON TIME', route: 'PRYJ → NDLS' },
-
-  // Northern Corridors (Delhi - Ludhiana - Amritsar)
-  { number: '12013', name: 'Amritsar Shatabdi', lat: 30.6120, lng: 76.3120, speed: 130, color: '#eab308', status: 'ON TIME', route: 'NDLS → ASR' },
-  { number: '12014', name: 'Amritsar Shatabdi (Up)', lat: 31.1240, lng: 75.7120, speed: 125, color: '#eab308', status: 'ON TIME', route: 'ASR → NDLS' },
-  { number: '22439', name: 'Vande Bharat (Katra)', lat: 31.9120, lng: 75.4120, speed: 140, color: '#00f0ff', status: 'ON TIME', route: 'NDLS → SVDK' },
-  { number: '12425', name: 'Jammu Rajdhani', lat: 29.8120, lng: 76.9120, speed: 120, color: '#38bdf8', status: 'ON TIME', route: 'NDLS → JAT' },
-  { number: '12005', name: 'Kalka Shatabdi', lat: 30.1120, lng: 76.9120, speed: 115, color: '#10b981', status: 'ON TIME', route: 'NDLS → KLK' },
-
-  // Grand Trunk North-South (Delhi - Bhopal - Nagpur - Chennai)
-  { number: '12434', name: 'Chennai Rajdhani', lat: 25.1120, lng: 78.4120, speed: 130, color: '#38bdf8', status: 'ON TIME', route: 'NZM → MAS' },
-  { number: '12433', name: 'Chennai Rajdhani (Up)', lat: 17.1240, lng: 80.1120, speed: 128, color: '#38bdf8', status: 'ON TIME', route: 'MAS → NZM' },
-  { number: '12615', name: 'Grand Trunk Express', lat: 22.1240, lng: 78.3120, speed: 105, color: '#f59e0b', status: 'DELAYED 20m', route: 'MAS → NDLS' },
-  { number: '12621', name: 'Tamil Nadu Express', lat: 19.1240, lng: 79.4120, speed: 118, color: '#f97316', status: 'ON TIME', route: 'MAS → NDLS' },
-  { number: '12626', name: 'Kerala Express', lat: 23.8120, lng: 77.9120, speed: 110, color: '#22c55e', status: 'ON TIME', route: 'NDLS → TVC' },
-  { number: '20805', name: 'Vande Bharat (Secunderabad)', lat: 18.4120, lng: 79.6120, speed: 140, color: '#00f0ff', status: 'ON TIME', route: 'SC → VSKP' },
-
-  // Trans-Central (Mumbai - Nagpur - Raipur - Howrah)
-  { number: '12859', name: 'Gitanjali Express', lat: 21.1920, lng: 79.8120, speed: 110, color: '#ec4899', status: 'ON TIME', route: 'CSMT → HWH' },
-  { number: '12860', name: 'Gitanjali Express (Up)', lat: 22.4120, lng: 83.8120, speed: 108, color: '#ec4899', status: 'ON TIME', route: 'HWH → CSMT' },
-  { number: '12261', name: 'Mumbai-Howrah Duronto', lat: 20.8120, lng: 76.5120, speed: 125, color: '#10b981', status: 'ON TIME', route: 'CSMT → HWH' },
-  { number: '12810', name: 'Howrah-Mumbai Mail', lat: 22.1120, lng: 82.8120, speed: 102, color: '#f59e0b', status: 'ON TIME', route: 'HWH → CSMT' },
-  { number: '20826', name: 'Vande Bharat (Bilaspur)', lat: 21.3120, lng: 81.4120, speed: 135, color: '#00f0ff', status: 'ON TIME', route: 'BSP → NGP' },
-
-  // East Coast & South
-  { number: '12841', name: 'Coromandel Express', lat: 19.8120, lng: 85.1120, speed: 120, color: '#f97316', status: 'ON TIME', route: 'HWH → MAS' },
-  { number: '12842', name: 'Coromandel Express (Up)', lat: 15.1120, lng: 80.1120, speed: 118, color: '#f97316', status: 'ON TIME', route: 'MAS → HWH' },
-  { number: '22807', name: 'Vande Bharat (Puri)', lat: 21.8120, lng: 86.8120, speed: 140, color: '#00f0ff', status: 'ON TIME', route: 'HWH → PURI' },
-  { number: '22691', name: 'Bengaluru Rajdhani', lat: 16.1120, lng: 77.8120, speed: 130, color: '#38bdf8', status: 'ON TIME', route: 'SBC → NZM' },
-  { number: '12027', name: 'Shatabdi Express', lat: 13.1120, lng: 78.4120, speed: 115, color: '#eab308', status: 'ON TIME', route: 'MAS → SBC' },
-  { number: '20607', name: 'Vande Bharat (Mysuru)', lat: 12.8120, lng: 77.9120, speed: 135, color: '#00f0ff', status: 'ON TIME', route: 'MAS → MYS' },
-
-  // Konkan & Kerala
-  { number: '12431', name: 'Trivandrum Rajdhani', lat: 15.8120, lng: 73.8120, speed: 120, color: '#38bdf8', status: 'ON TIME', route: 'TVC → NZM' },
-  { number: '12432', name: 'Trivandrum Rajdhani (Up)', lat: 11.6120, lng: 75.6120, speed: 115, color: '#38bdf8', status: 'ON TIME', route: 'NZM → TVC' },
-  { number: '22229', name: 'Vande Bharat (Goa)', lat: 17.2120, lng: 73.4120, speed: 130, color: '#00f0ff', status: 'ON TIME', route: 'CSMT → MAO' },
-  { number: '16345', name: 'Netravati Express', lat: 13.7120, lng: 74.6120, speed: 90, color: '#22c55e', status: 'ON TIME', route: 'LTT → TVC' },
-
-  // Northeast Frontier
-  { number: '12423', name: 'Dibrugarh Rajdhani', lat: 26.2120, lng: 89.8120, speed: 120, color: '#38bdf8', status: 'ON TIME', route: 'DBRG → NDLS' },
-  { number: '12424', name: 'Dibrugarh Rajdhani (Up)', lat: 25.6120, lng: 88.0120, speed: 118, color: '#38bdf8', status: 'ON TIME', route: 'NDLS → DBRG' },
-  { number: '22227', name: 'Vande Bharat (Guwahati)', lat: 26.3120, lng: 90.9120, speed: 130, color: '#00f0ff', status: 'ON TIME', route: 'NJP → GHY' },
-
-  // Freight & Dedicated Freight Corridors (DFCCIL)
-  { number: 'WDFC-801', name: 'Western DFC Container Freight', lat: 25.6120, lng: 74.8120, speed: 85, color: '#10b981', status: 'ON TIME', route: 'Dadri → JNPT' },
-  { number: 'EDFC-402', name: 'Eastern DFC Heavy Haul Coal', lat: 25.0120, lng: 82.8120, speed: 75, color: '#f59e0b', status: 'ON TIME', route: 'Ludhiana → Sonnagar' },
-  { number: 'AUTO-109', name: 'Maruti Car Carrier Rake', lat: 27.8120, lng: 76.9120, speed: 80, color: '#ec4899', status: 'ON TIME', route: 'Gurgaon → Chennai' },
-  { number: 'RO-RO-22', name: 'Konkan Ro-Ro Truck Carrier', lat: 16.4120, lng: 73.6120, speed: 70, color: '#38bdf8', status: 'ON TIME', route: 'Kolad → Surathkal' },
-]
