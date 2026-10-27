@@ -40,16 +40,34 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-JWT_SECRET = os.environ.get("JWT_SECRET") or os.environ.get("RAILOPT_SECRET")
-if not JWT_SECRET:
-    # Use a fallback for local testing if neither variable is set, but warn
-    JWT_SECRET = "orion-default-insecure-dev-secret-key-32chars"
-    logger.warning("Neither JWT_SECRET nor RAILOPT_SECRET is set. Using default secret key.")
+def get_jwt_secret() -> str:
+    """
+    Retrieve JWT secret key from environment (JWT_SECRET or RAILOPT_SECRET).
+    - If ENVIRONMENT=production and secret is missing or < 32 characters: refuses to start with RuntimeError.
+    - Otherwise (local dev): generates a random 32+ char secret and logs one warning. Never logs the secret.
+    """
+    secret = os.environ.get("JWT_SECRET") or os.environ.get("RAILOPT_SECRET")
+    is_prod = os.environ.get("ENVIRONMENT", "").strip().lower() == "production"
+    if not secret or len(secret) < 32:
+        if is_prod:
+            raise RuntimeError(
+                "CRITICAL: JWT_SECRET (or RAILOPT_SECRET) must be set and at least 32 characters long in production."
+            )
+        logger.warning(
+            "JWT_SECRET is missing or shorter than 32 characters. Generating random ephemeral secret for local development."
+        )
+        import secrets
+        return secrets.token_urlsafe(32)
+    return secret
+
+
+JWT_SECRET = get_jwt_secret()
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 20
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 MAX_FAILED_ATTEMPTS = 5
+MAX_FAILED_ATTEMPTS_PER_IP = 20
 LOCKOUT_MINUTES = 15
 
 security = HTTPBearer(auto_error=False)
@@ -100,7 +118,7 @@ def create_access_token(user: UserRecord | dict) -> str:
         "iat": now,
         "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
+    return jwt.encode(payload, get_jwt_secret(), algorithm=ALGORITHM)
 
 
 def create_refresh_token(user: UserRecord | dict) -> str:
@@ -113,17 +131,30 @@ def create_refresh_token(user: UserRecord | dict) -> str:
         "iat": now,
         "exp": now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
+    return jwt.encode(payload, get_jwt_secret(), algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> dict:
     """Decode and validate a JWT."""
-    return jwt.decode(
-        token,
-        JWT_SECRET,
-        algorithms=[ALGORITHM],
-        options={"require": ["exp", "sub"]},
-    )
+    try:
+        return jwt.decode(
+            token,
+            get_jwt_secret(),
+            algorithms=[ALGORITHM],
+            options={"require": ["exp", "sub"]},
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except (jwt.PyJWTError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -135,29 +166,38 @@ def authenticate_user(
     client_ip: Optional[str] = None,
 ) -> tuple[Optional[UserRecord], Optional[str]]:
     """
-    Authenticate against the database with 5-attempt rate-limiting.
+    Authenticate against the database with:
+    - 5 attempts per (email, ip)
+    - 20 attempts per IP alone
     Returns (user, error_message).
     """
     clean_email = email.strip().lower()
+    clean_ip = client_ip.strip() if client_ip else None
     session = get_session()
     try:
-        # Check rate-limiting
-        failed_count = get_failed_login_count(session, clean_email, window_minutes=LOCKOUT_MINUTES)
+        # Check IP-wide lockout
+        if clean_ip:
+            ip_failed = get_failed_login_count(session, ip_address=clean_ip, window_minutes=LOCKOUT_MINUTES)
+            if ip_failed >= MAX_FAILED_ATTEMPTS_PER_IP:
+                return None, f"Too many failed login attempts from this IP. Please try again after {LOCKOUT_MINUTES} minutes."
+
+        # Check (email, ip) lockout
+        failed_count = get_failed_login_count(session, email=clean_email, ip_address=clean_ip, window_minutes=LOCKOUT_MINUTES)
         if failed_count >= MAX_FAILED_ATTEMPTS:
-            return None, f"Account temporarily locked due to {failed_count} failed attempts. Please try again after {LOCKOUT_MINUTES} minutes."
+            return None, f"Account temporarily locked for this IP due to {failed_count} failed attempts. Please try again after {LOCKOUT_MINUTES} minutes."
 
         user = get_user_by_email(session, clean_email)
         if not user or not verify_password(password, user.password_hash):
-            record_login_attempt(session, clean_email, client_ip, False)
+            record_login_attempt(session, clean_email, clean_ip, False)
             return None, "Invalid email or password"
 
         if not user.is_active:
             return None, "Account is disabled. Please contact an administrator."
 
         # Successful login
-        record_login_attempt(session, clean_email, client_ip, True)
-        clear_failed_login_attempts(session, clean_email)
-        user.last_login_at = datetime.datetime.utcnow()
+        record_login_attempt(session, clean_email, clean_ip, True)
+        clear_failed_login_attempts(session, clean_email, clean_ip)
+        user.last_login_at = datetime.datetime.now(timezone.utc)
         session.commit()
         session.refresh(user)
         session.expunge(user)

@@ -9,6 +9,7 @@ NL briefings, what-if simulation, and a one-click demo setup.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date, timedelta
 from typing import List, Optional
 
@@ -19,6 +20,7 @@ from backend.database import (
     get_engine,
     get_session,
     init_db,
+    check_connection_with_retry,
     load_all_plans,
     load_alerts,
     load_corridors,
@@ -27,6 +29,9 @@ from backend.database import (
     save_corridors,
     save_plan,
     save_tasks,
+    TaskRecord,
+    BlockPlanRecord,
+    CorridorRecord,
 )
 # Data
 from railopt.synthetic_data import generate_full_dataset
@@ -140,9 +145,25 @@ async def log_requests(request: Request, call_next):
     print(f"INFO:     {request.client.host} - \"{request.method} {request.url.path}\" {response.status_code} ({process_time:.1f}ms)", flush=True)
     return response
 
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+def get_cors_origins() -> list[str]:
+    origins_env = os.environ.get("CORS_ORIGINS", "").strip()
+    is_prod = os.environ.get("ENVIRONMENT", "").strip().lower() == "production"
+    if origins_env:
+        return [o.strip() for o in origins_env.split(",") if o.strip()]
+    if is_prod:
+        logger.warning("CORS_ORIGINS is not set in production. Falling back to localhost defaults.")
+    return DEFAULT_CORS_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -153,68 +174,112 @@ engine = get_engine()
 
 @app.on_event("startup")
 def on_startup():
-    init_db(engine)
-    session = get_session(engine)
-
-    tasks_data, tasks_failed = load_tasks(session)
-    app.state.tasks = tasks_data
-    corridors_data, corridors_failed = load_corridors(session)
-    app.state.corridors = corridors_data
-    # Build sections lookup from loaded corridors
+    # Initialize basic state defaults so app never fails with AttributeError
+    app.state.tasks = []
+    app.state.corridors = []
     app.state.sections = {}
-    for corridor in corridors_data:
-        if hasattr(corridor, 'sections') and corridor.sections:
-            for section in corridor.sections:
-                app.state.sections[section.section_id] = section
     app.state.windows = []
     app.state.train_slots = []
-    logger.info(f"Loaded {len(app.state.sections)} sections from {len(corridors_data)} corridors")
-    app.state.plans = {p.plan_id: p for p in load_all_plans(session)}
-    app.state.alerts = load_alerts(session)
-    
+    app.state.plans = {}
+    app.state.alerts = []
     app.state.load_failures = {
-        "tasks": tasks_failed,
-        "corridors": corridors_failed,
-        "alerts": 0  # Alerts didn't get the tuple update, keep it simple
+        "tasks": 0,
+        "corridors": 0,
+        "alerts": 0,
     }
+    app.state.database_ok = True
+    app.state.models_loaded = False
 
-    # ML models — loaded if trained, else None until /api/demo/setup
-    app.state.scorer: CriticalityScorer | None = None
-    app.state.impact_predictor: TrafficImpactPredictor | None = None
-    app.state.duration_estimator: DurationEstimator | None = None
+    # Check connection if using PostgreSQL
+    if hasattr(engine, "url") and engine.url.drivername.startswith("postgresql"):
+        try:
+            check_connection_with_retry(engine)
+        except Exception as e:
+            logger.error("PostgreSQL database connection failed on startup: %s. Running in degraded mode.", e)
+            app.state.database_ok = False
 
-    try:
-        scorer = CriticalityScorer()
-        scorer.load("ml/models/criticality_scorer.pkl")
-        app.state.scorer = scorer
-        logger.info("Loaded trained criticality scorer")
-    except Exception:
-        logger.info("No trained criticality scorer found — run /api/demo/setup")
+    if app.state.database_ok:
+        try:
+            init_db(engine)
+            session = get_session(engine)
+            try:
+                tasks_data, tasks_failed = load_tasks(session)
+                app.state.tasks = tasks_data
+                corridors_data, corridors_failed = load_corridors(session)
+                app.state.corridors = corridors_data
+                for corridor in corridors_data:
+                    if hasattr(corridor, 'sections') and corridor.sections:
+                        for section in corridor.sections:
+                            app.state.sections[section.section_id] = section
+                logger.info(f"Loaded {len(app.state.sections)} sections from {len(corridors_data)} corridors")
+                app.state.plans = {p.plan_id: p for p in load_all_plans(session)}
+                app.state.alerts = load_alerts(session)
+                app.state.load_failures = {
+                    "tasks": tasks_failed,
+                    "corridors": corridors_failed,
+                    "alerts": 0,
+                }
+            finally:
+                session.close()
+        except Exception as e:
+            logger.error("Error initializing/loading database data: %s", e)
+            app.state.database_ok = False
 
-    try:
-        predictor = TrafficImpactPredictor()
-        predictor.load("ml/models/impact_predictor.pkl")
-        app.state.impact_predictor = predictor
-        logger.info("Loaded trained impact predictor")
-    except Exception:
-        logger.info("No trained impact predictor found — run /api/demo/setup")
+    # ML models — loaded if trained, else None until /api/demo/setup or scripts/train_models.py
+    app.state.scorer = None
+    app.state.impact_predictor = None
+    app.state.duration_estimator = None
 
-    try:
-        duration_estimator = DurationEstimator()
-        duration_estimator.load("ml/models/duration_estimator.pkl")
-        app.state.duration_estimator = duration_estimator
-        logger.info("Loaded trained duration estimator")
-    except Exception:
-        logger.info("No trained duration estimator found — run /api/demo/setup")
+    models_ok = True
+    scorer_path = "ml/models/criticality_scorer.pkl"
+    if os.path.exists(scorer_path):
+        try:
+            scorer = CriticalityScorer()
+            scorer.load(scorer_path)
+            app.state.scorer = scorer
+            logger.info("Loaded trained criticality scorer")
+        except Exception as e:
+            models_ok = False
+            logger.warning("Failed to load criticality scorer: %s", e)
+    else:
+        models_ok = False
+        logger.warning("No trained criticality scorer found at %s", scorer_path)
+
+    predictor_path = "ml/models/impact_predictor.pkl"
+    if os.path.exists(predictor_path):
+        try:
+            predictor = TrafficImpactPredictor()
+            predictor.load(predictor_path)
+            app.state.impact_predictor = predictor
+            logger.info("Loaded trained impact predictor")
+        except Exception as e:
+            models_ok = False
+            logger.warning("Failed to load impact predictor: %s", e)
+    else:
+        models_ok = False
+        logger.warning("No trained impact predictor found at %s", predictor_path)
+
+    duration_path = "ml/models/duration_estimator.pkl"
+    if os.path.exists(duration_path):
+        try:
+            duration_estimator = DurationEstimator()
+            duration_estimator.load(duration_path)
+            app.state.duration_estimator = duration_estimator
+            logger.info("Loaded trained duration estimator")
+        except Exception as e:
+            models_ok = False
+            logger.warning("Failed to load duration estimator: %s", e)
+    else:
+        models_ok = False
+        logger.warning("No trained duration estimator found at %s", duration_path)
+
+    app.state.models_loaded = models_ok
 
     app.state.briefing_gen = BriefingGenerator(use_llm=True)
     app.state.explainer = ExplainabilityEngine(use_llm=True)
-    
     app.state.feedback_logger = FeedbackLogger()
     app.state.text_classifier = DefectTextClassifier(use_llm=True)
     app.state.data_integration = DataIntegrationService()
-
-    session.close()
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -595,13 +660,8 @@ def _run_multi_layer_analysis(tasks: list[MaintenanceTask]) -> dict:
 def health_check():
     return {
         "status": "ok",
-        "tasks": len(app.state.tasks),
-        "windows": len(app.state.windows),
-        "plans": len(app.state.plans),
-        "ml_scorer_loaded": app.state.scorer is not None,
-        "ml_impact_loaded": app.state.impact_predictor is not None,
-        "ml_duration_loaded": app.state.duration_estimator is not None,
-        "rows_failed_to_load": app.state.load_failures,
+        "models_loaded": bool(getattr(app.state, "models_loaded", False)),
+        "database_ok": bool(getattr(app.state, "database_ok", True)),
     }
 
 
@@ -1406,7 +1466,7 @@ class DemoActionRequest(BaseModel):
 
 
 @app.post("/api/demo/action")
-def demo_action(request: DemoActionRequest, current_user: User = Depends(require_admin)):
+def demo_action(request: DemoActionRequest, current_user: User = Depends(require_viewer_or_above)):
     """Logs frontend demo actions to the terminal."""
     logger.info(f"DEMO UI ACTION: User {current_user.email} marked '{request.issue_id}' as {request.action}")
     return {"status": "ok"}
@@ -1424,21 +1484,30 @@ def setup_demo(current_user: User = Depends(require_admin)):
     # 1. Generate synthetic dataset
     dataset = generate_full_dataset(seed=42, num_tasks=200)
 
+    # Retain existing user tasks in memory and DB
+    user_tasks = [t for t in getattr(app.state, "tasks", []) if getattr(t, "source", "synthetic") == "user"]
+    app.state.tasks = user_tasks + dataset["tasks"]
     app.state.corridors = dataset["corridors"]
-    app.state.tasks = dataset["tasks"]
     app.state.sections = {s.section_id: s for s in dataset["sections"]}
     app.state.windows = dataset["block_windows"]
     app.state.train_slots = dataset["train_slots"]
 
+    # Retain existing user plans in memory
+    app.state.plans = {
+        p_id: p for p_id, p in getattr(app.state, "plans", {}).items()
+        if getattr(p, "source", "synthetic") == "user"
+    }
+
     logger.info(
-        f"Generated: {len(app.state.tasks)} tasks, "
+        f"Generated: {len(dataset['tasks'])} synthetic tasks, "
+        f"{len(app.state.tasks)} total tasks ({len(user_tasks)} user tasks preserved), "
         f"{len(app.state.windows)} windows, "
         f"{len(app.state.sections)} sections"
     )
 
-    # 2. Train ML models
+    # 2. Train ML models on synthetic tasks
     pipeline = TrainingPipeline(data_dir="data", model_dir="ml/models")
-    pipeline.tasks = app.state.tasks
+    pipeline.tasks = dataset["tasks"]
     pipeline.windows = app.state.windows
     pipeline.sections = app.state.sections
     pipeline.corridors = app.state.corridors
@@ -1456,6 +1525,7 @@ def setup_demo(current_user: User = Depends(require_admin)):
     duration_estimator = DurationEstimator()
     duration_estimator.load("ml/models/duration_estimator.pkl")
     app.state.duration_estimator = duration_estimator
+    app.state.models_loaded = True
 
     # 4. Score all tasks and windows
     _batch_score_tasks(app.state.tasks)
@@ -1466,9 +1536,18 @@ def setup_demo(current_user: User = Depends(require_admin)):
     analysis = _run_multi_layer_analysis(app.state.tasks)
     logger.info("Multi-layer analysis applied to all tasks")
 
-    # 6. Persist to DB
+    # 6. Persist to DB: Delete only synthetic rows, preserving user rows
     session = get_session(engine)
-    save_tasks(session, app.state.tasks)
+    try:
+        session.query(TaskRecord).filter(TaskRecord.source == "synthetic").delete(synchronize_session=False)
+        session.query(BlockPlanRecord).filter(BlockPlanRecord.source == "synthetic").delete(synchronize_session=False)
+        session.query(CorridorRecord).filter(CorridorRecord.source == "synthetic").delete(synchronize_session=False)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.error("Error clearing synthetic records from database: %s", e)
+
+    save_tasks(session, dataset["tasks"])
     save_corridors(session, app.state.corridors)
     session.close()
 

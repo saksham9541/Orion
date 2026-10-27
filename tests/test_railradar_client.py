@@ -94,7 +94,7 @@ def test_cache_hit_avoids_network(test_engine, mock_snapshots):
 def test_key_rotation_and_budget_skipping(test_engine, mock_snapshots):
     # key1 has exhausted limit (90 calls)
     session = get_session(test_engine)
-    now_ym = datetime.datetime.utcnow().strftime("%Y-%m")
+    now_ym = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m")
     ident_alpha = key_identifier("key_alpha_1111")
     for _ in range(90):
         record_api_usage(session, ident_alpha, "/trains/test", 200, True, year_month=now_ym)

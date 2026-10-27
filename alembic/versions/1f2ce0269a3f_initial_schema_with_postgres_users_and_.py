@@ -112,6 +112,7 @@ def upgrade() -> None:
         op.create_table(
             'corridors',
             sa.Column('corridor_id', sa.String(), primary_key=True),
+            sa.Column('source', sa.String(length=20), nullable=False, server_default='synthetic'),
             sa.Column('name', sa.String(), nullable=True),
             sa.Column('division', sa.String(), nullable=True),
             sa.Column('zone', sa.String(), nullable=True),
@@ -119,6 +120,12 @@ def upgrade() -> None:
             sa.Column('total_length_km', sa.Float(), nullable=True),
             sa.Column('is_rajdhani_route', sa.Boolean(), nullable=True),
         )
+        op.create_index(op.f('ix_corridors_source'), 'corridors', ['source'], unique=False)
+    else:
+        columns = [c['name'] for c in inspector.get_columns('corridors')]
+        if 'source' not in columns:
+            op.add_column('corridors', sa.Column('source', sa.String(length=20), nullable=False, server_default='synthetic'))
+            op.create_index(op.f('ix_corridors_source'), 'corridors', ['source'], unique=False)
 
     # 4. alerts
     if 'alerts' not in existing_tables:

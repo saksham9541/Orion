@@ -107,6 +107,7 @@ class BlockPlanRecord(Base):
 class CorridorRecord(Base):
     __tablename__ = 'corridors'
     corridor_id = Column(String, primary_key=True)
+    source = Column(String(20), default="synthetic", nullable=False, index=True)  # "synthetic" | "user"
     name = Column(String)
     division = Column(String)
     zone = Column(String)
@@ -141,13 +142,18 @@ class LiveTrainStatusRecord(Base):
     source = Column(String)
 
 
+def utc_now() -> datetime.datetime:
+    """Returns timezone-aware current UTC datetime."""
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 class ApiUsageRecord(Base):
     __tablename__ = 'api_usage'
     id = Column(Integer, primary_key=True, autoincrement=True)
     key_suffix = Column(String(10), index=True)
     year_month = Column(String(7), index=True)  # YYYY-MM
     endpoint = Column(String)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=utc_now)
     status_code = Column(Integer)
     success = Column(Boolean)
 
@@ -158,7 +164,7 @@ class ApiCacheRecord(Base):
     endpoint = Column(String)
     data = Column(JSON_TYPE)
     meta = Column(JSON_TYPE, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     expires_at = Column(DateTime, index=True)
 
 
@@ -171,7 +177,7 @@ class UserRecord(Base):
     role = Column(String(20), nullable=False)  # ADMIN, CONTROLLER, DEPT_USER, VIEWER
     department = Column(String(20), nullable=True)  # ENGINEERING, SNT, TRD
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     last_login_at = Column(DateTime, nullable=True)
 
 
@@ -180,7 +186,7 @@ class LoginAttemptRecord(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(255), index=True, nullable=False)
     ip_address = Column(String(45), nullable=True)
-    attempted_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    attempted_at = Column(DateTime, default=utc_now, nullable=False)
     success = Column(Boolean, default=False, nullable=False)
 
 
@@ -249,6 +255,23 @@ def init_db(engine):
     url = str(engine.url)
     if url.startswith("sqlite"):
         Base.metadata.create_all(engine)
+        # Ensure newer columns exist on existing local SQLite databases
+        with engine.connect() as conn:
+            for table, col, col_type in [
+                ("corridors", "source", "VARCHAR(20) DEFAULT 'synthetic'"),
+                ("tasks", "source", "VARCHAR(20) DEFAULT 'synthetic'"),
+                ("plans", "source", "VARCHAR(20) DEFAULT 'synthetic'"),
+                ("login_attempts", "ip_address", "VARCHAR(64)"),
+                ("api_usage", "key_suffix", "VARCHAR(16)"),
+            ]:
+                try:
+                    res = conn.execute(text(f"PRAGMA table_info({table})"))
+                    cols = [r[1] for r in res.fetchall()]
+                    if cols and col not in cols:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                        conn.commit()
+                except Exception as e:
+                    logger.debug("Column migration skipped for %s.%s: %s", table, col, e)
 
 
 def get_session(engine=None):
@@ -394,14 +417,14 @@ def record_api_usage(
 ) -> None:
     """Record an API request in api_usage table for monthly budget tracking."""
     if not year_month:
-        year_month = datetime.datetime.utcnow().strftime("%Y-%m")
+        year_month = utc_now().strftime("%Y-%m")
     record = ApiUsageRecord(
         key_suffix=key_suffix,
         year_month=year_month,
         endpoint=endpoint,
         status_code=status_code,
         success=success,
-        timestamp=datetime.datetime.utcnow(),
+        timestamp=utc_now(),
     )
     session.add(record)
     session.commit()
@@ -414,7 +437,7 @@ def get_api_usage_count(
 ) -> int:
     """Get the request count for a given key_suffix in a calendar month."""
     if not year_month:
-        year_month = datetime.datetime.utcnow().strftime("%Y-%m")
+        year_month = utc_now().strftime("%Y-%m")
     count = (
         session.query(func.count(ApiUsageRecord.id))
         .filter(
@@ -432,7 +455,7 @@ def get_all_key_usages(
 ) -> dict[str, int]:
     """Get request counts grouped by key_suffix for a calendar month."""
     if not year_month:
-        year_month = datetime.datetime.utcnow().strftime("%Y-%m")
+        year_month = utc_now().strftime("%Y-%m")
     rows = (
         session.query(ApiUsageRecord.key_suffix, func.count(ApiUsageRecord.id))
         .filter(ApiUsageRecord.year_month == year_month)
@@ -444,7 +467,7 @@ def get_all_key_usages(
 
 def get_api_cache(session: Session, cache_key: str) -> Optional[dict]:
     """Retrieve an unexpired cached API response."""
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     record = (
         session.query(ApiCacheRecord)
         .filter(
@@ -472,7 +495,7 @@ def set_api_cache(
     ttl_seconds: int = 600,
 ) -> None:
     """Upsert a cached API response with TTL in seconds."""
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     expires_at = now + datetime.timedelta(seconds=ttl_seconds)
     record = ApiCacheRecord(
         cache_key=cache_key,
@@ -507,38 +530,50 @@ def save_user(session: Session, user: UserRecord) -> UserRecord:
 def update_last_login(session: Session, user_id: str) -> None:
     user = session.query(UserRecord).filter(UserRecord.id == user_id).first()
     if user:
-        user.last_login_at = datetime.datetime.utcnow()
+        user.last_login_at = utc_now()
         session.commit()
 
 
 def record_login_attempt(session: Session, email: str, ip_address: Optional[str], success: bool) -> None:
     attempt = LoginAttemptRecord(
         email=email.strip().lower(),
-        ip_address=ip_address,
-        attempted_at=datetime.datetime.utcnow(),
+        ip_address=ip_address.strip() if ip_address else None,
+        attempted_at=utc_now(),
         success=success,
     )
     session.add(attempt)
     session.commit()
 
 
-def get_failed_login_count(session: Session, email: str, window_minutes: int = 15) -> int:
-    cutoff = datetime.datetime.utcnow() - datetime.timedelta(minutes=window_minutes)
-    count = (
-        session.query(func.count(LoginAttemptRecord.id))
-        .filter(
-            func.lower(LoginAttemptRecord.email) == email.strip().lower(),
-            LoginAttemptRecord.success == False,
-            LoginAttemptRecord.attempted_at >= cutoff,
-        )
-        .scalar()
+def get_failed_login_count(
+    session: Session,
+    email: Optional[str] = None,
+    ip_address: Optional[str] = None,
+    window_minutes: int = 15,
+) -> int:
+    cutoff = utc_now() - datetime.timedelta(minutes=window_minutes)
+    query = session.query(func.count(LoginAttemptRecord.id)).filter(
+        LoginAttemptRecord.success == False,
+        LoginAttemptRecord.attempted_at >= cutoff,
     )
+    if email:
+        query = query.filter(func.lower(LoginAttemptRecord.email) == email.strip().lower())
+    if ip_address:
+        query = query.filter(LoginAttemptRecord.ip_address == ip_address.strip())
+    count = query.scalar()
     return count or 0
 
 
-def clear_failed_login_attempts(session: Session, email: str) -> None:
-    session.query(LoginAttemptRecord).filter(
+def clear_failed_login_attempts(
+    session: Session,
+    email: str,
+    ip_address: Optional[str] = None,
+) -> None:
+    query = session.query(LoginAttemptRecord).filter(
         func.lower(LoginAttemptRecord.email) == email.strip().lower(),
         LoginAttemptRecord.success == False,
-    ).delete(synchronize_session=False)
+    )
+    if ip_address:
+        query = query.filter(LoginAttemptRecord.ip_address == ip_address.strip())
+    query.delete(synchronize_session=False)
     session.commit()

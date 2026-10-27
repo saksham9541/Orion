@@ -293,6 +293,7 @@ class Corridor(BaseModel):
     division: str                              # e.g. "Delhi Division"
     zone: str                                  # e.g. "Northern Railway"
     sections: list[Section] = Field(default_factory=list)
+    source: str = "synthetic"                  # "synthetic" | "user"
     total_length_km: float = 0.0
     is_rajdhani_route: bool = False            # Strategic route flag
 

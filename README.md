@@ -1,8 +1,10 @@
-# RailOpt — AI-Powered Automatic Block Planning for Indian Railways
+# Orion — AI-Powered Maintenance Block Optimization for Indian Railways
 
 **Transforming decentralized, manual maintenance block planning into a data-driven, coordinated process that maximizes asset availability, improves safety, and supports reliable train operations.**
 
-## Problem
+---
+
+## 1. Problem
 
 Indian Railways maintenance across Engineering (track), S&T (signals), and TRD (traction/OHE) is planned independently. Each department requests blocks via BDMS without cross-department coordination. This leads to:
 - **Inefficient block utilization** — departments take separate closures on the same corridor
@@ -10,156 +12,208 @@ Indian Railways maintenance across Engineering (track), S&T (signals), and TRD (
 - **Block overruns** — unreliable duration estimates cause cascading delays
 - **Suboptimal scheduling** — blocks during peak traffic when off-peak windows exist
 
-## Solution
+---
 
-RailOpt integrates maintenance data from TMS, SMMS, and TDMS with corridor availability from COA to generate optimized, merged, multi-department block schedules.
+## 2. Solution & Core Engines
+
+Orion integrates maintenance data with corridor availability and real passenger train schedules to generate optimized, merged, multi-department block schedules.
 
 ### Core ML Engine
 - **Criticality Scorer** (XGBoost) — produces cross-department comparable urgency scores (0-100)
 - **Traffic Impact Predictor** (LightGBM) — predicts how disruptive each block window is
 - **Duration Estimator** (Random Forest) — predicts realistic task duration with confidence intervals
-- **Defect Text Classifier** (Gemini/NLP) — extracts structured severity from inspector free-text notes
+- **Defect Text Classifier** (NLP/LLM) — extracts structured severity from inspector free-text notes
 
 ### CP-SAT Block Scheduler
 - Google OR-Tools constraint optimization assigns tasks to windows
 - **Block merging** — combines multi-department work into shared blocks, saving hours of track closure
 - **SLA enforcement** — emergency tasks force-scheduled, overdue tasks auto-escalated
 
-### Multi-Agent Negotiation
-- Engineering, S&T, and TRD department agents propose and negotiate block requests
-- Arbitrator agent resolves conflicts via merge, priority override, or rescheduling
-- Emergency re-planning agent handles mid-week urgent defects
-- Early warning agent detects trending failure risks
+### Real Passenger Train Integration
+- Real-time live train running status, delays, and GeoJSON route geometry via RailRadar API (`https://api.railradar.in/v1`)
+- Multi-key rotation and caching with monthly quota protections (default 90 req/month/key)
+- Heatmap visualizer displaying defect hotspots correlated with real train delays
 
-### GenAI Layer
+### GenAI & Explainability Layer
 - Natural-language plan briefings for control rooms
-- Query interface: "Why was defect #4521 pushed to next month?"
-- SHAP-based explainability for every ML decision
+- Query interface for controllers: "Why was defect #4521 pushed to next month?"
+- SHAP-based explainability for every ML prioritization decision
 
-## Architecture
+---
+
+## 3. Data Rule: Real vs. Simulated
+
+Every API response and UI view carries an unambiguous `source` label ("live", "cache", "snapshot", "synthetic", or "user"):
+
+| Domain Element | Data Nature | Source & Handling | Source Label |
+|---|---|---|---|
+| **Passenger Train Timetables & Delays** | **REAL** | Fetched live via RailRadar API; local cache and fallback snapshots | `"live"`, `"cache"`, `"snapshot"` |
+| **Train Route Geometries (GeoJSON)** | **REAL** | Real track alignments fetched from RailRadar | `"live"`, `"cache"` |
+| **Maintenance Defect Tasks** | **SIMULATED** | Generated synthetically or input by operators | `"synthetic"`, `"user"` |
+| **Corridors & Sections** | **CALIBRATED** | Delhi-Howrah and Delhi-Mumbai geographically calibrated; others approximated | `"synthetic"` |
+| **Block Windows & Goods Trains** | **SIMULATED** | Synthetically generated to match density patterns | `"synthetic"` |
+
+---
+
+## 4. Architecture
 
 ```
-Data Integration → ML Scoring/Prediction → CP-SAT Optimizer (+ Multi-Agent Negotiation)
-                                                    ↓
-                              GenAI Briefing / NL Query / Explainability
-                                                    ↓
-                                    FastAPI Backend → React Dashboard
+Real Train Feeds (RailRadar) ──┐
+                               ├──► ML Scoring & Traffic Impact ──► CP-SAT Optimizer (Block Merging)
+Maintenance Systems (TMS/SMMS) ─┘                                            │
+                                                                             ▼
+                                 React Dashboard ◄── FastAPI Backend ◄── GenAI Explainability
 ```
 
-## Quick Start
+---
 
-### Backend
+## 5. Quick Start
+
+### Prerequisites
+- Python 3.11+
+- Node.js 18+ (for frontend)
+- PostgreSQL (e.g., Neon serverless) or SQLite for local development
+
+### Backend Setup
 ```bash
-# Install dependencies
+# 1. Install production dependencies
 pip install -r requirements.txt
 
-# Start the server
-uvicorn backend.main:app --reload --port 8000
+# (Optional) Install development & test dependencies
+pip install -r requirements-dev.txt
 
-# Setup demo data (in another terminal or via API)
-curl -X POST http://localhost:8000/api/demo/setup
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your JWT_SECRET, DATABASE_URL, and RAILRADAR_API_KEYS
+
+# 3. Apply database migrations
+alembic upgrade head
+
+# 4. Create initial administrator account
+python scripts/create_admin.py --email admin@railways.gov.in --name "Chief Controller" --password "<secure-password>"
+
+# 5. (Optional) Pre-train ML models
+python scripts/train_models.py --tasks 1000
+
+# 6. Start backend server
+uvicorn backend.main:app --reload --port 8000
 ```
 
-### Frontend
+### Frontend Setup
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Run Tests
+### Running Tests
 ```bash
 pytest tests/ -v
 ```
 
-## Project Structure
+---
+
+## 6. Project Structure
 
 ```
-RailOpt/
-├── railopt/                    # Core domain
+ORION/
+├── railopt/                    # Core Domain Models & Adapters
 │   ├── models.py               # Pydantic domain models
-│   ├── synthetic_data.py       # Synthetic data generator
-│   ├── data_integration.py     # TMS/SMMS/TDMS adapters
+│   ├── synthetic_data.py       # Deterministic synthetic data generator
+│   ├── data_integration.py     # TMS/SMMS/TDMS ingestion adapters
 │   ├── sim_entities.py         # Train simulation entities
 │   └── sim_state_machine.py    # Train state transitions
-├── ml/                         # ML Engine
+├── ml/                         # Machine Learning Pipeline
 │   ├── criticality_scorer.py   # XGBoost risk scorer
 │   ├── impact_predictor.py     # LightGBM impact model
-│   ├── duration_estimator.py   # Random Forest duration
+│   ├── duration_estimator.py   # Random Forest duration estimator
 │   ├── defect_text_classifier.py # NLP severity extractor
-│   ├── feature_engineering.py  # Feature pipeline
+│   ├── feature_engineering.py  # Tabular feature extractors
 │   └── training_pipeline.py    # Training orchestration
-├── optimizer/                  # Block Scheduling
-│   ├── cpsat_solver.py         # CP-SAT optimizer
-│   ├── block_merger.py         # Multi-dept merging
-│   └── sla_engine.py           # SLA enforcement
-├── agents/                     # Multi-Agent System
-│   ├── department_agent.py     # Dept agents (Eng/S&T/TRD)
-│   ├── arbitrator_agent.py     # Conflict resolver
-│   ├── replanning_agent.py     # Emergency re-planner
-│   ├── early_warning_agent.py  # Risk monitor
-│   └── agent_orchestrator.py   # Workflow orchestrator
-├── genai/                      # GenAI Layer
-│   ├── briefing_generator.py   # NL plan briefings
-│   ├── nl_query_engine.py      # NL query interface
-│   └── explainability.py       # SHAP explanations
-├── simulator/                  # What-If Engine
+├── optimizer/                  # Mathematical Optimization
+│   ├── cpsat_solver.py         # Google OR-Tools CP-SAT scheduler
+│   ├── block_merger.py         # Multi-department block merger
+│   └── sla_engine.py           # SLA enforcement & escalation
+├── integrations/               # External APIs
+│   └── railradar_client.py     # Multi-key rotating RailRadar client
+├── genai/                      # GenAI & Explainability
+│   ├── briefing_generator.py   # Control room briefings
+│   ├── nl_query_engine.py      # Natural language query engine
+│   └── explainability.py       # SHAP explanation provider
+├── simulator/                  # What-If Impact Simulator
 │   └── block_impact_simulator.py
-├── backend/                    # FastAPI Backend
-│   ├── main.py                 # API endpoints
-│   ├── database.py             # SQLite persistence
-│   └── schemas.py              # Request/response schemas
-├── frontend/                   # React Dashboard
-│   └── src/
-├── tests/                      # Test suite
-└── requirements.txt
+├── backend/                    # FastAPI Application
+│   ├── main.py                 # REST API endpoints & lifecycle
+│   ├── database.py             # PostgreSQL (Neon) & SQLite persistence
+│   ├── auth.py                 # RBAC, JWT tokens, login rate limiting
+│   └── schemas.py              # Pydantic API schemas
+├── scripts/                    # CLI Utilities
+│   ├── create_admin.py         # Admin user creation
+│   ├── train_models.py         # On-demand ML model training
+│   ├── migrate_sqlite_to_postgres.py # SQLite to PostgreSQL data migration
+│   └── snapshot_railradar.py   # Snapshot generator for offline use
+├── alembic/                    # Database Migrations
+│   └── versions/               # Schema version history
+├── docs/                       # Project Documentation
+│   ├── PERMISSIONS.md          # Role-Based Access Control matrix
+│   ├── KNOWN_GAPS.md           # Operational boundaries & technical gaps
+│   ├── implementation_plan.md
+│   ├── map_instructions.md
+│   ├── walkthrough.md
+│   └── pitch_deck_content.md
+├── frontend/                   # React + Vite Dashboard
+└── tests/                      # Automated Test Suite
 ```
 
-## Key Differentiators
+---
 
-1. **Cross-department comparable urgency scoring** — ML produces one number that ranks track defects against signal faults against OHE damage
-2. **Block merging** — the single biggest efficiency gain: when 3 departments need the same corridor, one shared block instead of 3 separate closures
-3. **Multi-agent negotiation** — models the real-world coordination problem between departments as explicit agent interaction
-4. **Explainability** — every score and every scheduling decision can be explained to the engineer who needs to trust it
-5. **Proactive risk management** — early warning agent shifts from reactive to predictive maintenance scheduling
+## 7. Environment Variables & Configuration
 
-## Tech Stack
+Configure via `.env` (refer to `.env.example`):
 
-| Component | Technology |
-|---|---|
-| ML Models | XGBoost, LightGBM, scikit-learn, SHAP |
-| Optimizer | Google OR-Tools CP-SAT |
-| GenAI | Google Gemini API |
-| Backend | FastAPI, SQLAlchemy, SQLite |
-| Frontend | React, Vite, Tailwind CSS, Recharts |
-| NLP | google-genai, regex fallback |
-
-## Environment Variables & Configuration
-
-Create a `.env` file in the project root (see `.env.example`):
-
-| Variable | Description | Default |
+| Variable | Description | Default / Example |
 |---|---|---|
+| `ENVIRONMENT` | Environment mode (`development` or `production`) | `development` |
+| `JWT_SECRET` | Secret key for JWT tokens (min 32 characters in production) | Auto-generated in dev |
+| `RAILOPT_SECRET` | Backward-compatible alias for `JWT_SECRET` | — |
+| `DATABASE_URL` | PostgreSQL connection string with SSL required | Falls back to SQLite |
+| `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:5173,http://localhost:3000` |
 | `RAILRADAR_API_KEYS` | Comma-separated list of RailRadar API keys | `""` |
-| `RAILRADAR_BASE_URL` | Base URL for RailRadar API | `https://api.railradar.in/v1` |
-| `RAILRADAR_OFFLINE` | Set to `1` to prevent network calls and use snapshots | `0` |
+| `RAILRADAR_BASE_URL` | RailRadar base endpoint | `https://api.railradar.in/v1` |
+| `RAILRADAR_OFFLINE` | `1` to disable network calls and use snapshots | `0` |
 | `RAILRADAR_KEY_LIMIT` | Safe monthly request cap per key | `90` |
-| `RAILOPT_SECRET` | Secret key for JWT authentication | — |
-| `NVIDIA_API_KEY` | Optional key for LLM explanations & briefings | — |
+| `NVIDIA_API_KEY` | NVIDIA NIM / OpenAI-compatible API key for LLM | — |
+| `GEMINI_API_KEY` | Optional fallback key for Gemini | — |
 
 ### Deployment on Render
 
-1. Create a **Web Service** pointing to this repository.
-2. In the **Environment** tab on the Render Dashboard, add:
-   - `RAILRADAR_API_KEYS`: your comma-separated keys (`key1,key2,...`)
-   - `RAILRADAR_BASE_URL`: `https://api.railradar.in/v1`
-   - `RAILRADAR_OFFLINE`: `0` (or `1` if running in pure offline mode)
+1. Create a **Web Service** connected to this repository.
+2. In the **Environment** tab, set:
+   - `ENVIRONMENT`: `production`
+   - `JWT_SECRET`: A secure 32+ character random string
+   - `DATABASE_URL`: Your Neon PostgreSQL connection string (`postgresql+psycopg://...sslmode=require`)
+   - `CORS_ORIGINS`: Your frontend URL
+   - `RAILRADAR_API_KEYS`: Comma-separated API keys
+   - `RAILRADAR_OFFLINE`: `0`
    - `RAILRADAR_KEY_LIMIT`: `90`
-   - `RAILOPT_SECRET`: a secure random string
-   - `NVIDIA_API_KEY`: your NVIDIA API key (if using LLM features)
-3. Set the build command: `pip install -r requirements.txt`
-4. Set the start command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+   - `NVIDIA_API_KEY`: Your LLM API key
+3. Build Command: `pip install -r requirements.txt && alembic upgrade head`
+4. Start Command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
 
-## License
+---
+
+## 8. Role-Based Access Control
+
+Orion enforces strict authorization across 4 roles:
+- **`ADMIN`**: User management, demo dataset generation, system config.
+- **`CONTROLLER`**: Block plan generation, approval, rejection, and simulation across all departments.
+- **`DEPT_USER`**: Maintenance task creation and updates restricted exclusively to their assigned department (`ENGINEERING`, `SNT`, `TRD`).
+- **`VIEWER`**: Read-only dashboard access.
+
+Full details are documented in [docs/PERMISSIONS.md](docs/PERMISSIONS.md).
+
+---
+
+## 9. License
 
 Built for Smart India Hackathon 2026 — Ministry of Railways.

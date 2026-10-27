@@ -106,7 +106,7 @@ class RailRadarClient:
     # ------------------------------------------------------------------
 
     def _get_year_month(self) -> str:
-        return datetime.datetime.utcnow().strftime("%Y-%m")
+        return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m")
 
     def get_budget_status(self) -> dict[str, Any]:
         """Return usage and budget status for all configured keys (showing last 4 chars only)."""
@@ -298,6 +298,11 @@ class RailRadarClient:
                     self._mark_key_failing(key, retry_after)
                     last_error = f"HTTP 429 (Rate Limit) on key {masked}"
                     continue
+
+                # Check for client error / bad request (400, 404, 422)
+                if status_code in (400, 404, 422):
+                    record_api_usage(session, ident, endpoint_path, status_code, False)
+                    raise RailRadarError(f"Train or resource not found / bad request: {endpoint_path}")
 
                 # Check for auth failure (401, 403)
                 if status_code in (401, 403):

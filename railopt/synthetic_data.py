@@ -57,6 +57,7 @@ Usage:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 from datetime import date, datetime, time, timedelta
@@ -356,17 +357,23 @@ def generate_full_dataset(
     sections: list[Section] = []
 
     for cdef in _CORRIDOR_DEFS:
+        c_hash = hashlib.md5(cdef["name"].encode("utf-8")).hexdigest()[:8]
         corridor = Corridor(
+            corridor_id=f"COR-{c_hash}",
             name=cdef["name"],
             zone=cdef["zone"],
             division=cdef["division"],
+            source="synthetic",
         )
         start_km = 0.0
         for start_stn, end_stn, length_km, max_spd, density in cdef["sections"]:
             end_km = start_km + length_km
+            sec_name = f"{start_stn}–{end_stn}"
+            s_hash = hashlib.md5(sec_name.encode("utf-8")).hexdigest()[:8]
             section = Section(
+                section_id=f"SEC-{s_hash}",
                 corridor_id=corridor.corridor_id,
-                name=f"{start_stn}–{end_stn}",
+                name=sec_name,
                 start_station=start_stn,
                 end_station=end_stn,
                 start_km=round(start_km, 1),
