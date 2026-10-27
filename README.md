@@ -28,6 +28,10 @@ Orion integrates maintenance data with corridor availability and real passenger 
 - Google OR-Tools constraint optimization assigns tasks to windows
 - **Block merging** — combines multi-department work into shared blocks, saving hours of track closure
 - **SLA enforcement** — emergency tasks force-scheduled, overdue tasks auto-escalated
+- **Optimization Constraints & Weights** —
+  - Criticality reward weight is effective `beta + delta` (`delta` maintained for backward compatibility).
+  - Overlapping windows on the same track section cannot be simultaneously scheduled.
+  - `max_block_hours_per_corridor_per_week` config parameter is currently not enforced.
 
 ### Real Passenger Train Integration
 - Real-time live train running status, delays, and GeoJSON route geometry via RailRadar API (`https://api.railradar.in/v1`)

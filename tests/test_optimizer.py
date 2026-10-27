@@ -184,3 +184,54 @@ def test_solve_does_not_mutate_config_time_limit():
     scheduler.solve(tasks=[task], windows=[window], sections={"SEC-TEST-1": section})
     assert scheduler.config.time_limit_seconds == 60, "Second solve() saw mutated time_limit_seconds"
 
+
+def test_overlapping_windows_on_same_section_cannot_both_be_scheduled():
+    """Two windows on the same section with overlapping times cannot both be scheduled."""
+    section = _make_section("SEC-TEST-1")
+    today = date.today()
+
+    # Window 1: 01:00 to 05:00
+    w1 = BlockWindow(
+        window_id="BW-OVERLAP-1",
+        corridor_id="COR-TEST-1",
+        section_id="SEC-TEST-1",
+        date=today,
+        start_time=time(1, 0),
+        end_time=time(5, 0),
+        duration_hours=4.0,
+        block_type=BlockType.TRAFFIC_BLOCK,
+        max_tasks=1,
+        ml_traffic_impact_score=10.0,
+    )
+    # Window 2 overlaps with Window 1: 03:00 to 07:00
+    w2 = BlockWindow(
+        window_id="BW-OVERLAP-2",
+        corridor_id="COR-TEST-1",
+        section_id="SEC-TEST-1",
+        date=today,
+        start_time=time(3, 0),
+        end_time=time(7, 0),
+        duration_hours=4.0,
+        block_type=BlockType.TRAFFIC_BLOCK,
+        max_tasks=1,
+        ml_traffic_impact_score=10.0,
+    )
+
+    t1 = _make_task("TASK-1", section_id="SEC-TEST-1", duration=2.0, criticality=80.0)
+    t2 = _make_task("TASK-2", section_id="SEC-TEST-1", duration=2.0, criticality=80.0)
+
+    scheduler = BlockScheduler(config=SchedulerConfig(time_limit_seconds=10))
+    plan = scheduler.solve(
+        tasks=[t1, t2],
+        windows=[w1, w2],
+        sections={"SEC-TEST-1": section},
+    )
+
+    # Since each window accepts at most 1 task and both windows overlap on the same section,
+    # at most 1 window can be used, and therefore at most 1 task can be scheduled.
+    scheduled_tasks = [tid for b in plan.scheduled_blocks for tid in b.task_ids]
+    assert len(scheduled_tasks) == 1, f"Expected 1 scheduled task due to window overlap, got {scheduled_tasks}"
+    assert len(plan.scheduled_blocks) == 1, "Only one of the overlapping windows should be scheduled"
+    assert len(plan.deferred_task_ids) == 1
+
+

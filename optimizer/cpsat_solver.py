@@ -11,7 +11,7 @@ finish and prove the answer is optimal instead of stopping at "FEASIBLE".
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 import logging
 from typing import Dict
 
@@ -38,16 +38,35 @@ def _dur(t: MaintenanceTask) -> float:
     return t.ml_predicted_duration_hours if t.ml_predicted_duration_hours else t.estimated_duration_hours
 
 
+def _window_interval(w: BlockWindow) -> tuple[datetime, datetime]:
+    """Return start and end datetimes for a window, accounting for midnight crossovers."""
+    s = datetime.combine(w.date, w.start_time)
+    e = datetime.combine(w.date, w.end_time)
+    if e < s:
+        e += timedelta(days=1)
+    return s, e
+
+
 @dataclass
 class SchedulerConfig:
-    """Weights and constraints configuration for the optimizer."""
+    """Weights and constraints configuration for the optimizer.
+
+    Scoring weights note:
+        The solver maximizes criticality reward using `-(beta + delta) * crit` in the
+        minimization objective. `delta` is kept for backward compatibility; effective
+        criticality reward weight is `beta + delta`. Default scoring results are unchanged.
+
+    Unenforced constraints note:
+        `max_block_hours_per_corridor_per_week` is currently not enforced to prevent
+        infeasibility across multi-section corridors.
+    """
     alpha: int = 10  # minimize traffic disruption
     beta: int = 100  # reward scheduling critical tasks
     gamma: int = 50  # reward multi-dept merging
-    delta: int = 200  # extra reward for scheduling critical tasks (same effect as beta)
+    delta: int = 200  # extra reward for scheduling critical tasks (effective criticality weight = beta + delta; kept for backward compatibility)
     emergency_penalty: int = 1000  # heavy penalty for unscheduled emergencies (soft constraint)
     max_tasks_per_dept_per_day: int = 10
-    max_block_hours_per_corridor_per_week: float = 40.0  # NOTE: not enforced yet
+    max_block_hours_per_corridor_per_week: float = 40.0  # NOTE: not enforced (see docstring and README)
     emergency_must_schedule: bool = True
     time_limit_seconds: int = 60
 
@@ -169,6 +188,27 @@ class BlockScheduler:
                     terms = [x[i, j] for j in js for i in tasks_in_window[j] if tasks[i].department == d]
                     if terms:
                         model.Add(sum(terms) <= cfg.max_tasks_per_dept_per_day)
+
+            # 8. section conflict: overlapping windows on the same section cannot both be scheduled
+            window_used = {}
+            for j in range(num_windows):
+                ids = tasks_in_window[j]
+                if ids:
+                    v = model.NewBoolVar(f"window_used_{j}")
+                    model.AddMaxEquality(v, [x[i, j] for i in ids])
+                    window_used[j] = v
+
+            for sec_id, sec_windows in windows_by_section.items():
+                for idx_a, j1 in enumerate(sec_windows):
+                    if j1 not in window_used:
+                        continue
+                    s1, e1 = _window_interval(windows[j1])
+                    for j2 in sec_windows[idx_a + 1:]:
+                        if j2 not in window_used:
+                            continue
+                        s2, e2 = _window_interval(windows[j2])
+                        if max(s1, s2) < min(e1, e2):  # overlapping intervals
+                            model.Add(window_used[j1] + window_used[j2] <= 1)
 
             # ---- objective (minimize) -------------------------------------------
             obj = []
