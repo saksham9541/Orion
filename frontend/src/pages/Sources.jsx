@@ -37,7 +37,7 @@ export default function Sources() {
         <DataTag kind="prototype" />
       </PageHeader>
 
-      <div className="space-y-6 px-5 py-6 sm:px-8">
+      <div className="space-y-8 px-6 sm:px-10 lg:px-12 py-8 lg:py-10 max-w-7xl mx-auto">
         <TrustPanel />
 
         <div className="grid gap-4 sm:grid-cols-2">

@@ -67,7 +67,7 @@ export default function Tasks() {
         description="Every open task on one urgency scale. Open any row to see exactly which factors raised or lowered its score."
       />
 
-      <div className="px-5 py-6 sm:px-8">
+      <div className="px-6 sm:px-10 lg:px-12 py-8 lg:py-10 max-w-7xl mx-auto space-y-6">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

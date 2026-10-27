@@ -612,35 +612,35 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
       )}
 
       {/* Header — Nothing OS / nothing.tech signature typography */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
+      <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-line/60">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-dot tracking-wider text-ink uppercase flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-dot tracking-wider text-ink uppercase flex items-center gap-2.5">
               MAINTENANCE JOURNEYS
-              <span className="h-2.5 w-2.5 rounded-full bg-[#d71920] inline-block animate-pulse" />
+              <span className="h-3 w-3 rounded-full bg-[#d71920] inline-block animate-pulse" />
             </h1>
-            <span className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-muted">
-              (1)
+            <span className="rounded-full border border-line bg-surface px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-muted">
+              LIVE RADAR
             </span>
           </div>
-          <p className="text-[11px] font-mono uppercase tracking-[0.16em] text-muted mt-1">
+          <p className="text-xs font-mono uppercase tracking-[0.18em] text-muted mt-2">
             [ DEPT // {department} ] · SYSTEM TELEMETRY & CROSS-CORRIDOR RESOLUTION FLOW
           </p>
         </div>
 
-        {/* Team Avatars Cluster & Utility Buttons (Nothing OS Hardware Aesthetics) */}
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+        {/* Team Avatars Cluster & Utility Buttons */}
+        <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center -space-x-2">
             {(TEAM_MEMBERS_BY_DEPT[deptId] || TEAM_MEMBERS_BY_DEPT.snt).map((member, idx) => (
               <div
                 key={idx}
-                className="relative group cursor-pointer transition-transform hover:-translate-y-0.5"
+                className="relative group cursor-pointer transition-transform hover:-translate-y-1"
                 title={`${member.name} — ${member.role}`}
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface text-ink text-[10px] font-mono font-bold shadow-sm">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-surface bg-raised text-ink text-xs font-mono font-bold shadow-sm">
                   {member.initials}
                 </div>
-                <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[8.5px] font-mono font-bold text-white bg-[#d71920] ring-1 ring-surface">
+                <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-mono font-bold text-white bg-[#d71920] ring-2 ring-surface">
                   {member.count}
                 </span>
               </div>
@@ -649,15 +649,15 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
 
           <div className="h-6 w-px bg-line/80 hidden sm:block" />
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={loadTasks}
               disabled={loading}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-[#d71920] transition-colors shadow-sm"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-[#d71920] transition-colors shadow-sm"
               title="Refresh Tasks"
             >
-              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             </button>
 
             <button
@@ -667,42 +667,42 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                 if (pending) openTaskModal(pending)
                 else if (tasks[0]) openTaskModal(tasks[0])
               }}
-              className="flex items-center gap-1.5 rounded-full bg-ink text-deep px-3.5 py-1.5 text-xs font-mono font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-opacity"
+              className="flex items-center gap-2 rounded-full bg-ink text-deep px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-opacity active:scale-95"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-[#d71920] inline-block" />
+              <span className="h-2 w-2 rounded-full bg-[#d71920] inline-block" />
               <span>Review Urgent</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Dynamic Metric Bento Cards — Nothing OS Widget Design */}
+      {/* Dynamic Metric Bento Cards — Nothing OS Widget Design (SPACIOUS 4-UP) */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.4 }}
-        className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-6"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
       >
-        <div className="bg-surface/80 backdrop-blur-md p-4 border border-line rounded-2xl shadow-sm hover:border-[#d71920]/40 transition-all">
-          <p className="text-[9.5px] font-mono font-bold text-muted uppercase tracking-[0.16em] mb-1">[ 01 // TOTAL TASKS ]</p>
-          <p className="text-2xl font-dot tracking-tight text-ink">{stats.total}</p>
-          <span className="text-[10px] font-mono text-muted uppercase tracking-wider">NETWORK WIDE</span>
+        <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-[#d71920]/40 transition-all space-y-2">
+          <p className="text-xs font-mono font-bold text-muted uppercase tracking-[0.18em]">[ 01 // TOTAL TASKS ]</p>
+          <p className="text-3xl sm:text-4xl font-dot tracking-tight text-ink">{stats.total}</p>
+          <span className="text-xs font-mono text-muted uppercase tracking-wider block">NETWORK WIDE DEMAND</span>
         </div>
-        <div className="bg-surface/80 backdrop-blur-md p-4 border border-line rounded-2xl shadow-sm hover:border-amber-500/40 transition-all">
-          <p className="text-[9.5px] font-mono font-bold text-amber-500 uppercase tracking-[0.16em] mb-1">[ 02 // PENDING ALLOCATION ]</p>
-          <p className="text-2xl font-dot tracking-tight text-amber-500">{stats.pending}</p>
-          <span className="text-[10px] font-mono text-amber-500/80 uppercase tracking-wider">AWAITING SIGN-OFF</span>
+        <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-amber-500/40 transition-all space-y-2">
+          <p className="text-xs font-mono font-bold text-amber-500 uppercase tracking-[0.18em]">[ 02 // PENDING ALLOCATION ]</p>
+          <p className="text-3xl sm:text-4xl font-dot tracking-tight text-amber-500">{stats.pending}</p>
+          <span className="text-xs font-mono text-amber-500/80 uppercase tracking-wider block">AWAITING SIGN-OFF</span>
         </div>
-        <div className="bg-surface/80 backdrop-blur-md p-4 border border-line rounded-2xl shadow-sm hover:border-blue-500/40 transition-all">
-          <p className="text-[9.5px] font-mono font-bold text-info uppercase tracking-[0.16em] mb-1">[ 03 // ACTIVE / SCHEDULED ]</p>
-          <p className="text-2xl font-dot tracking-tight text-info">{stats.inProgress}</p>
-          <span className="text-[10px] font-mono text-info/80 uppercase tracking-wider">SLOTS RESERVED</span>
+        <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-blue-500/40 transition-all space-y-2">
+          <p className="text-xs font-mono font-bold text-info uppercase tracking-[0.18em]">[ 03 // ACTIVE / SCHEDULED ]</p>
+          <p className="text-3xl sm:text-4xl font-dot tracking-tight text-info">{stats.inProgress}</p>
+          <span className="text-xs font-mono text-info/80 uppercase tracking-wider block">SLOTS RESERVED</span>
         </div>
-        <div className="bg-surface/80 backdrop-blur-md p-4 border border-line rounded-2xl shadow-sm hover:border-emerald-500/40 transition-all">
-          <p className="text-[9.5px] font-mono font-bold text-emerald-500 uppercase tracking-[0.16em] mb-1">[ 04 // RESOLVED & VERIFIED ]</p>
-          <p className="text-2xl font-dot tracking-tight text-emerald-500">{stats.resolved}</p>
-          <span className="text-[10px] font-mono text-emerald-500/80 uppercase tracking-wider">SAFETY VERIFIED</span>
+        <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-emerald-500/40 transition-all space-y-2">
+          <p className="text-xs font-mono font-bold text-emerald-500 uppercase tracking-[0.18em]">[ 04 // RESOLVED & VERIFIED ]</p>
+          <p className="text-3xl sm:text-4xl font-dot tracking-tight text-emerald-500">{stats.resolved}</p>
+          <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider block">SAFETY VERIFIED</span>
         </div>
       </motion.div>
 
@@ -712,7 +712,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="mb-6 rounded-[28px] border border-line bg-raised/30 dark:bg-black/40 backdrop-blur-md p-5 sm:p-6 shadow-sm"
+        className="mb-10 rounded-[32px] border border-line/80 bg-surface/70 backdrop-blur-md p-8 sm:p-10 shadow-sm"
       >
         
         {/* Journey Board Header with Search & Filter Pills */}
@@ -759,7 +759,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         </div>
 
         {/* 4 Interconnected Columns Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 relative">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
           
           {/* Column 1: Case Allocation */}
           <div className="flex flex-col gap-3">
@@ -1060,23 +1060,23 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6"
+        className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10"
       >
         
         {/* Left (7 cols): Suggested Knowledge & Defect Registry Table (Matches screenshot table!) */}
-        <div className="lg:col-span-7 bg-surface border border-line rounded-[28px] shadow-sm p-5 flex flex-col">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-line/60">
+        <div className="lg:col-span-7 bg-surface/90 border border-line/80 rounded-[32px] shadow-sm p-7 sm:p-8 flex flex-col">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-line/60">
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2">
-                <FileText size={16} className="text-info" />
+              <h2 className="text-base font-bold uppercase tracking-wider text-ink flex items-center gap-2.5 font-dot">
+                <FileText size={18} className="text-info" />
                 Suggested Knowledge & Defect Registry
               </h2>
-              <p className="text-[11px] text-muted">
+              <p className="text-xs text-muted mt-0.5">
                 Official maintenance ledger. Click any row to pop-through full action controls.
               </p>
             </div>
 
-            <span className="text-[11px] font-mono font-bold text-muted bg-raised px-2.5 py-1 rounded-full border border-line">
+            <span className="text-xs font-mono font-bold text-muted bg-raised px-3 py-1 rounded-full border border-line">
               {filteredTasks.length} Records
             </span>
           </div>
@@ -1084,12 +1084,12 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-line bg-raised/40 text-[10px] font-bold uppercase tracking-wider text-muted">
-                  <th className="px-3.5 py-2.5 rounded-l-xl">Subject / Task</th>
-                  <th className="px-3 py-2.5">Status</th>
-                  <th className="px-3 py-2.5">Location</th>
-                  <th className="px-3 py-2.5">Severity</th>
-                  <th className="px-3 py-2.5 text-right rounded-r-xl">Action</th>
+                <tr className="border-b border-line bg-raised/50 text-[11px] font-mono font-bold uppercase tracking-wider text-muted">
+                  <th className="px-4 py-3 rounded-l-xl">Subject / Task</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Location</th>
+                  <th className="px-4 py-3">Severity</th>
+                  <th className="px-4 py-3 text-right rounded-r-xl">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/40">
@@ -1106,41 +1106,41 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                         isSelected ? 'bg-info/10' : 'hover:bg-raised/60'
                       }`}
                     >
-                      <td className="px-3.5 py-3">
-                        <div className="flex items-center gap-2">
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-2.5">
                           <span className="font-mono font-bold text-ink">{task.id}</span>
-                          <span className="text-muted truncate max-w-[150px]">{task.defectType}</span>
+                          <span className="text-muted truncate max-w-[170px]">{task.defectType}</span>
                         </div>
                       </td>
 
-                      <td className="px-3 py-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase border ${getStatusBadge(task.status)}`}>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-block rounded-full px-3 py-1 text-[10px] font-mono font-bold uppercase border ${getStatusBadge(task.status)}`}>
                           {task.status}
                         </span>
                       </td>
 
-                      <td className="px-3 py-3 text-muted">
+                      <td className="px-4 py-3.5 text-muted">
                         <span className="font-medium text-ink block">{task.sectionId}</span>
-                        <span className="text-[10px]">{task.exactLocation}</span>
+                        <span className="text-xs font-mono">{task.exactLocation}</span>
                       </td>
 
-                      <td className="px-3 py-3">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border ${getSeverityBadge(task.severity)}`}>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase border ${getSeverityBadge(task.severity)}`}>
                           {task.severity}
                         </span>
                       </td>
 
-                      <td className="px-3 py-3 text-right">
+                      <td className="px-4 py-3.5 text-right">
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
                             openTaskModal(task)
                           }}
-                          className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-1 text-[10px] font-bold uppercase text-info hover:bg-info hover:text-white transition-colors shadow-sm"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-xs font-mono font-bold uppercase text-info hover:bg-info hover:text-white transition-colors shadow-sm"
                         >
                           <span>Pop-up</span>
-                          <ExternalLink size={11} />
+                          <ExternalLink size={12} />
                         </button>
                       </td>
                     </tr>
@@ -1152,21 +1152,21 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         </div>
 
         {/* Right (5 cols): Live Railway Network & Telemetry Map */}
-        <div className="lg:col-span-5 bg-surface border border-line rounded-[28px] shadow-sm p-5 flex flex-col">
-          <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-line/60">
+        <div className="lg:col-span-5 bg-surface/90 border border-line/80 rounded-[32px] shadow-sm p-7 sm:p-8 flex flex-col">
+          <div className="flex items-center justify-between gap-4 mb-4 pb-4 border-b border-line/60">
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2">
-                <MapPin size={16} className="text-rose-500" />
+              <h2 className="text-base font-bold uppercase tracking-wider text-ink flex items-center gap-2.5 font-dot">
+                <MapPin size={18} className="text-rose-500" />
                 Live Railway Network & Telemetry
               </h2>
-              <p className="text-[11px] text-muted">Real-time corridor telemetry & defect heatmap</p>
+              <p className="text-xs text-muted mt-0.5">Real-time corridor telemetry & defect heatmap</p>
             </div>
-            <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-ok">
-              <span className="h-2 w-2 rounded-full bg-ok animate-pulse" /> Live GPS
+            <span className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-ok">
+              <span className="h-2.5 w-2.5 rounded-full bg-ok animate-pulse" /> Live GPS
             </span>
           </div>
 
-          <div className="h-80 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-sm relative z-0">
+          <div className="h-96 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-sm relative z-0">
             <IndiaRailwayMap
               issues={tasks}
               selectedIssueId={selectedTask?.id}
@@ -1192,9 +1192,9 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4 }}
-          className="bg-surface border border-line rounded-xl shadow-sm overflow-hidden mb-6 flex flex-col"
+          className="bg-surface/90 border border-line/80 rounded-[32px] shadow-sm overflow-hidden mb-10 flex flex-col"
         >
-          <div className="bg-bar text-onbar px-6 py-4 flex flex-wrap justify-between items-center gap-3">
+          <div className="bg-bar text-onbar px-8 py-5 flex flex-wrap justify-between items-center gap-4">
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2">
                 <span className="w-2 h-2 bg-barmuted rounded-full inline-block" />

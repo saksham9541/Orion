@@ -50,7 +50,7 @@ export default function Network() {
         </span>
       </PageHeader>
 
-      <div className="space-y-5 px-5 py-6 sm:px-8">
+      <div className="space-y-8 px-6 sm:px-10 lg:px-12 py-8 lg:py-10 max-w-7xl mx-auto">
         <TimeSlider
           minutes={minutes}
           onChange={handleTime}

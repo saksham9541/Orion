@@ -88,7 +88,7 @@ export default function Dashboard() {
         </Button>
       </PageHeader>
 
-      <div className="space-y-6 px-5 py-6 sm:px-8">
+      <div className="space-y-8 px-6 sm:px-10 lg:px-12 py-8 lg:py-10 max-w-7xl mx-auto">
         <p className="text-[12.5px] text-muted">
           Ordered for the <span className="text-ink">{role.label.toLowerCase()}</span> —{' '}
           {role.focus.toLowerCase()}.

@@ -4,12 +4,9 @@ import {
   CheckCircle,
   PlayCircle,
   Clock,
-  ShieldAlert,
   ShieldCheck,
-  AlertTriangle,
   Wrench,
   Radio,
-  MapPin,
   CheckSquare,
   Square,
   Search,
@@ -17,8 +14,6 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  Zap,
-  Activity,
   Plus
 } from 'lucide-react'
 import PortalLayout from '@/components/app/PortalLayout'
@@ -27,11 +22,11 @@ import ReportComplaintModal from '@/components/app/ReportComplaintModal'
 import { fetchTasks, updateTaskStatus } from '@/api'
 
 const PRE_WORK_CHECKLIST_ITEMS = [
-  { id: 'flag', label: 'Banner Flag & Detonators placed 1,200m ahead & rear' },
-  { id: 'discharge', label: '25kV Catenary Discharge Rod connected to rail Earth' },
-  { id: 'shunt', label: 'Track Circuit Shunting Clamp locked across railhead' },
-  { id: 'ppe', label: 'High-visibility retroreflective vest & safety boots worn' },
-  { id: 'radio', label: 'VHF Walkie-Talkie locked to Guard/Driver Channel 04' }
+  { id: 'flag', label: 'Banner Flag & Detonator Protection placed 1,200m ahead and rear of work site' },
+  { id: 'discharge', label: '25kV Catenary Discharge Rod securely locked to rail Earth return' },
+  { id: 'shunt', label: 'Track Circuit Shunting Clamp locked firmly across railhead' },
+  { id: 'ppe', label: 'High-visibility retroreflective PPE & steel-toe safety boots verified' },
+  { id: 'radio', label: 'VHF Walkie-Talkie locked to Guard & Section Controller Channel 04' }
 ]
 
 export default function TechnicianDashboard() {
@@ -94,7 +89,6 @@ export default function TechnicianDashboard() {
   }
 
   const openTaskPopUp = (task) => {
-    // Format task to match modal expectations
     const formattedTask = {
       id: task.task_id || task.id,
       defectType: task.defect_category || task.defectType || 'Track Maintenance',
@@ -147,65 +141,65 @@ export default function TechnicianDashboard() {
 
   return (
     <PortalLayout role="technician">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="space-y-10">
         
-        {/* TOP STATUS BAR: NOTHING OS STYLE */}
+        {/* TOP STATION HEADER — AIRY & SPACIOUS */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-[24px] border border-line bg-surface shadow-sm"
+          className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-7 sm:p-8 rounded-[32px] border border-line/70 bg-surface/90 shadow-sm"
         >
-          <div className="flex items-center gap-3.5">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30">
-              <Wrench size={22} />
+          <div className="flex items-center gap-5">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30">
+              <Wrench size={26} />
             </span>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-dot text-base sm:text-lg font-bold text-ink uppercase tracking-wider">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="font-dot text-xl sm:text-2xl font-bold text-ink uppercase tracking-wider">
                   FIELD CREW WORKBENCH
                 </h1>
-                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-mono font-bold text-emerald-500 uppercase flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
+                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-mono font-bold text-emerald-500 uppercase flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping inline-block" />
                   UNIT 04 · ON-DUTY
                 </span>
               </div>
-              <p className="text-[11px] font-mono text-muted uppercase tracking-widest mt-0.5">
+              <p className="text-xs font-mono text-muted uppercase tracking-widest mt-1.5">
                 PERMIT #IR-PWR-8821 · GEOFENCE: KM 14.500 [NDLS-TKD-UP] · SHIFT: NIGHT-02
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3.5">
             <button
               onClick={() => setIsReportOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white font-mono text-xs font-bold uppercase tracking-wider shadow-sm transition-all active:scale-[0.98]"
+              className="flex items-center gap-2.5 px-6 py-3 rounded-full bg-red-600 hover:bg-red-700 text-white font-mono text-xs font-bold uppercase tracking-wider shadow-md shadow-red-900/20 transition-all active:scale-[0.98]"
             >
-              <Plus size={14} />
+              <Plus size={16} />
               <span>Report Site Defect</span>
             </button>
             <button
               onClick={loadTasks}
-              className="p-2.5 rounded-full border border-line bg-raised hover:bg-surface text-muted hover:text-ink transition-colors"
+              className="p-3 rounded-full border border-line bg-raised hover:bg-surface text-muted hover:text-ink transition-colors shadow-sm"
               title="Refresh Workbench"
             >
-              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
         </motion.div>
 
-        {/* BENTO KPI DECK (NOTHING OS 4-UP) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        {/* 4-UP BENTO KPI DECK — GENEROUS GAPS & BREATHING SPACE */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="p-4 rounded-2xl border border-line bg-surface/80 backdrop-blur-md shadow-sm"
+            className="p-6 sm:p-7 rounded-[28px] border border-line/80 bg-surface/80 backdrop-blur-md shadow-sm space-y-2"
           >
-            <p className="text-[9.5px] font-mono font-bold text-muted uppercase tracking-[0.16em] mb-1">
+            <p className="text-xs font-mono font-bold text-muted uppercase tracking-[0.18em]">
               [ 01 // ASSIGNED ORDERS ]
             </p>
-            <p className="text-2xl font-dot tracking-tight text-ink">{stats.total}</p>
-            <span className="text-[10px] font-mono text-muted uppercase tracking-wider">
+            <p className="text-3xl sm:text-4xl font-dot tracking-tight text-ink">{stats.total}</p>
+            <span className="text-xs font-mono text-muted uppercase tracking-wider block">
               {stats.inProgress} ACTIVE IN PROGRESS
             </span>
           </motion.div>
@@ -214,16 +208,16 @@ export default function TechnicianDashboard() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="p-4 rounded-2xl border border-line bg-surface/80 backdrop-blur-md shadow-sm"
+            className="p-6 sm:p-7 rounded-[28px] border border-line/80 bg-surface/80 backdrop-blur-md shadow-sm space-y-2"
           >
-            <p className="text-[9.5px] font-mono font-bold text-emerald-500 uppercase tracking-[0.16em] mb-1">
+            <p className="text-xs font-mono font-bold text-emerald-500 uppercase tracking-[0.18em]">
               [ 02 // SAFETY INTERLOCK ]
             </p>
-            <p className="text-xl font-dot tracking-tight text-emerald-500 flex items-center gap-2">
-              <ShieldCheck size={20} />
+            <p className="text-2xl sm:text-3xl font-dot tracking-tight text-emerald-500 flex items-center gap-2">
+              <ShieldCheck size={26} />
               SAFE TO WORK
             </p>
-            <span className="text-[10px] font-mono text-emerald-500/80 uppercase tracking-wider">
+            <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider block">
               25kV OHE ISOLATED & GROUNDED
             </span>
           </motion.div>
@@ -232,16 +226,16 @@ export default function TechnicianDashboard() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="p-4 rounded-2xl border border-line bg-surface/80 backdrop-blur-md shadow-sm"
+            className="p-6 sm:p-7 rounded-[28px] border border-line/80 bg-surface/80 backdrop-blur-md shadow-sm space-y-2"
           >
-            <p className="text-[9.5px] font-mono font-bold text-amber-500 uppercase tracking-[0.16em] mb-1">
+            <p className="text-xs font-mono font-bold text-amber-500 uppercase tracking-[0.18em]">
               [ 03 // BLOCK WINDOW ]
             </p>
-            <p className="text-2xl font-dot tracking-tight text-amber-500 flex items-center gap-2">
-              <Clock size={20} />
+            <p className="text-2xl sm:text-3xl font-dot tracking-tight text-amber-500 flex items-center gap-2">
+              <Clock size={24} />
               02h 45m
             </p>
-            <span className="text-[10px] font-mono text-amber-500/80 uppercase tracking-wider">
+            <span className="text-xs font-mono text-amber-500/80 uppercase tracking-wider block">
               SANCTION EXPIRES 05:30 HRS
             </span>
           </motion.div>
@@ -250,314 +244,309 @@ export default function TechnicianDashboard() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="p-4 rounded-2xl border border-line bg-surface/80 backdrop-blur-md shadow-sm"
+            className="p-6 sm:p-7 rounded-[28px] border border-line/80 bg-surface/80 backdrop-blur-md shadow-sm space-y-2"
           >
-            <p className="text-[9.5px] font-mono font-bold text-info uppercase tracking-[0.16em] mb-1">
+            <p className="text-xs font-mono font-bold text-info uppercase tracking-[0.18em]">
               [ 04 // SQUAD ON SITE ]
             </p>
-            <p className="text-2xl font-dot tracking-tight text-info flex items-center gap-2">
-              <Radio size={20} />
+            <p className="text-2xl sm:text-3xl font-dot tracking-tight text-info flex items-center gap-2">
+              <Radio size={24} />
               4 TECHS
             </p>
-            <span className="text-[10px] font-mono text-info/80 uppercase tracking-wider">
+            <span className="text-xs font-mono text-info/80 uppercase tracking-wider block">
               1 SSE · 1 FITTER · 2 MATES
             </span>
           </motion.div>
         </div>
 
-        {/* TWO-COLUMN WORKBENCH: SAFETY CHECKLIST + WORK ORDERS */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* FULL-WIDTH PRE-WORK SAFETY PROTOCOL (UNCLUTTERED, HORIZONTAL TILES) */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="rounded-[32px] border border-line/80 bg-surface/90 p-7 sm:p-8 shadow-sm space-y-6"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-line">
+            <div>
+              <h2 className="font-dot text-base sm:text-lg font-bold text-ink uppercase tracking-wider flex items-center gap-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#d71920] inline-block" />
+                MANDATORY SAFETY INTERLOCK PROTOCOL
+              </h2>
+              <p className="text-xs font-mono text-muted uppercase tracking-widest mt-1">
+                COMPREHENSIVE ON-TRACK PRE-WORK VERIFICATION
+              </p>
+            </div>
+            <span className={`self-start sm:self-auto px-3.5 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider border ${
+              allSafetyCleared
+                ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
+                : 'bg-amber-500/15 text-amber-500 border-amber-500/30'
+            }`}>
+              {allSafetyCleared ? '✓ ALL SAFETY PROTOCOLS CLEARED' : '⚠ PENDING PRE-WORK VERIFICATION'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {PRE_WORK_CHECKLIST_ITEMS.map((item) => {
+              const isChecked = checklist[item.id]
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => toggleChecklist(item.id)}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 select-none ${
+                    isChecked
+                      ? 'border-emerald-500/40 bg-emerald-500/5 text-ink'
+                      : 'border-line bg-raised/40 text-muted hover:border-line-hover'
+                  }`}
+                >
+                  <span className={`mt-0.5 shrink-0 ${isChecked ? 'text-emerald-500' : 'text-muted'}`}>
+                    {isChecked ? <CheckSquare size={19} /> : <Square size={19} />}
+                  </span>
+                  <span className="text-xs font-medium leading-relaxed">
+                    {item.label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Toolbox Status Bar */}
+          <div className="pt-4 border-t border-line">
+            <span className="text-xs font-mono font-bold text-muted uppercase tracking-wider block mb-3">
+              FIELD TOOLBOX READINESS:
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+              <div className="p-3 rounded-2xl border border-line bg-raised/60">
+                <span className="text-muted block text-[11px]">USFD Flaw Probe:</span>
+                <span className="text-ink font-bold text-xs mt-0.5 block">READY (CAL-OK)</span>
+              </div>
+              <div className="p-3 rounded-2xl border border-line bg-raised/60">
+                <span className="text-muted block text-[11px]">Hydraulic Tensor:</span>
+                <span className="text-ink font-bold text-xs mt-0.5 block">70T PRESSURISED</span>
+              </div>
+              <div className="p-3 rounded-2xl border border-line bg-raised/60">
+                <span className="text-muted block text-[11px]">Torque Wrench:</span>
+                <span className="text-ink font-bold text-xs mt-0.5 block">450 N·m PRE-SET</span>
+              </div>
+              <div className="p-3 rounded-2xl border border-line bg-raised/60">
+                <span className="text-muted block text-[11px]">First Aid & Defib:</span>
+                <span className="text-emerald-500 font-bold text-xs mt-0.5 block">SEALED & INSPECTED</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* WORK ORDERS SECTION — FULL-WIDTH SPACIOUS CARDS */}
+        <div className="space-y-6">
           
-          {/* LEFT (4 cols): MANDATORY PRE-WORK PROTOCOL */}
-          <motion.div
-            initial={{ opacity: 0, x: -15 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="lg:col-span-4 rounded-[28px] border border-line bg-surface p-5 shadow-sm space-y-4"
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-line">
-              <div>
-                <h2 className="font-dot text-sm font-bold text-ink uppercase tracking-wider flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#d71920] inline-block" />
-                  SAFETY INTERLOCK PROTOCOL
-                </h2>
-                <p className="text-[10px] font-mono text-muted uppercase tracking-widest mt-0.5">
-                  MANDATORY BEFORE TRACK OCCUPATION
-                </p>
-              </div>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                allSafetyCleared ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
-              }`}>
-                {allSafetyCleared ? 'ALL CLEARED' : 'PENDING CHECK'}
-              </span>
+          {/* Filter & Search Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:px-6 rounded-2xl border border-line/80 bg-surface shadow-sm">
+            <div className="relative flex-1 max-w-md">
+              <Search size={16} className="absolute left-4 top-3 text-muted" />
+              <input
+                type="text"
+                placeholder="Filter by order ID, defect code, KM post..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full rounded-full border border-line bg-raised pl-11 pr-4 py-2 text-xs font-mono text-ink placeholder:text-muted focus:border-red-500 focus:outline-none"
+              />
             </div>
 
-            <div className="space-y-2.5">
-              {PRE_WORK_CHECKLIST_ITEMS.map((item) => {
-                const isChecked = checklist[item.id]
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => toggleChecklist(item.id)}
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
-                      isChecked
-                        ? 'border-emerald-500/40 bg-emerald-500/5 text-ink'
-                        : 'border-line bg-raised/50 text-muted hover:border-line-hover'
-                    }`}
-                  >
-                    <span className={`mt-0.5 ${isChecked ? 'text-emerald-500' : 'text-muted'}`}>
-                      {isChecked ? <CheckSquare size={17} /> : <Square size={17} />}
-                    </span>
-                    <span className="text-xs font-medium leading-snug">
-                      {item.label}
-                    </span>
-                  </div>
-                )
-              })}
+            <div className="flex items-center gap-2 flex-wrap">
+              {['ALL', 'ACTIVE', 'PENDING', 'COMPLETED', 'CRITICAL'].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilterStatus(f)}
+                  className={`rounded-full px-4 py-1.5 text-xs font-mono font-bold uppercase tracking-wider transition-all ${
+                    filterStatus === f
+                      ? 'bg-ink text-deep shadow-sm'
+                      : 'border border-line bg-raised text-muted hover:text-ink'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
             </div>
+          </div>
 
-            {/* Field Tool Box status */}
-            <div className="mt-4 pt-4 border-t border-line space-y-2">
-              <span className="text-[10px] font-mono font-bold text-muted uppercase tracking-wider block">
-                FIELD TOOLBOX STATUS:
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                <div className="p-2 rounded-xl border border-line bg-raised/70">
-                  <span className="text-faint block">USFD Probe:</span>
-                  <span className="text-ink font-bold">READY (CAL-OK)</span>
-                </div>
-                <div className="p-2 rounded-xl border border-line bg-raised/70">
-                  <span className="text-faint block">Hydraulic Tensor:</span>
-                  <span className="text-ink font-bold">70T PRESSURISED</span>
-                </div>
-                <div className="p-2 rounded-xl border border-line bg-raised/70">
-                  <span className="text-faint block">Torque Wrench:</span>
-                  <span className="text-ink font-bold">450 N·m SET</span>
-                </div>
-                <div className="p-2 rounded-xl border border-line bg-raised/70">
-                  <span className="text-faint block">First Aid Kit:</span>
-                  <span className="text-emerald-500 font-bold">SEALED / VERIFIED</span>
-                </div>
-              </div>
+          {/* List State */}
+          {loading && (
+            <div className="p-16 text-center text-muted font-mono text-xs flex items-center justify-center gap-3">
+              <RefreshCw size={18} className="animate-spin" />
+              SYNCHRONIZING FIELD WORK ORDERS...
             </div>
-          </motion.div>
+          )}
 
-          {/* RIGHT (8 cols): ACTIVE WORK ORDERS */}
-          <motion.div
-            initial={{ opacity: 0, x: 15 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="lg:col-span-8 rounded-[28px] border border-line bg-surface p-5 shadow-sm space-y-4"
-          >
-            {/* Filter and Search Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line">
-              <div className="relative flex-1">
-                <Search size={14} className="absolute left-3.5 top-2.5 text-muted" />
-                <input
-                  type="text"
-                  placeholder="Filter work order ID, category, KM..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full rounded-full border border-line bg-raised pl-9 pr-4 py-1.5 text-xs font-mono text-ink placeholder:text-muted focus:border-red-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {['ALL', 'ACTIVE', 'PENDING', 'COMPLETED', 'CRITICAL'].map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFilterStatus(f)}
-                    className={`rounded-full px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-all ${
-                      filterStatus === f
-                        ? 'bg-ink text-deep shadow-sm'
-                        : 'border border-line bg-raised text-muted hover:text-ink'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
+          {!loading && error && (
+            <div className="p-8 text-center text-warn bg-warn/10 rounded-3xl border border-warn/20 font-mono text-xs">
+              {error}
             </div>
+          )}
 
-            {/* List of Tasks */}
-            {loading && (
-              <div className="p-12 text-center text-muted font-mono text-xs flex items-center justify-center gap-2">
-                <RefreshCw size={16} className="animate-spin" />
-                SYNCHRONIZING FIELD WORK ORDERS...
-              </div>
-            )}
+          {!loading && !error && filteredTasks.length === 0 && (
+            <div className="p-16 text-center text-muted border border-dashed border-line rounded-[32px] bg-surface/50">
+              <CheckCircle className="mx-auto mb-3 text-emerald-500 opacity-60" size={44} />
+              <p className="font-dot text-base font-bold text-ink uppercase">No Matching Work Orders</p>
+              <p className="text-xs text-muted font-mono mt-1">All designated tasks for this filter have been satisfied.</p>
+            </div>
+          )}
 
-            {!loading && error && (
-              <div className="p-6 text-center text-warn bg-warn/10 rounded-2xl border border-warn/20 font-mono text-xs">
-                {error}
-              </div>
-            )}
+          {/* Work Orders List */}
+          <div className="space-y-6">
+            {filteredTasks.map((task) => {
+              const taskId = task.task_id || task.id
+              const isCritical = ['EMERGENCY', 'CRITICAL', 'HIGH'].includes((task.severity || '').toUpperCase())
+              const isExpanded = expandedNotes[taskId]
+              const isUpdating = actionLoading === taskId
 
-            {!loading && !error && filteredTasks.length === 0 && (
-              <div className="p-12 text-center text-muted border border-dashed border-line rounded-2xl bg-raised/30">
-                <CheckCircle className="mx-auto mb-2 text-emerald-500 opacity-60" size={36} />
-                <p className="font-dot text-sm font-bold text-ink uppercase">No Matching Work Orders</p>
-                <p className="text-xs text-muted font-mono mt-1">All designated tasks for this filter have been satisfied.</p>
-              </div>
-            )}
-
-            <div className="space-y-3.5">
-              {filteredTasks.map((task) => {
-                const taskId = task.task_id || task.id
-                const isCritical = ['EMERGENCY', 'CRITICAL', 'HIGH'].includes((task.severity || '').toUpperCase())
-                const isExpanded = expandedNotes[taskId]
-                const isUpdating = actionLoading === taskId
-
-                return (
-                  <motion.div
-                    key={taskId}
-                    initial={{ opacity: 0, y: 10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="p-5 rounded-[24px] border border-line bg-raised/40 hover:bg-raised/70 transition-all space-y-3.5 group shadow-sm hover:shadow-md"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs font-bold text-ink bg-surface border border-line px-2 py-0.5 rounded-md">
-                            {taskId}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase border ${
-                            isCritical
-                              ? 'bg-red-500/10 text-red-500 border-red-500/30'
-                              : 'bg-blue-500/10 text-blue-500 border-blue-500/30'
-                          }`}>
-                            {task.severity || 'HIGH'}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase bg-surface border border-line text-muted">
-                            DEPT: {task.department || 'ENGINEERING'}
-                          </span>
-                        </div>
-                        <h3 className="font-dot text-sm font-bold text-ink uppercase tracking-wider mt-1.5">
-                          {task.defect_category || task.defectType || 'Track Maintenance Order'}
-                        </h3>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase border ${
-                          task.status === 'IN_PROGRESS'
-                            ? 'bg-amber-500/15 text-amber-500 border-amber-500/30 animate-pulse'
-                            : task.status === 'COMPLETED'
-                            ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
-                            : 'bg-surface border-line text-muted'
-                        }`}>
-                          {task.status.replace('_', ' ')}
+              return (
+                <motion.div
+                  key={taskId}
+                  initial={{ opacity: 0, y: 15 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="p-7 sm:p-8 rounded-[32px] border border-line/80 bg-surface/90 hover:bg-surface transition-all space-y-5 group shadow-sm hover:shadow-md"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2.5 flex-wrap mb-2">
+                        <span className="font-mono text-xs font-bold text-ink bg-raised border border-line px-3 py-1 rounded-md">
+                          {taskId}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => openTaskPopUp(task)}
-                          className="p-1.5 rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-line-hover transition-colors"
-                          title="Open Pop-up"
-                        >
-                          <ExternalLink size={14} />
-                        </button>
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold uppercase border ${
+                          isCritical
+                            ? 'bg-red-500/10 text-red-500 border-red-500/30'
+                            : 'bg-blue-500/10 text-blue-500 border-blue-500/30'
+                        }`}>
+                          {task.severity || 'HIGH'}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-md text-xs font-mono font-bold uppercase bg-raised border border-line text-muted">
+                          DEPT: {task.department || 'ENGINEERING'}
+                        </span>
                       </div>
+                      <h3 className="font-dot text-base sm:text-lg font-bold text-ink uppercase tracking-wider">
+                        {task.defect_category || task.defectType || 'Track Maintenance Order'}
+                      </h3>
                     </div>
 
-                    <p className="text-xs text-muted leading-relaxed font-sans">
-                      {task.inspector_remarks || task.defect_description || 'Track surface anomaly detected during inspection. Requires manual tension test.'}
-                    </p>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono pt-2 border-t border-line/60">
-                      <div>
-                        <span className="text-faint block">CORRIDOR:</span>
-                        <span className="text-ink font-semibold">{task.corridor_id || 'NDLS-CNB'}</span>
-                      </div>
-                      <div>
-                        <span className="text-faint block">KM POST:</span>
-                        <span className="text-ink font-semibold">KM {task.km_location || '14.500'}</span>
-                      </div>
-                      <div>
-                        <span className="text-faint block">EST TIME:</span>
-                        <span className="text-ink font-semibold">{task.estimated_duration_hours || 2} HOURS</span>
-                      </div>
-                      <div>
-                        <span className="text-faint block">TARGET SPEED:</span>
-                        <span className="text-ink font-semibold">130 KM/H</span>
-                      </div>
-                    </div>
-
-                    {/* Expandable Anomaly Notes */}
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="p-3 rounded-xl border border-line bg-surface space-y-2"
-                      >
-                        <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted block">
-                          Technician Field Observation & Log:
-                        </label>
-                        <textarea
-                          rows={2}
-                          placeholder="Log torque reading, rail gap millimeter, temperature..."
-                          value={technicianNotes[taskId] || ''}
-                          onChange={(e) => setTechnicianNotes({ ...technicianNotes, [taskId]: e.target.value })}
-                          className="w-full rounded-lg border border-line bg-raised p-2 text-xs font-mono text-ink outline-none focus:border-red-500"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => alert(`Logged remarks for ${taskId}`)}
-                          className="px-3 py-1 rounded-md bg-ink text-deep text-[10px] font-mono font-bold uppercase tracking-wider"
-                        >
-                          Save Field Log
-                        </button>
-                      </motion.div>
-                    )}
-
-                    {/* Action Bar */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-line">
-                      {task.status !== 'IN_PROGRESS' && task.status !== 'COMPLETED' && (
-                        <button
-                          type="button"
-                          disabled={isUpdating}
-                          onClick={() => handleStatusChange(taskId, 'IN_PROGRESS')}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-600 text-black font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
-                        >
-                          <PlayCircle size={14} />
-                          {isUpdating ? 'STARTING...' : 'Start Action'}
-                        </button>
-                      )}
-
-                      {task.status !== 'COMPLETED' && (
-                        <button
-                          type="button"
-                          disabled={isUpdating}
-                          onClick={() => handleStatusChange(taskId, 'COMPLETED')}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
-                        >
-                          <CheckCircle size={14} />
-                          {isUpdating ? 'UPDATING...' : 'Mark Done'}
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => setExpandedNotes(prev => ({ ...prev, [taskId]: !prev[taskId] }))}
-                        className="flex items-center gap-1 px-3 py-2 rounded-full border border-line bg-surface text-muted hover:text-ink font-mono text-xs font-semibold uppercase tracking-wider transition-colors ml-auto"
-                      >
-                        <span>{isExpanded ? 'Hide Log' : 'Site Anomaly Log'}</span>
-                        {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                      </button>
-
+                    <div className="flex items-center gap-3 self-start sm:self-auto">
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold tracking-wider uppercase border ${
+                        task.status === 'IN_PROGRESS'
+                          ? 'bg-amber-500/15 text-amber-500 border-amber-500/30 animate-pulse'
+                          : task.status === 'COMPLETED'
+                          ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
+                          : 'bg-raised border-line text-muted'
+                      }`}>
+                        {task.status.replace('_', ' ')}
+                      </span>
                       <button
                         type="button"
                         onClick={() => openTaskPopUp(task)}
-                        className="flex items-center gap-1 px-3 py-2 rounded-full border border-line bg-surface text-ink hover:border-red-500 font-mono text-xs font-bold uppercase tracking-wider transition-colors"
+                        className="p-2 rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-line-hover transition-colors"
+                        title="Open Pop-up"
                       >
-                        <span>Details</span>
-                        <ExternalLink size={13} />
+                        <ExternalLink size={16} />
                       </button>
                     </div>
-                  </motion.div>
-                )
-              })}
-            </div>
-          </motion.div>
+                  </div>
+
+                  <p className="text-sm text-muted leading-relaxed font-sans max-w-4xl">
+                    {task.inspector_remarks || task.defect_description || 'Track surface anomaly detected during inspection. Requires manual tension test.'}
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono pt-4 border-t border-line/60">
+                    <div>
+                      <span className="text-muted block text-[11px]">CORRIDOR:</span>
+                      <span className="text-ink font-semibold mt-0.5 block">{task.corridor_id || 'NDLS-CNB'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted block text-[11px]">KM POST:</span>
+                      <span className="text-ink font-semibold mt-0.5 block">KM {task.km_location || '14.500'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted block text-[11px]">EST TIME:</span>
+                      <span className="text-ink font-semibold mt-0.5 block">{task.estimated_duration_hours || 2} HOURS</span>
+                    </div>
+                    <div>
+                      <span className="text-muted block text-[11px]">TARGET SPEED:</span>
+                      <span className="text-ink font-semibold mt-0.5 block">130 KM/H</span>
+                    </div>
+                  </div>
+
+                  {/* Expandable Field Notes */}
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="p-5 rounded-2xl border border-line bg-raised/70 space-y-3"
+                    >
+                      <label className="text-xs font-mono font-bold uppercase tracking-wider text-muted block">
+                        Technician Field Observation & Measurement Log:
+                      </label>
+                      <textarea
+                        rows={3}
+                        placeholder="Log torque reading, rail gap millimeter, temperature..."
+                        value={technicianNotes[taskId] || ''}
+                        onChange={(e) => setTechnicianNotes({ ...technicianNotes, [taskId]: e.target.value })}
+                        className="w-full rounded-xl border border-line bg-surface p-3 text-xs font-mono text-ink outline-none focus:border-red-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => alert(`Logged remarks for ${taskId}`)}
+                        className="px-4 py-2 rounded-full bg-ink text-deep text-xs font-mono font-bold uppercase tracking-wider"
+                      >
+                        Save Field Log
+                      </button>
+                    </motion.div>
+                  )}
+
+                  {/* Action Bar */}
+                  <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-line">
+                    {task.status !== 'IN_PROGRESS' && task.status !== 'COMPLETED' && (
+                      <button
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => handleStatusChange(taskId, 'IN_PROGRESS')}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-600 text-black font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                      >
+                        <PlayCircle size={15} />
+                        {isUpdating ? 'STARTING...' : 'Start Action'}
+                      </button>
+                    )}
+
+                    {task.status !== 'COMPLETED' && (
+                      <button
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => handleStatusChange(taskId, 'COMPLETED')}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                      >
+                        <CheckCircle size={15} />
+                        {isUpdating ? 'UPDATING...' : 'Mark Done'}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setExpandedNotes(prev => ({ ...prev, [taskId]: !prev[taskId] }))}
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-line bg-surface text-muted hover:text-ink font-mono text-xs font-semibold uppercase tracking-wider transition-colors ml-auto"
+                    >
+                      <span>{isExpanded ? 'Hide Log' : 'Site Anomaly Log'}</span>
+                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => openTaskPopUp(task)}
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-line bg-surface text-ink hover:border-red-500 font-mono text-xs font-bold uppercase tracking-wider transition-colors"
+                    >
+                      <span>Details</span>
+                      <ExternalLink size={14} />
+                    </button>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
         </div>
 
       </div>

@@ -312,20 +312,20 @@ export default function AdminDashboard() {
       <motion.div
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 bg-surface border border-line/80 rounded-2xl p-3 sm:px-4 shadow-sm"
+        className="mb-8 flex flex-wrap items-center gap-x-8 gap-y-4 bg-surface/90 border border-line/80 rounded-[28px] p-4 sm:px-7 shadow-sm"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-faint uppercase tracking-widest">Severity</span>
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono font-bold text-muted uppercase tracking-wider">Severity:</span>
+          <div className="flex items-center gap-1.5">
             {SEVERITY_FILTERS.map((s) => (
               <button
                 key={s}
                 onClick={() => setSeverityFilter(s)}
                 aria-pressed={severityFilter === s}
-                className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+                className={`px-4 py-1.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-all ${
                   severityFilter === s
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
-                    : 'bg-surface text-muted hover:text-ink hover:bg-raised'
+                    ? 'bg-ink text-deep shadow-sm'
+                    : 'bg-raised text-muted hover:text-ink'
                 }`}
               >
                 {s}
@@ -333,19 +333,19 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-        <div className="h-4 w-px bg-line hidden sm:block" />
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-faint uppercase tracking-widest">Department</span>
-          <div className="flex items-center gap-1">
+        <div className="h-5 w-px bg-line hidden sm:block" />
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono font-bold text-muted uppercase tracking-wider">Department:</span>
+          <div className="flex items-center gap-1.5">
             {DEPT_FILTERS.map((d) => (
               <button
                 key={d}
                 onClick={() => setDeptFilter(d)}
                 aria-pressed={deptFilter === d}
-                className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+                className={`px-4 py-1.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-all ${
                   deptFilter === d
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
-                    : 'bg-surface text-muted hover:text-ink hover:bg-raised'
+                    ? 'bg-ink text-deep shadow-sm'
+                    : 'bg-raised text-muted hover:text-ink'
                 }`}
               >
                 {d === 'ALL' ? 'ALL DEPARTMENTS' : d}
@@ -353,8 +353,8 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-2 text-[10px] text-faint">
-          <span className="font-mono">{filteredIssues.length} of {issues.length} issues shown</span>
+        <div className="ml-auto flex items-center gap-2 text-xs font-mono text-muted">
+          <span>{filteredIssues.length} of {issues.length} issues shown</span>
         </div>
       </motion.div>
 
@@ -363,28 +363,28 @@ export default function AdminDashboard() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.4 }}
-        className="flex gap-6 h-[700px]"
+        className="flex flex-col lg:flex-row gap-8 min-h-[850px]"
       >
         {/* LEFT/MAIN: MAP & ALERTS */}
-        <div className={`flex flex-col gap-6 transition-all duration-300 ${selectedIssue ? 'w-1/2' : 'w-full'}`}>
+        <div className={`flex flex-col gap-8 transition-all duration-300 ${selectedIssue ? 'lg:w-7/12' : 'w-full'}`}>
           {/* INDIA MAP */}
-          <div className="bg-surface border border-line rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden">
-            <div className="bg-bar text-onbar px-4 py-3 flex flex-wrap justify-between items-center gap-y-2 shrink-0">
-              <h2 className="text-[11px] font-bold uppercase tracking-wider">India Railway Control Map</h2>
+          <div className="bg-surface/90 border border-line/80 rounded-[32px] shadow-sm flex flex-col overflow-hidden min-h-[460px]">
+            <div className="bg-bar text-onbar px-6 py-4 flex flex-wrap justify-between items-center gap-y-2 shrink-0">
+              <h2 className="text-xs font-dot font-bold uppercase tracking-wider">India Railway Control Map</h2>
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setShowHeatmap((v) => !v)}
                   aria-pressed={showHeatmap}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-widest border transition-colors ${
                     showHeatmap
                       ? 'bg-onbar/15 border-onbar/30 text-onbar'
                       : 'bg-transparent border-onbar/25 text-barmuted hover:text-onbar'
                   }`}
                 >
-                  <Flame size={11} />
+                  <Flame size={12} />
                   Risk Heatmap
                 </button>
-                <div className="flex gap-3 text-[10px] font-bold uppercase tracking-widest text-barmuted">
+                <div className="flex gap-3 text-xs font-mono font-bold uppercase tracking-widest text-barmuted">
                   <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500"></span> Low</span>
                   <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400"></span> Medium</span>
                   <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-500"></span> High</span>
@@ -393,12 +393,12 @@ export default function AdminDashboard() {
               </div>
             </div>
             {showHeatmap && (
-              <div className="bg-raised border-b border-line px-4 py-1.5 flex items-center justify-between">
-                <span className="text-[10px] font-bold text-muted uppercase tracking-widest">RailOpt Risk — geographic overlay</span>
-                <span className="text-[10px] font-bold text-warn uppercase tracking-widest">Demo / Simulation Data</span>
+              <div className="bg-raised border-b border-line px-6 py-2 flex items-center justify-between">
+                <span className="text-xs font-mono font-bold text-muted uppercase tracking-widest">RailOpt Risk — geographic overlay</span>
+                <span className="text-xs font-mono font-bold text-warn uppercase tracking-widest">Simulation Data</span>
               </div>
             )}
-            <div className="flex-1 bg-raised relative p-4">
+            <div className="flex-1 bg-raised relative p-4 min-h-[380px]">
               <IndiaRailwayMap
                 issues={filteredIssues}
                 selectedIssueId={selectedIssueId}
@@ -410,23 +410,23 @@ export default function AdminDashboard() {
           </div>
 
           {/* ALERT CENTER */}
-          <div className="bg-surface border border-line rounded-2xl shadow-sm h-1/3 flex flex-col shrink-0 overflow-hidden">
-             <div className="bg-raised border-b border-line px-4 py-2.5 flex justify-between items-center">
-              <h2 className="text-[11px] font-bold text-muted uppercase tracking-wider">Alert Center</h2>
-              <span className="text-[10px] font-bold text-faint uppercase tracking-widest">
-                {filteredIssues.length} of {issues.length}
+          <div className="bg-surface/90 border border-line/80 rounded-[32px] shadow-sm min-h-[380px] flex flex-col shrink-0 overflow-hidden">
+             <div className="bg-raised/80 border-b border-line px-6 py-3.5 flex justify-between items-center">
+              <h2 className="text-xs font-dot font-bold text-muted uppercase tracking-wider">Alert Center Registry</h2>
+              <span className="text-xs font-mono font-bold text-faint uppercase tracking-widest">
+                {filteredIssues.length} of {issues.length} active
               </span>
             </div>
             <div className="flex-1 overflow-y-auto">
               <table className="w-full text-left">
-                <thead className="bg-raised sticky top-0 border-b border-line text-[10px] font-bold text-faint uppercase tracking-wider">
+                <thead className="bg-raised/50 sticky top-0 border-b border-line text-xs font-mono font-bold text-muted uppercase tracking-wider">
                   <tr>
-                    <th className="px-4 py-2">Severity</th>
-                    <th className="px-4 py-2">Location</th>
-                    <th className="px-4 py-2">Dept</th>
-                    <th className="px-4 py-2">Issue</th>
-                    <th className="px-4 py-2">Time</th>
-                    <th className="px-4 py-2">Status</th>
+                    <th className="px-5 py-3">Severity</th>
+                    <th className="px-5 py-3">Location</th>
+                    <th className="px-5 py-3">Dept</th>
+                    <th className="px-5 py-3">Issue</th>
+                    <th className="px-5 py-3">Time</th>
+                    <th className="px-5 py-3">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hair">
@@ -459,16 +459,16 @@ export default function AdminDashboard() {
                         selectedIssueId === alert.id ? 'bg-info/10' : 'hover:bg-raised'
                       }`}
                     >
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-3.5">
                         <span className={getSeverityColor(alert.severity)}>
                           {alert.severity}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-bold text-ink">{alert.locationName}</td>
-                      <td className="px-4 py-3 font-semibold text-muted uppercase">{alert.department}</td>
-                      <td className="px-4 py-3 text-ink">{alert.type}</td>
-                      <td className="px-4 py-3 text-muted font-mono text-[10px] whitespace-nowrap">{alert.time}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-3.5 font-bold text-ink">{alert.locationName}</td>
+                      <td className="px-5 py-3.5 font-semibold text-muted uppercase font-mono text-xs">{alert.department}</td>
+                      <td className="px-5 py-3.5 text-ink">{alert.type}</td>
+                      <td className="px-5 py-3.5 text-muted font-mono text-xs whitespace-nowrap">{alert.time}</td>
+                      <td className="px-5 py-3.5">
                         <span className={STATUS_BADGE[alert.status] || STATUS_BADGE.NEW}>
                           {alert.status}
                         </span>
@@ -483,11 +483,11 @@ export default function AdminDashboard() {
 
         {/* RIGHT: ISSUE DETAIL PANEL */}
         {selectedIssue && (
-          <div className="w-1/2 bg-surface border border-line rounded-2xl shadow-xl overflow-hidden flex flex-col animate-in slide-in-from-right-4">
+          <div className="w-full lg:w-5/12 bg-surface/90 border border-line/80 rounded-[32px] shadow-xl overflow-hidden flex flex-col">
             <div className="bg-bar text-onbar px-6 py-4 flex justify-between items-center shrink-0">
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-wider">Issue Details</h2>
-                <span className="text-[10px] text-barmuted font-mono mt-0.5 block">{selectedIssue.id}</span>
+                <h2 className="text-sm font-bold uppercase tracking-wider font-dot">Issue Details</h2>
+                <span className="text-xs text-barmuted font-mono mt-0.5 block">{selectedIssue.id}</span>
               </div>
               <button type="button" onClick={() => setSelectedIssueId(null)} aria-label="Close issue details" className="text-barmuted hover:text-onbar transition-colors">
                 <X size={20} />
