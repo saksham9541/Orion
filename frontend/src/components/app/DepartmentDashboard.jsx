@@ -610,23 +610,24 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         </div>
       )}
 
-      {/* Header — Styled like "Customer Journeys" from the reference design */}
+      {/* Header — Nothing OS / nothing.tech signature typography */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
-              Maintenance Journeys
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-dot tracking-wider text-ink uppercase flex items-center gap-2">
+              MAINTENANCE JOURNEYS
+              <span className="h-2.5 w-2.5 rounded-full bg-[#d71920] inline-block animate-pulse" />
             </h1>
-            <span className="rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-              {department}
+            <span className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-muted">
+              (1)
             </span>
           </div>
-          <p className="text-xs text-muted mt-1">
-            {title} · Defect Lifecycle, Investigation & Cross-Department Resolution Flow
+          <p className="text-[11px] font-mono uppercase tracking-[0.16em] text-muted mt-1">
+            [ DEPT // {department} ] · SYSTEM TELEMETRY & CROSS-CORRIDOR RESOLUTION FLOW
           </p>
         </div>
 
-        {/* Team Avatars Cluster & Utility Buttons (Identical to reference screenshot) */}
+        {/* Team Avatars Cluster & Utility Buttons (Nothing OS Hardware Aesthetics) */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <div className="flex items-center -space-x-2">
             {(TEAM_MEMBERS_BY_DEPT[deptId] || TEAM_MEMBERS_BY_DEPT.snt).map((member, idx) => (
@@ -635,10 +636,10 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                 className="relative group cursor-pointer transition-transform hover:-translate-y-0.5"
                 title={`${member.name} — ${member.role}`}
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 text-[10px] font-bold shadow-sm">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface text-ink text-[10px] font-mono font-bold shadow-sm">
                   {member.initials}
                 </div>
-                <span className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white ${member.badgeColor} ring-1 ring-surface`}>
+                <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[8.5px] font-mono font-bold text-white bg-[#d71920] ring-1 ring-surface">
                   {member.count}
                 </span>
               </div>
@@ -652,10 +653,10 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
               type="button"
               onClick={loadTasks}
               disabled={loading}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:bg-raised transition-colors shadow-sm"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-[#d71920] transition-colors shadow-sm"
               title="Refresh Tasks"
             >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             </button>
 
             <button
@@ -665,51 +666,51 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                 if (pending) openTaskModal(pending)
                 else if (tasks[0]) openTaskModal(tasks[0])
               }}
-              className="flex items-center gap-1.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3.5 py-2 text-xs font-semibold shadow-sm hover:opacity-90 transition-opacity"
+              className="flex items-center gap-1.5 rounded-full bg-ink text-deep px-3.5 py-1.5 text-xs font-mono font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-opacity"
             >
-              <Sparkles size={13} />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#d71920] inline-block" />
               <span>Review Urgent</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Dynamic Metric Bento Cards */}
+      {/* Dynamic Metric Bento Cards — Nothing OS Widget Design */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-6">
-        <div className="bg-surface p-4 border border-line rounded-2xl shadow-sm hover:shadow-md transition-all">
-          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-1">Total Tasks</p>
-          <p className="text-2xl font-bold tracking-tight text-ink">{stats.total}</p>
-          <span className="text-[11px] text-muted">Across division lines</span>
+        <div className="bg-surface/80 backdrop-blur-md p-4 border border-line rounded-2xl shadow-sm hover:border-[#d71920]/40 transition-all">
+          <p className="text-[9.5px] font-mono font-bold text-muted uppercase tracking-[0.16em] mb-1">[ 01 // TOTAL TASKS ]</p>
+          <p className="text-2xl font-dot tracking-tight text-ink">{stats.total}</p>
+          <span className="text-[10px] font-mono text-muted uppercase tracking-wider">NETWORK WIDE</span>
         </div>
-        <div className="bg-surface p-4 border border-line rounded-2xl shadow-sm hover:shadow-md transition-all">
-          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-1">Pending Allocation</p>
-          <p className="text-2xl font-bold tracking-tight text-amber-500">{stats.pending}</p>
-          <span className="text-[11px] text-amber-600/80 font-medium">Awaiting departmental sign-off</span>
+        <div className="bg-surface/80 backdrop-blur-md p-4 border border-line rounded-2xl shadow-sm hover:border-amber-500/40 transition-all">
+          <p className="text-[9.5px] font-mono font-bold text-amber-500 uppercase tracking-[0.16em] mb-1">[ 02 // PENDING ALLOCATION ]</p>
+          <p className="text-2xl font-dot tracking-tight text-amber-500">{stats.pending}</p>
+          <span className="text-[10px] font-mono text-amber-500/80 uppercase tracking-wider">AWAITING SIGN-OFF</span>
         </div>
-        <div className="bg-surface p-4 border border-line rounded-2xl shadow-sm hover:shadow-md transition-all">
-          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-1">Active / Scheduled</p>
-          <p className="text-2xl font-bold tracking-tight text-info">{stats.inProgress}</p>
-          <span className="text-[11px] text-blue-600/80 font-medium">Possession slots reserved</span>
+        <div className="bg-surface/80 backdrop-blur-md p-4 border border-line rounded-2xl shadow-sm hover:border-blue-500/40 transition-all">
+          <p className="text-[9.5px] font-mono font-bold text-info uppercase tracking-[0.16em] mb-1">[ 03 // ACTIVE / SCHEDULED ]</p>
+          <p className="text-2xl font-dot tracking-tight text-info">{stats.inProgress}</p>
+          <span className="text-[10px] font-mono text-info/80 uppercase tracking-wider">SLOTS RESERVED</span>
         </div>
-        <div className="bg-surface p-4 border border-line rounded-2xl shadow-sm hover:shadow-md transition-all">
-          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-1">Resolved & Done</p>
-          <p className="text-2xl font-bold tracking-tight text-emerald-500">{stats.resolved}</p>
-          <span className="text-[11px] text-emerald-600/80 font-medium">Verified by signal lead</span>
+        <div className="bg-surface/80 backdrop-blur-md p-4 border border-line rounded-2xl shadow-sm hover:border-emerald-500/40 transition-all">
+          <p className="text-[9.5px] font-mono font-bold text-emerald-500 uppercase tracking-[0.16em] mb-1">[ 04 // RESOLVED & VERIFIED ]</p>
+          <p className="text-2xl font-dot tracking-tight text-emerald-500">{stats.resolved}</p>
+          <span className="text-[10px] font-mono text-emerald-500/80 uppercase tracking-wider">SAFETY VERIFIED</span>
         </div>
       </div>
 
-      {/* THE 4-STAGE WORKFLOW JOURNEY BOARD (The exact visual centerpiece from the screenshot!) */}
-      <div className="mb-6 rounded-[28px] border border-line/80 bg-raised/40 dark:bg-slate-900/40 p-5 sm:p-6 shadow-sm">
+      {/* THE 4-STAGE WORKFLOW JOURNEY BOARD (Nothing OS Technical Pipeline) */}
+      <div className="mb-6 rounded-[28px] border border-line bg-raised/30 dark:bg-black/40 backdrop-blur-md p-5 sm:p-6 shadow-sm">
         
         {/* Journey Board Header with Search & Filter Pills */}
-        <div className="mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/50">
+        <div className="mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
           <div>
-            <h2 className="text-base font-bold text-ink uppercase tracking-wide flex items-center gap-2">
-              <Layers size={17} className="text-info" />
-              New Case Management & Lifecycle Stages
+            <h2 className="text-sm font-dot uppercase tracking-wider text-ink flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[#d71920] inline-block" />
+              LIFECYCLE PIPELINE (NDOT/57)
             </h2>
-            <p className="text-[11px] text-muted">
-              Interactive interconnected flow from defect intake to technical resolution. Click any card to pop-up full action controls.
+            <p className="text-[10.5px] font-mono uppercase tracking-widest text-muted mt-0.5">
+              [ CORRIDORS IN SCOPE: 5 ] · DYNAMIC ALLOCATION MATRIX · TELEMETRY CONNECTED
             </p>
           </div>
 
@@ -718,10 +719,10 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
               <Search size={13} className="absolute left-3 top-2.5 text-muted" />
               <input
                 type="text"
-                placeholder="Search journey defects..."
+                placeholder="Search defect code..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-44 sm:w-56 rounded-full border border-line bg-surface pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-muted focus:border-info focus:outline-none shadow-sm"
+                className="w-44 sm:w-56 rounded-full border border-line bg-surface pl-8 pr-3 py-1.5 text-xs font-mono text-ink placeholder:text-muted focus:border-[#d71920] focus:outline-none shadow-sm"
               />
             </div>
 
@@ -731,9 +732,9 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                   key={filterKey}
                   type="button"
                   onClick={() => setStatusFilter(filterKey)}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase transition-all ${
+                  className={`rounded-full px-2.5 py-1 text-[9.5px] font-mono font-bold uppercase tracking-wider transition-all ${
                     statusFilter === filterKey
-                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                      ? 'bg-ink text-deep shadow-sm'
                       : 'text-muted hover:text-ink'
                   }`}
                 >
@@ -972,7 +973,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
             </div>
 
             <div className="space-y-3">
-              {/* THE SLEEK BLACK CARD (Directly from reference design screenshot!) */}
+              {/* THE SLEEK BLACK CARD (Nothing OS Hardware Module) */}
               <div
                 onClick={() => {
                   const activeTask = tasks.find(t => t.status === 'IN_PROGRESS') || tasks[0]
@@ -981,19 +982,22 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                     openTaskModal(activeTask)
                   }
                 }}
-                className="rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 p-4 shadow-lg cursor-pointer hover:scale-[1.01] transition-transform"
+                className="rounded-2xl bg-black border border-neutral-800 text-white p-4 shadow-xl cursor-pointer hover:border-[#d71920]/70 transition-all group"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
-                    Live Possession
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex h-2 w-2 rounded-full bg-[#d71920] animate-pulse" />
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-[0.2em] text-[#d71920]">
+                      LIVE POSSESSION
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-mono text-neutral-400">[ REC // 01 ]</span>
                 </div>
-                <h4 className="text-sm font-bold uppercase tracking-wide leading-tight">
-                  Active Request Processing
+                <h4 className="text-xs font-dot tracking-wider uppercase leading-tight">
+                  ACTIVE REQUEST PROCESSING
                 </h4>
-                <p className="text-[11px] opacity-75 mt-1">
-                  Track possession live on mainline corridor with telemetry streaming.
+                <p className="text-[10px] font-mono text-neutral-400 mt-1">
+                  MAINLINE CORRIDOR TELEMETRY STREAMING LIVE.
                 </p>
               </div>
 

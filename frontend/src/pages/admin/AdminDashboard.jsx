@@ -255,16 +255,17 @@ export default function AdminDashboard() {
     <PortalLayout role="admin">
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
-              Control Room Operations
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-dot tracking-wider text-ink uppercase flex items-center gap-2">
+              CONTROL ROOM OPERATIONS
+              <span className="h-2.5 w-2.5 rounded-full bg-[#d71920] inline-block animate-pulse" />
             </h1>
-            <span className="rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-              SUPER ADMIN
+            <span className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-muted">
+              (01)
             </span>
           </div>
-          <p className="text-xs text-muted mt-1">
-            Indian Railways Network Overview · Real-Time Defect Monitoring & Block Sanction Feed
+          <p className="text-xs font-mono uppercase tracking-[0.16em] text-muted mt-1">
+            [ SYSTEM // NDLS-DIV ] · REAL-TIME DEFECT MONITORING & BLOCK SANCTIONS · (OS.02)
           </p>
         </div>
 

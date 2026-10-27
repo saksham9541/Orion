@@ -49,31 +49,34 @@ export default function StageNav() {
           </button>
           
           <Link to="/dashboard" className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-surface/50 transition-colors">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-merge text-deep font-bold text-xs shadow-sm">
-              RO
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-ink text-deep font-dot text-xs font-bold shadow-sm">
+              R1
             </span>
             <div className="flex flex-col">
-              <span className="text-[15px] font-bold uppercase tracking-tight leading-none text-ink">
-                RailOpt
-              </span>
-              <span className="hidden text-[9px] font-bold uppercase tracking-widest text-faint sm:inline">
-                Railway Maintenance Optimization
+              <div className="flex items-center gap-1.5">
+                <span className="text-[14px] font-dot uppercase tracking-wider text-ink">
+                  RAILOPT
+                </span>
+                <span className="h-1.5 w-1.5 rounded-full bg-[#d71920] inline-block animate-pulse" />
+              </div>
+              <span className="hidden text-[8.5px] font-mono uppercase tracking-[0.2em] text-faint sm:inline">
+                (SCHEDULE / OS.02)
               </span>
             </div>
           </Link>
         </div>
 
         {/* Center: Stage Pill Navigation */}
-        <nav className="hidden lg:flex items-center gap-1 rounded-full border border-line bg-surface/70 p-1 shadow-sm backdrop-blur-sm">
+        <nav className="hidden lg:flex items-center gap-1 rounded-full border border-line bg-surface/80 p-1 shadow-sm backdrop-blur-md">
           {STAGES.map((s) => {
             const active = location.pathname.startsWith(s.to)
             return (
               <Link
                 key={s.to}
                 to={s.to}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                className={`rounded-full px-3.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-all ${
                   active
-                    ? 'bg-slate-900 text-white shadow-md dark:bg-white dark:text-slate-900'
+                    ? 'bg-ink text-deep font-bold shadow-sm'
                     : 'text-muted hover:text-ink hover:bg-raised/70'
                 }`}
               >

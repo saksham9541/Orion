@@ -82,31 +82,34 @@ export default function PortalLayout({ children, role }) {
             </button>
 
             <Link to={home} className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-surface/50 transition-colors" aria-label="RailOpt home">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-merge text-deep font-bold text-xs shadow-sm">
-                RO
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-ink text-deep font-dot text-xs font-bold shadow-sm">
+                R1
               </span>
               <div className="flex flex-col">
-                <span className="text-[15px] font-bold uppercase tracking-tight leading-none text-ink">
-                  RailOpt
-                </span>
-                <span className="hidden text-[9px] font-bold uppercase tracking-widest text-faint sm:inline">
-                  Operations Portal
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[14px] font-dot uppercase tracking-wider text-ink">
+                    RAILOPT
+                  </span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#d71920] inline-block animate-pulse" />
+                </div>
+                <span className="hidden text-[8.5px] font-mono uppercase tracking-[0.2em] text-faint sm:inline">
+                  (SYSTEM / OS.02)
                 </span>
               </div>
             </Link>
           </div>
 
-          {/* Center: Modern Pill Navigation Tabs (Like "Cases" in reference design) */}
-          <nav className="hidden lg:flex items-center gap-1 rounded-full border border-line bg-surface/70 p-1 shadow-sm backdrop-blur-sm">
+          {/* Center: Nothing OS Pill Navigation Tabs */}
+          <nav className="hidden lg:flex items-center gap-1 rounded-full border border-line bg-surface/80 p-1 shadow-sm backdrop-blur-md">
             {navTabs.map((tab) => {
               const active = isTabActive(tab.to)
               return (
                 <Link
                   key={tab.to}
                   to={tab.to}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-all ${
                     active
-                      ? 'bg-slate-900 text-white shadow-md dark:bg-white dark:text-slate-900'
+                      ? 'bg-ink text-deep font-bold shadow-sm'
                       : 'text-muted hover:text-ink hover:bg-raised/70'
                   }`}
                 >
@@ -150,12 +153,12 @@ export default function PortalLayout({ children, role }) {
                       setServerStatus('error')
                     }
                   }}
-                  className="hidden md:flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] font-semibold text-muted hover:text-ink hover:bg-raised transition-colors shadow-sm"
+                  className="hidden md:flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-muted hover:text-ink hover:bg-raised transition-colors shadow-sm"
                 >
-                  <span className={`h-2 w-2 rounded-full ${
-                    serverStatus === 'ready' ? 'bg-ok' :
-                    serverStatus === 'error' ? 'bg-danger' :
-                    serverStatus === 'loading' ? 'bg-warn animate-ping' : 'bg-danger'
+                  <span className={`h-1.5 w-1.5 rounded-full ${
+                    serverStatus === 'ready' ? 'bg-[#d71920]' :
+                    serverStatus === 'error' ? 'bg-[#d71920]' :
+                    serverStatus === 'loading' ? 'bg-warn animate-ping' : 'bg-[#d71920]'
                   }`} />
                   <span>
                     {serverStatus === 'loading' ? 'Setting up...' :
@@ -166,9 +169,9 @@ export default function PortalLayout({ children, role }) {
                 </button>
                 <Link
                   to="/simulate"
-                  className="hidden sm:flex items-center gap-1.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-opacity"
+                  className="hidden sm:flex items-center gap-1.5 rounded-full bg-[#d71920] text-white px-3.5 py-1.5 text-[10px] font-mono font-bold uppercase tracking-widest shadow-sm hover:opacity-90 transition-opacity"
                 >
-                  <Sparkles size={12} />
+                  <Sparkles size={11} />
                   <span>Generate Plan</span>
                 </Link>
               </>
@@ -178,10 +181,10 @@ export default function PortalLayout({ children, role }) {
             <button
               type="button"
               onClick={() => setIsComplaintModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:bg-raised hover:border-amber-500/40 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-ink hover:border-[#d71920]/60 transition-colors shadow-sm"
               title="Report New Railway Defect"
             >
-              <AlertTriangle size={13} className="text-amber-500" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#d71920] inline-block" />
               <span className="hidden sm:inline">Report Defect</span>
             </button>
 
