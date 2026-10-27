@@ -72,18 +72,18 @@ export default function PortalLayout({ children, role }) {
             </button>
 
             <Link to={home} className="flex items-center gap-3 rounded-2xl px-2 py-1 hover:bg-surface/50 transition-colors" aria-label="RailOpt home">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-ink text-deep font-dot text-xs font-bold shadow-sm">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white font-bold text-xs shadow-md">
                 R1
               </span>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[15px] font-dot uppercase tracking-wider text-ink">
-                    RAILOPT
+                  <span className="text-[17px] font-bold tracking-tight text-gradient-brand">
+                    RailOpt
                   </span>
-                  <span className="h-2 w-2 rounded-full bg-[#d71920] inline-block animate-pulse" />
+                  <span className="h-2 w-2 rounded-full bg-indigo-500 inline-block animate-pulse" />
                 </div>
-                <span className="text-[9px] font-mono uppercase tracking-[0.22em] text-muted">
-                  NOTHING OS · 02
+                <span className="text-[9.5px] font-mono uppercase tracking-[0.18em] text-muted">
+                  System OS · 02
                 </span>
               </div>
             </Link>

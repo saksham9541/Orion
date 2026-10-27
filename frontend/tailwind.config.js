@@ -52,8 +52,9 @@ export default {
         barmuted: 'rgb(var(--c-barmuted) / <alpha-value>)',
       },
       fontFamily: {
-        dot: ['Silkscreen', '"IBM Plex Mono"', 'monospace'],
-        sans: ['"Space Grotesk"', 'Archivo', 'system-ui', 'sans-serif'],
+        brand: ['"Plus Jakarta Sans"', '"Space Grotesk"', 'system-ui', 'sans-serif'],
+        dot: ['"Plus Jakarta Sans"', '"Space Grotesk"', 'system-ui', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', '"Space Grotesk"', 'Archivo', 'system-ui', 'sans-serif'],
         mono: ['"Space Mono"', '"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
       fontSize: {

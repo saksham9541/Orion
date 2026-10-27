@@ -136,7 +136,7 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
                   </span>
                 )}
               </div>
-              <h2 id="modal-task-title" className="text-lg font-bold text-ink mt-0.5">
+              <h2 id="modal-task-title" className="text-xl font-bold tracking-tight text-gradient-brand mt-0.5">
                 {task.defectType || task.type || 'Maintenance Defect Details'}
               </h2>
             </div>

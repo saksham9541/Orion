@@ -164,15 +164,30 @@
 }
 
 @layer components {
-  /* Nothing OS Dot Matrix Typography */
+  /* Vibrant Blue-to-Purple Gradient Heading Typography (matches user reference design) */
+  .text-gradient-brand {
+    background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 35%, #7c3aed 70%, #9333ea 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: 'Plus Jakarta Sans', 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: -0.025em;
+  }
+
+  .dark .text-gradient-brand {
+    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 40%, #a855f7 75%, #c084fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Modern Sans-Serif Heading Fallbacks */
   .font-dot {
-    font-family: 'Silkscreen', 'IBM Plex Mono', monospace;
-    letter-spacing: 0.05em;
+    font-family: 'Plus Jakarta Sans', 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: -0.015em;
   }
 
   .font-ndot {
-    font-family: 'Silkscreen', 'IBM Plex Mono', monospace;
-    letter-spacing: 0.08em;
+    font-family: 'Plus Jakarta Sans', 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: -0.015em;
   }
 
   .panel {

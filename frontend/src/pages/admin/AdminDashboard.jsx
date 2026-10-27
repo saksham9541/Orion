@@ -257,9 +257,9 @@ export default function AdminDashboard() {
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-dot tracking-wider text-ink uppercase flex items-center gap-2">
-              CONTROL ROOM OPERATIONS
-              <span className="h-2.5 w-2.5 rounded-full bg-[#d71920] inline-block animate-pulse" />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gradient-brand flex items-center gap-2">
+              Control Room Operations
+              <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 inline-block animate-pulse" />
             </h1>
             <span className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-muted">
               (01)
@@ -370,7 +370,7 @@ export default function AdminDashboard() {
           {/* INDIA MAP */}
           <div className="bg-surface/90 border border-line/80 rounded-[32px] shadow-sm flex flex-col overflow-hidden min-h-[460px]">
             <div className="bg-bar text-onbar px-6 py-4 flex flex-wrap justify-between items-center gap-y-2 shrink-0">
-              <h2 className="text-xs font-dot font-bold uppercase tracking-wider">India Railway Control Map</h2>
+              <h2 className="text-xs font-bold font-sans uppercase tracking-wider text-onbar">India Railway Control Map</h2>
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setShowHeatmap((v) => !v)}
@@ -412,7 +412,7 @@ export default function AdminDashboard() {
           {/* ALERT CENTER */}
           <div className="bg-surface/90 border border-line/80 rounded-[32px] shadow-sm min-h-[380px] flex flex-col shrink-0 overflow-hidden">
              <div className="bg-raised/80 border-b border-line px-6 py-3.5 flex justify-between items-center">
-              <h2 className="text-xs font-dot font-bold text-muted uppercase tracking-wider">Alert Center Registry</h2>
+              <h2 className="text-xs font-bold font-sans text-muted uppercase tracking-wider">Alert Center Registry</h2>
               <span className="text-xs font-mono font-bold text-faint uppercase tracking-widest">
                 {filteredIssues.length} of {issues.length} active
               </span>
@@ -486,7 +486,7 @@ export default function AdminDashboard() {
           <div className="w-full lg:w-5/12 bg-surface/90 border border-line/80 rounded-[32px] shadow-xl overflow-hidden flex flex-col">
             <div className="bg-bar text-onbar px-6 py-4 flex justify-between items-center shrink-0">
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-wider font-dot">Issue Details</h2>
+                <h2 className="text-sm font-bold uppercase tracking-wider font-sans text-onbar">Issue Details</h2>
                 <span className="text-xs text-barmuted font-mono mt-0.5 block">{selectedIssue.id}</span>
               </div>
               <button type="button" onClick={() => setSelectedIssueId(null)} aria-label="Close issue details" className="text-barmuted hover:text-onbar transition-colors">

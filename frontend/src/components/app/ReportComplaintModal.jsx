@@ -71,7 +71,7 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
                   <AlertTriangle size={20} />
                 </span>
                 <div>
-                  <h2 className="font-dot text-sm font-bold text-ink uppercase tracking-wider">
+                  <h2 className="text-base font-bold tracking-tight text-gradient-brand">
                     Report Track Defect
                   </h2>
                   <p className="text-[11px] text-faint font-mono">DISPATCH REAL-TIME RAIL ALERT</p>
@@ -95,7 +95,7 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
                   <BellRing size={22} className="animate-bounce" />
                 </div>
-                <p className="font-dot text-sm font-bold text-emerald-500 uppercase tracking-wider">
+                <p className="text-sm font-bold text-emerald-500 tracking-tight">
                   Alert Dispatched Successfully
                 </p>
                 <p className="text-xs text-muted font-mono">

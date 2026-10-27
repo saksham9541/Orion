@@ -38,7 +38,7 @@ export default function PageHeader({ title, description, showBack = true, onBack
             </button>
           )}
           <motion.h1
-            className="text-2xl sm:text-3xl font-dot uppercase tracking-wider text-ink"
+            className="text-2xl sm:text-3xl font-bold tracking-tight text-gradient-brand"
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}

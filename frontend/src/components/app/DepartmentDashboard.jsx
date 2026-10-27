@@ -611,13 +611,13 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         </div>
       )}
 
-      {/* Header — Nothing OS / nothing.tech signature typography */}
+      {/* Header — Modern Gradient Typography */}
       <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-line/60">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-dot tracking-wider text-ink uppercase flex items-center gap-2.5">
-              MAINTENANCE JOURNEYS
-              <span className="h-3 w-3 rounded-full bg-[#d71920] inline-block animate-pulse" />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
+              Maintenance Journeys
+              <span className="h-3 w-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 inline-block animate-pulse" />
             </h1>
             <span className="rounded-full border border-line bg-surface px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-muted">
               LIVE RADAR
@@ -684,29 +684,29 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         transition={{ duration: 0.4 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
       >
-        <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-[#d71920]/40 transition-all space-y-2">
+        <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-blue-500/40 transition-all space-y-2">
           <p className="text-xs font-mono font-bold text-muted uppercase tracking-[0.18em]">[ 01 // TOTAL TASKS ]</p>
-          <p className="text-3xl sm:text-4xl font-dot tracking-tight text-ink">{stats.total}</p>
+          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-ink">{stats.total}</p>
           <span className="text-xs font-mono text-muted uppercase tracking-wider block">NETWORK WIDE DEMAND</span>
         </div>
         <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-amber-500/40 transition-all space-y-2">
           <p className="text-xs font-mono font-bold text-amber-500 uppercase tracking-[0.18em]">[ 02 // PENDING ALLOCATION ]</p>
-          <p className="text-3xl sm:text-4xl font-dot tracking-tight text-amber-500">{stats.pending}</p>
+          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-amber-500">{stats.pending}</p>
           <span className="text-xs font-mono text-amber-500/80 uppercase tracking-wider block">AWAITING SIGN-OFF</span>
         </div>
         <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-blue-500/40 transition-all space-y-2">
           <p className="text-xs font-mono font-bold text-info uppercase tracking-[0.18em]">[ 03 // ACTIVE / SCHEDULED ]</p>
-          <p className="text-3xl sm:text-4xl font-dot tracking-tight text-info">{stats.inProgress}</p>
+          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-info">{stats.inProgress}</p>
           <span className="text-xs font-mono text-info/80 uppercase tracking-wider block">SLOTS RESERVED</span>
         </div>
         <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-emerald-500/40 transition-all space-y-2">
           <p className="text-xs font-mono font-bold text-emerald-500 uppercase tracking-[0.18em]">[ 04 // RESOLVED & VERIFIED ]</p>
-          <p className="text-3xl sm:text-4xl font-dot tracking-tight text-emerald-500">{stats.resolved}</p>
+          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-emerald-500">{stats.resolved}</p>
           <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider block">SAFETY VERIFIED</span>
         </div>
       </motion.div>
 
-      {/* THE 4-STAGE WORKFLOW JOURNEY BOARD (Nothing OS Technical Pipeline) */}
+      {/* THE 4-STAGE WORKFLOW JOURNEY BOARD */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -718,9 +718,9 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         {/* Journey Board Header with Search & Filter Pills */}
         <div className="mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
           <div>
-            <h2 className="text-sm font-dot uppercase tracking-wider text-ink flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[#d71920] inline-block" />
-              LIFECYCLE PIPELINE (NDOT/57)
+            <h2 className="text-base font-bold tracking-tight text-gradient-brand flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 inline-block" />
+              Lifecycle Pipeline
             </h2>
             <p className="text-[10.5px] font-mono uppercase tracking-widest text-muted mt-0.5">
               [ CORRIDORS IN SCOPE: 5 ] · DYNAMIC ALLOCATION MATRIX · TELEMETRY CONNECTED
@@ -1006,7 +1006,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                   </div>
                   <span className="text-[9px] font-mono text-neutral-400">[ REC // 01 ]</span>
                 </div>
-                <h4 className="text-xs font-dot tracking-wider uppercase leading-tight">
+                <h4 className="text-xs font-bold font-sans tracking-tight uppercase leading-tight">
                   ACTIVE REQUEST PROCESSING
                 </h4>
                 <p className="text-[10px] font-mono text-neutral-400 mt-1">
@@ -1067,8 +1067,8 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         <div className="lg:col-span-7 bg-surface/90 border border-line/80 rounded-[32px] shadow-sm p-7 sm:p-8 flex flex-col">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-line/60">
             <div>
-              <h2 className="text-base font-bold uppercase tracking-wider text-ink flex items-center gap-2.5 font-dot">
-                <FileText size={18} className="text-info" />
+              <h2 className="text-base font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
+                <FileText size={18} className="text-blue-500" />
                 Suggested Knowledge & Defect Registry
               </h2>
               <p className="text-xs text-muted mt-0.5">
@@ -1155,7 +1155,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         <div className="lg:col-span-5 bg-surface/90 border border-line/80 rounded-[32px] shadow-sm p-7 sm:p-8 flex flex-col">
           <div className="flex items-center justify-between gap-4 mb-4 pb-4 border-b border-line/60">
             <div>
-              <h2 className="text-base font-bold uppercase tracking-wider text-ink flex items-center gap-2.5 font-dot">
+              <h2 className="text-base font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
                 <MapPin size={18} className="text-rose-500" />
                 Live Railway Network & Telemetry
               </h2>
@@ -1222,23 +1222,23 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
 
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-8">
-              {/* 1. WHAT HAPPENED? */}
+              {/* 1. Incident Summary */}
               <div className="md:col-span-2">
-                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-2">1. WHAT HAPPENED?</h3>
+                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-2">1. Incident Summary</h3>
                 <p className="text-base font-medium text-ink">{selectedTask.what}</p>
               </div>
 
-              {/* 4. HOW SERIOUS IS IT? */}
+              {/* 4. Operational Priority */}
               <div className="md:col-span-1">
-                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-2">4. HOW SERIOUS IS IT?</h3>
+                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-2">4. Operational Priority</h3>
                 <span className={`inline-block rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wide border ${getSeverityBadge(selectedTask.severity)}`}>
                   {selectedTask.severity} Priority
                 </span>
               </div>
 
-              {/* 2. ROOT CAUSE */}
+              {/* 2. Root Cause Analysis */}
               <div className="md:col-span-2">
-                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">2. WHY DID IT HAPPEN? (Root Causes)</h3>
+                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">2. Root Cause Analysis</h3>
                 <div className="space-y-2">
                   {(selectedTask.causes || []).map((cause, i) => (
                     <div key={i} className="p-3 rounded-lg border border-line bg-raised/40 text-xs flex gap-3">
@@ -1251,9 +1251,9 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                 </div>
               </div>
 
-              {/* PRIORITY REASONS */}
+              {/* Priority Drivers */}
               <div className="md:col-span-1">
-                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">WHY IS THIS HIGH PRIORITY?</h3>
+                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">Key Priority Drivers</h3>
                 <ul className="space-y-1.5">
                   {(selectedTask.priorityReasons || []).map((reason, i) => (
                     <li key={i} className="text-xs text-ink flex items-start gap-2">
@@ -1264,9 +1264,9 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                 </ul>
               </div>
 
-              {/* 3. TIMELINE STEPPER (Dynamic!) */}
+              {/* 3. Lifecycle Progression */}
               <div className="md:col-span-3 border-t border-line/60 pt-6">
-                <h3 className="text-[11px] font-bold text-muted uppercase tracking-wider mb-5">3. HOW DID IT DEVELOP? (Lifecycle Progression)</h3>
+                <h3 className="text-[11px] font-bold text-muted uppercase tracking-wider mb-5">3. Lifecycle Progression</h3>
                 <div className="flex justify-between items-start relative px-4">
                   <div className="absolute top-2.5 left-8 right-8 h-[2px] bg-line -z-0" />
                   {['Reported', 'Detected', 'Analysed', 'Alert raised', 'Action req.', 'Resolved'].map((stage, i) => {

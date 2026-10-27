@@ -44,6 +44,11 @@ export default function IssueAlertModal() {
     ? new Date(activePopup.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : 'Just now'
 
+  const formattedTitle = (activePopup.title || 'New Operational Alert')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+
   return (
     <AnimatePresence>
       {activePopup && (
@@ -96,8 +101,8 @@ export default function IssueAlertModal() {
                     )}
                     <span className="text-[11px] font-mono text-faint">{formattedTime}</span>
                   </div>
-                  <h2 id="issue-alert-title" className="mt-1 font-dot text-base font-bold text-ink uppercase tracking-wider">
-                    {activePopup.title}
+                  <h2 id="issue-alert-title" className="mt-1.5 text-xl font-bold tracking-tight text-gradient-brand">
+                    {formattedTitle}
                   </h2>
                 </div>
               </div>

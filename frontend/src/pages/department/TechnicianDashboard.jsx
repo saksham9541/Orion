@@ -155,8 +155,8 @@ export default function TechnicianDashboard() {
             </span>
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="font-dot text-xl sm:text-2xl font-bold text-ink uppercase tracking-wider">
-                  FIELD CREW WORKBENCH
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gradient-brand">
+                  Field Crew Workbench
                 </h1>
                 <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-mono font-bold text-emerald-500 uppercase flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping inline-block" />
@@ -198,7 +198,7 @@ export default function TechnicianDashboard() {
             <p className="text-xs font-mono font-bold text-muted uppercase tracking-[0.18em]">
               [ 01 // ASSIGNED ORDERS ]
             </p>
-            <p className="text-3xl sm:text-4xl font-dot tracking-tight text-ink">{stats.total}</p>
+            <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-ink">{stats.total}</p>
             <span className="text-xs font-mono text-muted uppercase tracking-wider block">
               {stats.inProgress} ACTIVE IN PROGRESS
             </span>
@@ -213,7 +213,7 @@ export default function TechnicianDashboard() {
             <p className="text-xs font-mono font-bold text-emerald-500 uppercase tracking-[0.18em]">
               [ 02 // SAFETY INTERLOCK ]
             </p>
-            <p className="text-2xl sm:text-3xl font-dot tracking-tight text-emerald-500 flex items-center gap-2">
+            <p className="text-2xl sm:text-3xl font-bold font-sans tracking-tight text-emerald-500 flex items-center gap-2">
               <ShieldCheck size={26} />
               SAFE TO WORK
             </p>
@@ -231,7 +231,7 @@ export default function TechnicianDashboard() {
             <p className="text-xs font-mono font-bold text-amber-500 uppercase tracking-[0.18em]">
               [ 03 // BLOCK WINDOW ]
             </p>
-            <p className="text-2xl sm:text-3xl font-dot tracking-tight text-amber-500 flex items-center gap-2">
+            <p className="text-2xl sm:text-3xl font-bold font-sans tracking-tight text-amber-500 flex items-center gap-2">
               <Clock size={24} />
               02h 45m
             </p>
@@ -249,7 +249,7 @@ export default function TechnicianDashboard() {
             <p className="text-xs font-mono font-bold text-info uppercase tracking-[0.18em]">
               [ 04 // SQUAD ON SITE ]
             </p>
-            <p className="text-2xl sm:text-3xl font-dot tracking-tight text-info flex items-center gap-2">
+            <p className="text-2xl sm:text-3xl font-bold font-sans tracking-tight text-info flex items-center gap-2">
               <Radio size={24} />
               4 TECHS
             </p>
@@ -268,9 +268,9 @@ export default function TechnicianDashboard() {
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-line">
             <div>
-              <h2 className="font-dot text-base sm:text-lg font-bold text-ink uppercase tracking-wider flex items-center gap-2.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#d71920] inline-block" />
-                MANDATORY SAFETY INTERLOCK PROTOCOL
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 inline-block" />
+                Mandatory Safety Interlock Protocol
               </h2>
               <p className="text-xs font-mono text-muted uppercase tracking-widest mt-1">
                 COMPREHENSIVE ON-TRACK PRE-WORK VERIFICATION
@@ -385,7 +385,7 @@ export default function TechnicianDashboard() {
           {!loading && !error && filteredTasks.length === 0 && (
             <div className="p-16 text-center text-muted border border-dashed border-line rounded-[32px] bg-surface/50">
               <CheckCircle className="mx-auto mb-3 text-emerald-500 opacity-60" size={44} />
-              <p className="font-dot text-base font-bold text-ink uppercase">No Matching Work Orders</p>
+              <p className="text-base font-bold text-ink tracking-tight">No Matching Work Orders</p>
               <p className="text-xs text-muted font-mono mt-1">All designated tasks for this filter have been satisfied.</p>
             </div>
           )}
@@ -423,7 +423,7 @@ export default function TechnicianDashboard() {
                           DEPT: {task.department || 'ENGINEERING'}
                         </span>
                       </div>
-                      <h3 className="font-dot text-base sm:text-lg font-bold text-ink uppercase tracking-wider">
+                      <h3 className="text-base sm:text-lg font-bold text-ink tracking-tight">
                         {task.defect_category || task.defectType || 'Track Maintenance Order'}
                       </h3>
                     </div>

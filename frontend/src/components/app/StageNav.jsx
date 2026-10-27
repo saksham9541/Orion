@@ -49,15 +49,15 @@ export default function StageNav() {
           </button>
           
           <Link to="/dashboard" className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-surface/50 transition-colors">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-ink text-deep font-dot text-xs font-bold shadow-sm">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white font-bold text-xs shadow-md">
               R1
             </span>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="text-[14px] font-dot uppercase tracking-wider text-ink">
-                  RAILOPT
+                <span className="text-[16px] font-bold tracking-tight text-gradient-brand">
+                  RailOpt
                 </span>
-                <span className="h-1.5 w-1.5 rounded-full bg-[#d71920] inline-block animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 inline-block animate-pulse" />
               </div>
               <span className="hidden text-[8.5px] font-mono uppercase tracking-[0.2em] text-faint sm:inline">
                 (SCHEDULE / OS.02)
