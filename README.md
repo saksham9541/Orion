@@ -101,6 +101,17 @@ python scripts/train_models.py --tasks 1000
 
 # 6. Start backend server
 uvicorn backend.main:app --reload --port 8000
+
+# 7. Seed Demo Data (Admin Token Required)
+# Note: /api/demo/setup requires an admin token. Create an admin account (step 4),
+# authenticate to fetch an access token, and pass it in the Authorization header:
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@railways.gov.in","password":"<secure-password>"}' \
+  | jq -r .access_token)
+
+curl -X POST http://localhost:8000/api/demo/setup \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Frontend Setup
@@ -187,7 +198,6 @@ Configure via `.env` (refer to `.env.example`):
 | `RAILRADAR_OFFLINE` | `1` to disable network calls and use snapshots | `0` |
 | `RAILRADAR_KEY_LIMIT` | Safe monthly request cap per key | `90` |
 | `NVIDIA_API_KEY` | NVIDIA NIM / OpenAI-compatible API key for LLM | — |
-| `GEMINI_API_KEY` | Optional fallback key for Gemini | — |
 | `TRUST_PROXY` | Set to `1` behind reverse proxies (Render, Nginx) to extract client IP from `X-Forwarded-For` for rate limiting | `0` |
 
 ### Deployment on Render
@@ -231,6 +241,17 @@ Full details are documented in [docs/PERMISSIONS.md](docs/PERMISSIONS.md).
 
 ---
 
-## 10. License
+## 10. Naming Conventions
+
+- **Orion vs. RailOpt**:
+  - **Orion**: The user-facing application, dashboard, and repository name.
+  - **RailOpt** (`railopt/`): The internal core Python package hosting models, synthetic data generators, and timetable calibration algorithms.
+- **Security Configuration**:
+  - `JWT_SECRET`: The canonical, preferred environment variable for signing and verifying JSON Web Tokens.
+  - `RAILOPT_SECRET`: Supported as a backward-compatible alias.
+
+---
+
+## 11. License
 
 Built for Smart India Hackathon 2026 — Ministry of Railways.
