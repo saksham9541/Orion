@@ -177,8 +177,8 @@ Configure via `.env` (refer to `.env.example`):
 
 | Variable | Description | Default / Example |
 |---|---|---|
-| `ENVIRONMENT` | Environment mode (`development` or `production`) | `development` |
-| `JWT_SECRET` | Secret key for JWT tokens (min 32 characters in production) | Auto-generated in dev |
+| `ENVIRONMENT` | Environment mode (`development` or `production`; `production` is required for live deployments) | `development` |
+| `JWT_SECRET` | Secret key for JWT tokens (min 32 characters; required in production). In dev, generated once per process; tokens invalidate on restart and across workers. | Auto-generated in dev |
 | `RAILOPT_SECRET` | Backward-compatible alias for `JWT_SECRET` | — |
 | `DATABASE_URL` | PostgreSQL connection string with SSL required | Falls back to SQLite |
 | `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:5173,http://localhost:3000` |

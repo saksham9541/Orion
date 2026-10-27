@@ -40,12 +40,17 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
+_ephemeral_dev_secret: Optional[str] = None
+_logged_dev_secret_warning: bool = False
+
+
 def get_jwt_secret() -> str:
     """
     Retrieve JWT secret key from environment (JWT_SECRET or RAILOPT_SECRET).
     - If ENVIRONMENT=production and secret is missing or < 32 characters: refuses to start with RuntimeError.
     - Otherwise (local dev): generates a random 32+ char secret and logs one warning. Never logs the secret.
     """
+    global _ephemeral_dev_secret, _logged_dev_secret_warning
     secret = os.environ.get("JWT_SECRET") or os.environ.get("RAILOPT_SECRET")
     is_prod = os.environ.get("ENVIRONMENT", "").strip().lower() == "production"
     if not secret or len(secret) < 32:
@@ -53,11 +58,16 @@ def get_jwt_secret() -> str:
             raise RuntimeError(
                 "CRITICAL: JWT_SECRET (or RAILOPT_SECRET) must be set and at least 32 characters long in production."
             )
-        logger.warning(
-            "JWT_SECRET is missing or shorter than 32 characters. Generating random ephemeral secret for local development."
-        )
-        import secrets
-        return secrets.token_urlsafe(32)
+        if _ephemeral_dev_secret is None:
+            import secrets
+            _ephemeral_dev_secret = secrets.token_urlsafe(32)
+        if not _logged_dev_secret_warning:
+            logger.warning(
+                "JWT_SECRET is missing or shorter than 32 characters. Generating random ephemeral secret for local development. "
+                "Tokens will be invalidated on restart and across workers."
+            )
+            _logged_dev_secret_warning = True
+        return _ephemeral_dev_secret
     return secret
 
 
