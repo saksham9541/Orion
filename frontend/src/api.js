@@ -96,4 +96,9 @@ export const submitComplaint = (data) => api.post('/tasks/complaint', data);
 export const fetchLiveTrains = () => api.get('/trains/live');
 export const syncLiveTrains = () => api.post('/trains/live/sync');
 
+// Multi-Agent System
+export const fetchAgentsStatus = () => api.get('/agents/status');
+export const triggerAgentNegotiation = (horizon = 'WEEKLY') => api.post('/agents/negotiate', { horizon });
+export const scanEarlyWarnings = () => api.post('/agents/early-warning/scan');
+
 export default api;
