@@ -5,6 +5,7 @@ SQLAlchemy-backed budget tracking, caching, and offline snapshot fallback.
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import logging
 import os
@@ -29,7 +30,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://api.railradar.in/v1"
 DEFAULT_KEY_LIMIT = 90
-FAILING_COOLDOWN_SECONDS = 3600  # 1 hour penalty for failing/rate-limited keys
+FAILING_COOLDOWN_SECONDS = 3600      # 1 hour penalty for 429 / 401 / 403
+SERVER_ERROR_COOLDOWN_SECONDS = 300  # 5 minutes cooldown for 5xx / connection errors
 
 # TTL constants in seconds
 TTL_LIVE = 600              # 10 minutes for live status, station boards, exceptions
@@ -48,11 +50,18 @@ def mask_key(key: str) -> str:
     return f"...{key[-4:]}"
 
 
+def key_identifier(key: str) -> str:
+    """Return short 8-char SHA256 hash of key for unambiguous database storage."""
+    if not key:
+        return ""
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:8]
+
+
 class RailRadarClient:
     """
     Client for the RailRadar API v1 with:
-    - Multi-key round-robin rotation with 1-hour penalty on failure/429
-    - Per-key monthly budget tracking in database (api_usage)
+    - Multi-key round-robin rotation with 1-hour penalty on failure/429 and 5-min on 5xx
+    - Per-key monthly budget tracking in database (api_usage) using key SHA256 hashes
     - SQLAlchemy cache table (api_cache) with endpoint-appropriate TTLs
     - Offline fallback to data/railradar_snapshots/
     """
@@ -100,17 +109,17 @@ class RailRadarClient:
         return datetime.datetime.utcnow().strftime("%Y-%m")
 
     def get_budget_status(self) -> dict[str, Any]:
-        """Return usage and budget status for all configured keys (last 4 chars only)."""
+        """Return usage and budget status for all configured keys (showing last 4 chars only)."""
         ym = self._get_year_month()
         session = get_session(self._engine)
         try:
             status = {}
             for k in self.keys:
-                suffix = k[-4:]
-                used = get_api_usage_count(session, suffix, ym)
+                ident = key_identifier(k)
+                used = get_api_usage_count(session, ident, ym)
                 remaining = max(0, self.key_limit - used)
                 is_failing = time.time() < self._failing_until.get(k, 0)
-                status[f"...{suffix}"] = {
+                status[f"...{k[-4:]}"] = {
                     "used": used,
                     "remaining": remaining,
                     "limit": self.key_limit,
@@ -126,9 +135,10 @@ class RailRadarClient:
         finally:
             session.close()
 
-    def _select_next_key(self) -> tuple[Optional[str], Optional[str]]:
+    def _select_next_key(self, tried_keys: Optional[set[str]] = None) -> tuple[Optional[str], Optional[str]]:
         """
         Round-robin across keys, skipping keys that:
+        - have already been tried during this request (tried_keys)
         - have reached key_limit this calendar month
         - are currently marked failing (cooldown active)
         Returns (key, failure_reason) or (None, failure_reason)
@@ -136,6 +146,7 @@ class RailRadarClient:
         if not self.keys:
             return None, "No API keys configured"
 
+        tried = tried_keys or set()
         ym = self._get_year_month()
         now = time.time()
         session = get_session(self._engine)
@@ -144,20 +155,25 @@ class RailRadarClient:
                 key = self.keys[self._idx]
                 self._idx = (self._idx + 1) % len(self.keys)
 
+                # Skip if already tried in this request
+                if key in tried:
+                    continue
+
                 # Check failing penalty
                 blocked_until = self._failing_until.get(key, 0)
                 if now < blocked_until:
                     continue
 
-                # Check monthly usage
-                used = get_api_usage_count(session, key[-4:], ym)
+                # Check monthly usage with 8-char hash
+                ident = key_identifier(key)
+                used = get_api_usage_count(session, ident, ym)
                 if used >= self.key_limit:
                     logger.warning("RailRadar key %s has reached monthly limit (%d/%d)", mask_key(key), used, self.key_limit)
                     continue
 
                 return key, None
 
-            return None, "All keys are either rate-limited/failing or have reached the monthly limit"
+            return None, "All keys are either rate-limited/failing, exhausted, or already tried in this request"
         finally:
             session.close()
 
@@ -172,7 +188,6 @@ class RailRadarClient:
     def _get_snapshot_path(self, path: str) -> Path:
         """Derive standard snapshot filename for an endpoint path."""
         p = path.strip("/").replace("/", "_")
-        # clean standard patterns
         if p.startswith("trains_"):
             sub = p[len("trains_"):]
             return self.snapshots_dir / f"train_{sub}.json"
@@ -183,7 +198,6 @@ class RailRadarClient:
 
     def _read_snapshot(self, path: str) -> dict:
         filepath = self._get_snapshot_path(path)
-        # Check alternative common fallback names
         candidates = [filepath]
         if "_timetable" not in filepath.name and "train_" in filepath.name and "_live" not in filepath.name and "_route" not in filepath.name and "_delay" not in filepath.name:
             candidates.append(filepath.with_name(filepath.stem + "_timetable.json"))
@@ -219,9 +233,9 @@ class RailRadarClient:
         1. Check database cache (api_cache).
         2. If cached and valid, return with source='cache'.
         3. If offline, read from snapshot with source='snapshot'.
-        4. Select valid key, call API with Authorization: Bearer <key> & x-api-key: <key>.
-        5. Record usage in api_usage, update cache, return with source='live'.
-        6. On failure/exhaustion, fall back to snapshot.
+        4. Select valid key, call API with Authorization: Bearer <key> (at most 1 try per key).
+        5. Record usage in api_usage (using key SHA256 prefix), update cache, return with source='live'.
+        6. On failure/exhaustion, fall back to snapshot or raise RailRadarError with last_error.
         """
         cache_key = endpoint_path
         if params:
@@ -249,34 +263,30 @@ class RailRadarClient:
             logger.info("RailRadarClient in offline mode: reading snapshot for %s", endpoint_path)
             return self._read_snapshot(endpoint_path)
 
-        # 3. Attempt network request with rotated keys
+        # 3. Attempt network request with rotated keys (at most 1 try per key per request)
+        tried_keys: set[str] = set()
         last_error = None
-        while True:
-            key, fail_reason = self._select_next_key()
-            if not key:
-                logger.warning(
-                    "RailRadarClient: %s. Falling back to offline snapshots.",
-                    fail_reason or "All keys unavailable",
-                )
-                try:
-                    return self._read_snapshot(endpoint_path)
-                except Exception:
-                    raise RailRadarError(f"RailRadar request failed ({fail_reason}) and no snapshot exists for '{endpoint_path}'")
 
+        while len(tried_keys) < len(self.keys):
+            key, fail_reason = self._select_next_key(tried_keys=tried_keys)
+            if not key:
+                break
+
+            tried_keys.add(key)
             url = f"{self.base_url}{endpoint_path}"
             headers = {
                 "Authorization": f"Bearer {key}",
-                "x-api-key": key,
                 "Accept": "application/json",
             }
             masked = mask_key(key)
+            ident = key_identifier(key)
             session = get_session(self._engine)
 
             try:
                 resp = requests.get(url, params=params, headers=headers, timeout=12)
                 status_code = resp.status_code
                 
-                # Check for rate limiting
+                # Check for rate limiting (429)
                 if status_code == 429:
                     retry_after = FAILING_COOLDOWN_SECONDS
                     if "Retry-After" in resp.headers:
@@ -284,26 +294,34 @@ class RailRadarClient:
                             retry_after = float(resp.headers["Retry-After"])
                         except ValueError:
                             pass
-                    record_api_usage(session, key[-4:], endpoint_path, status_code, False)
+                    record_api_usage(session, ident, endpoint_path, status_code, False)
                     self._mark_key_failing(key, retry_after)
                     last_error = f"HTTP 429 (Rate Limit) on key {masked}"
                     continue
 
-                # Check for auth failure
+                # Check for auth failure (401, 403)
                 if status_code in (401, 403):
-                    record_api_usage(session, key[-4:], endpoint_path, status_code, False)
+                    record_api_usage(session, ident, endpoint_path, status_code, False)
                     self._mark_key_failing(key, FAILING_COOLDOWN_SECONDS)
                     last_error = f"HTTP {status_code} (Auth error) on key {masked}"
                     continue
 
-                # Record request usage (successful or non-fatal server error)
-                is_success = resp.ok
-                record_api_usage(session, key[-4:], endpoint_path, status_code, is_success)
-
-                if not resp.ok:
+                # Check for server errors (5xx) -> 5 minute penalty
+                if status_code >= 500:
+                    record_api_usage(session, ident, endpoint_path, status_code, False)
+                    self._mark_key_failing(key, SERVER_ERROR_COOLDOWN_SECONDS)
                     last_error = f"HTTP {status_code}: {resp.text[:200]}"
                     continue
 
+                # Record request usage (other non-2xx status)
+                if not resp.ok:
+                    record_api_usage(session, ident, endpoint_path, status_code, False)
+                    self._mark_key_failing(key, SERVER_ERROR_COOLDOWN_SECONDS)
+                    last_error = f"HTTP {status_code}: {resp.text[:200]}"
+                    continue
+
+                # Successful call
+                record_api_usage(session, ident, endpoint_path, status_code, True)
                 raw = resp.json()
                 if not isinstance(raw, dict) or not raw.get("success", False):
                     err_msg = raw.get("message") or raw.get("error") or "Unknown API error"
@@ -320,12 +338,27 @@ class RailRadarClient:
                 return raw
 
             except requests.RequestException as e:
-                logger.warning("RailRadar network error with key %s: %s", masked, e)
-                self._mark_key_failing(key, FAILING_COOLDOWN_SECONDS)
-                last_error = str(e)
+                # Network error (DNS, socket timeout, etc.) -> 5 min penalty
+                record_api_usage(session, ident, endpoint_path, 0, False)
+                self._mark_key_failing(key, SERVER_ERROR_COOLDOWN_SECONDS)
+                last_error = f"Network error on key {masked}: {str(e)}"
                 continue
             finally:
                 session.close()
+
+        # All available keys were tried once and failed
+        logger.warning(
+            "RailRadarClient: All keys tried for '%s' (last error: %s). Falling back to offline snapshots.",
+            endpoint_path,
+            last_error or "Keys unavailable",
+        )
+        try:
+            return self._read_snapshot(endpoint_path)
+        except Exception:
+            err_detail = f" (last error: {last_error})" if last_error else ""
+            raise RailRadarError(
+                f"RailRadar request failed and no snapshot exists for '{endpoint_path}'{err_detail}"
+            )
 
     # ------------------------------------------------------------------
     # Public API Endpoints (as specified in user prompt)

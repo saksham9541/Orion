@@ -228,12 +228,17 @@ def get_current_user(
         )
 
 
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Requires role ADMIN."""
-    if current_user.role != UserRole.ADMIN:
+def require_viewer_or_above(current_user: User = Depends(get_current_user)) -> User:
+    """Requires any logged-in user (VIEWER, DEPT_USER, CONTROLLER, ADMIN)."""
+    return current_user
+
+
+def require_dept_or_above(current_user: User = Depends(get_current_user)) -> User:
+    """Requires role DEPT_USER, CONTROLLER, or ADMIN."""
+    if current_user.role not in (UserRole.ADMIN, UserRole.CONTROLLER, UserRole.DEPT_USER):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Administrator access required",
+            detail="Department user, Controller or Administrator access required",
         )
     return current_user
 
@@ -248,15 +253,26 @@ def require_controller(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-def require_dept_or_above(current_user: User = Depends(get_current_user)) -> User:
-    """Requires role DEPT_USER, CONTROLLER, or ADMIN."""
-    if current_user.role not in (UserRole.ADMIN, UserRole.CONTROLLER, UserRole.DEPT_USER):
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Requires role ADMIN."""
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Department user, Controller or Administrator access required",
+            detail="Administrator access required",
         )
     return current_user
 
 
-# Backwards compatibility alias
-require_super_admin = require_admin
+def can_access_task(user: User, task: Any) -> bool:
+    """
+    Check if a user has access to a specific task based on role and department:
+    - DEPT_USER: only tasks within their assigned department.
+    - CONTROLLER, ADMIN, VIEWER: can view tasks across all departments.
+    """
+    if user.role == UserRole.DEPT_USER:
+        task_dept = getattr(task, "department", None)
+        if hasattr(task_dept, "value"):
+            task_dept = task_dept.value
+        user_dept = getattr(user.department, "value", user.department) if user.department else None
+        return task_dept == user_dept
+    return True

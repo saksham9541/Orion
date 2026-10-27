@@ -9,7 +9,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from sqlalchemy import create_engine
 
-from integrations.railradar_client import RailRadarClient, RailRadarError, mask_key
+from integrations.railradar_client import RailRadarClient, RailRadarError, mask_key, key_identifier
 from backend.database import Base, init_db, get_session, record_api_usage, get_api_usage_count, set_api_cache, get_api_cache
 
 
@@ -95,8 +95,9 @@ def test_key_rotation_and_budget_skipping(test_engine, mock_snapshots):
     # key1 has exhausted limit (90 calls)
     session = get_session(test_engine)
     now_ym = datetime.datetime.utcnow().strftime("%Y-%m")
+    ident_alpha = key_identifier("key_alpha_1111")
     for _ in range(90):
-        record_api_usage(session, "1111", "/trains/test", 200, True, year_month=now_ym)
+        record_api_usage(session, ident_alpha, "/trains/test", 200, True, year_month=now_ym)
     session.close()
 
     client = RailRadarClient(
@@ -121,8 +122,8 @@ def test_key_rotation_and_budget_skipping(test_engine, mock_snapshots):
         assert res["success"] is True
         # Ensure requests.get was called using key_beta_2222, skipping exhausted key_alpha_1111
         call_headers = mock_get.call_args[1]["headers"]
-        assert call_headers["x-api-key"] == "key_beta_2222"
-        assert "2222" in call_headers["Authorization"]
+        assert call_headers["Authorization"] == "Bearer key_beta_2222"
+        assert "x-api-key" not in call_headers
 
 
 def test_failing_key_triggers_cooldown_and_rotates(test_engine, mock_snapshots):

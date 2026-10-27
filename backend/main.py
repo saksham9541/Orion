@@ -45,7 +45,8 @@ from backend.auth import (
     require_admin,
     require_controller,
     require_dept_or_above,
-    require_super_admin,
+    require_viewer_or_above,
+    can_access_task,
 )
 from backend.schemas import (
     DashboardStats,
@@ -72,8 +73,10 @@ from backend.schemas import (
     User,
 )
 from railopt.models import (
+    AssetType,
     BlockWindow,
     Corridor,
+    DefectCategory,
     DefectSeverity,
     EarlyWarning,
     MaintenanceTask,
@@ -603,20 +606,65 @@ def health_check():
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Tasks
+# Tasks & Complaints
 # ──────────────────────────────────────────────────────────────────────
 
+CATEGORY_DEPARTMENT_ASSET_MAP: dict[DefectCategory, tuple[Department, AssetType]] = {
+    # Engineering
+    DefectCategory.RAIL_FRACTURE: (Department.ENGINEERING, AssetType.RAIL),
+    DefectCategory.RAIL_CRACK: (Department.ENGINEERING, AssetType.RAIL),
+    DefectCategory.GAUGE_IRREGULARITY: (Department.ENGINEERING, AssetType.RAIL),
+    DefectCategory.ALIGNMENT_DEFECT: (Department.ENGINEERING, AssetType.RAIL),
+    DefectCategory.CROSS_LEVEL_DEFECT: (Department.ENGINEERING, AssetType.RAIL),
+    DefectCategory.SLEEPER_DAMAGE: (Department.ENGINEERING, AssetType.SLEEPER),
+    DefectCategory.BALLAST_DEFICIENCY: (Department.ENGINEERING, AssetType.BALLAST),
+    DefectCategory.BRIDGE_CORROSION: (Department.ENGINEERING, AssetType.BRIDGE),
+    DefectCategory.WELD_DEFECT: (Department.ENGINEERING, AssetType.WELD_JOINT),
+    DefectCategory.FORMATION_FAILURE: (Department.ENGINEERING, AssetType.FORMATION),
+    DefectCategory.LEVEL_CROSSING_DEFECT: (Department.ENGINEERING, AssetType.LEVEL_CROSSING),
+    DefectCategory.WATERLOGGING: (Department.ENGINEERING, AssetType.TRACK_BED),
+    DefectCategory.EMBANKMENT_SLIP: (Department.ENGINEERING, AssetType.FORMATION),
+    # S&T
+    DefectCategory.SIGNAL_FAILURE: (Department.SNT, AssetType.SIGNAL_POST),
+    DefectCategory.RELAY_MALFUNCTION: (Department.SNT, AssetType.RELAY),
+    DefectCategory.POINT_FAILURE: (Department.SNT, AssetType.POINT_MACHINE),
+    DefectCategory.TRACK_CIRCUIT_FAILURE: (Department.SNT, AssetType.TRACK_CIRCUIT),
+    DefectCategory.CABLE_DAMAGE: (Department.SNT, AssetType.TELECOM_CABLE),
+    DefectCategory.INTERLOCKING_FAULT: (Department.SNT, AssetType.INTERLOCKING),
+    DefectCategory.AXLE_COUNTER_ERROR: (Department.SNT, AssetType.AXLE_COUNTER),
+    # TRD
+    DefectCategory.OHE_SAG: (Department.TRD, AssetType.OHE_WIRE),
+    DefectCategory.OHE_BREAK: (Department.TRD, AssetType.OHE_WIRE),
+    DefectCategory.INSULATOR_DAMAGE: (Department.TRD, AssetType.INSULATOR),
+    DefectCategory.MAST_TILT: (Department.TRD, AssetType.MAST),
+    DefectCategory.TRANSFORMER_FAULT: (Department.TRD, AssetType.TRANSFORMER),
+    DefectCategory.FEEDER_TRIP: (Department.TRD, AssetType.FEEDER),
+    DefectCategory.PANTOGRAPH_SCRATCH: (Department.TRD, AssetType.PANTOGRAPH_ZONE),
+}
+
+
 @app.post("/api/tasks/import", response_model=ImportTasksResponse)
-def import_tasks(request: ImportTasksRequest):
+def import_tasks(
+    request: ImportTasksRequest,
+    current_user: User = Depends(require_dept_or_above),
+):
+    # RBAC: DEPT_USER can only import tasks for their own department
+    if current_user.role == UserRole.DEPT_USER and current_user.department:
+        for idx, rec in enumerate(request.records):
+            rec_dept = rec.get("department")
+            if rec_dept and rec_dept != current_user.department.value and rec_dept != current_user.department:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Row {idx}: Cannot import tasks for department '{rec_dept}'. You can only import tasks for '{current_user.department.value}'.",
+                )
+
     new_tasks = []
     errors = []
     
     for idx, rec in enumerate(request.records):
         try:
-            # Add 2: Wire NLP classifier
-            # If defect_category is missing but inspector_remarks exists
+            # Wire NLP classifier if needed
             if not rec.get("defect_category") and rec.get("inspector_remarks"):
-                # Use standard schema names
                 try:
                     result = app.state.text_classifier.classify(rec["inspector_remarks"])
                     rec["defect_category"] = result.get("defect_category")
@@ -625,16 +673,16 @@ def import_tasks(request: ImportTasksRequest):
                 except Exception as e:
                     logger.warning(f"NLP classification failed for record {idx}: {e}")
 
+            rec["source"] = "user"
             task = MaintenanceTask(**rec)
+            task.source = "user"
             new_tasks.append(task)
         except Exception as e:
             errors.append(f"Row {idx}: {str(e)}")
 
     if new_tasks:
-        # Run ML inference
         _batch_score_tasks(new_tasks)
         _batch_score_durations(new_tasks)
-        # Apply ML SLA
         sla_engine = SLAEngine()
         sla_engine.apply_sla(new_tasks)
         
@@ -646,7 +694,7 @@ def import_tasks(request: ImportTasksRequest):
     return ImportTasksResponse(
         imported_count=len(new_tasks),
         failed_count=len(errors),
-        errors=errors[:10],  # Return top 10 errors max
+        errors=errors[:10],
         tasks=new_tasks,
     )
 
@@ -657,37 +705,31 @@ def list_tasks(
     severity: Optional[str] = None,
     status: Optional[str] = None,
     corridor: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_viewer_or_above),
 ):
     tasks = app.state.tasks
     
-    # RBAC: Department Admin sees only their department
-    if current_user.role == UserRole.DEPT_ADMIN and current_user.department:
+    # RBAC: DEPT_USER only gets tasks of their own department
+    if current_user.role == UserRole.DEPT_USER and current_user.department:
         department = current_user.department.value
 
     if department:
-        tasks = [t for t in tasks if t.department.value == department]
+        tasks = [t for t in tasks if t.department.value == department or t.department == department]
     if severity:
-        tasks = [t for t in tasks if t.ml_predicted_severity and t.ml_predicted_severity.value == severity]
+        tasks = [t for t in tasks if t.ml_predicted_severity and (t.ml_predicted_severity.value == severity or t.ml_predicted_severity == severity)]
     if status:
-        tasks = [t for t in tasks if t.status.value == status]
+        tasks = [t for t in tasks if t.status.value == status or t.status == status]
     if corridor:
         tasks = [t for t in tasks if t.corridor_id == corridor]
     return tasks
 
 
 @app.get("/api/tasks/{task_id}")
-def get_task(task_id: str, current_user: User = Depends(get_current_user)):
+def get_task(task_id: str, current_user: User = Depends(require_viewer_or_above)):
     for t in app.state.tasks:
         if t.task_id == task_id:
-            # BUG FIX: this endpoint had no auth at all, so a DEPT_ADMIN
-            # (or anyone) could fetch any task by ID and completely bypass
-            # the department filtering that /api/tasks (the list endpoint)
-            # enforces. Same check as the list endpoint, applied here too.
-            if current_user.role == UserRole.DEPT_ADMIN and current_user.department:
-                if t.department != current_user.department:
-                    raise HTTPException(status_code=403, detail="Cannot view task for a different department")
-            # Add 6: Include duration confidence intervals explicitly in dict response
+            if not can_access_task(current_user, t):
+                raise HTTPException(status_code=403, detail="Cannot view task for a different department")
             resp = t.model_dump()
             resp["duration_estimate"] = {
                 "point_estimate": t.ml_predicted_duration_hours if t.ml_predicted_duration_hours else t.estimated_duration_hours,
@@ -698,17 +740,21 @@ def get_task(task_id: str, current_user: User = Depends(get_current_user)):
             return resp
     raise HTTPException(status_code=404, detail="Task not found")
 
+
 class TaskStatusUpdate(BaseModel):
     status: str
 
+
 @app.put("/api/tasks/{task_id}/status")
-def update_task_status(task_id: str, request: TaskStatusUpdate, current_user: User = Depends(get_current_user)):
+def update_task_status(
+    task_id: str,
+    request: TaskStatusUpdate,
+    current_user: User = Depends(require_dept_or_above),
+):
     for t in app.state.tasks:
         if t.task_id == task_id:
-            # RBAC: Department Admin or Technician can only update their own dept
-            if current_user.role in [UserRole.DEPT_ADMIN, UserRole.TECHNICIAN] and current_user.department:
-                if t.department != current_user.department:
-                    raise HTTPException(status_code=403, detail="Cannot update task for different department")
+            if not can_access_task(current_user, t):
+                raise HTTPException(status_code=403, detail="Cannot update task for different department")
             
             try:
                 t.status = TaskStatus(request.status)
@@ -721,42 +767,57 @@ def update_task_status(task_id: str, request: TaskStatusUpdate, current_user: Us
             return {"status": "ok", "new_status": t.status.value}
     raise HTTPException(status_code=404, detail="Task not found")
 
-# ──────────────────────────────────────────────────────────────────────
-# Complaints
-# ──────────────────────────────────────────────────────────────────────
+
 class ComplaintRequest(BaseModel):
     description: str
     corridor_id: str
     section_id: str
     km_location: float
 
+
 @app.post("/api/tasks/complaint", response_model=MaintenanceTask)
-def submit_complaint(request: ComplaintRequest):
+def submit_complaint(
+    request: ComplaintRequest,
+    current_user: User = Depends(require_dept_or_above),
+):
     import uuid
     from datetime import datetime
     
-    # Simple logic (the original used DefectTextClassifier, but we can do a simplified one or use it if available)
-    # The summary said: "It routes the text through the DefectTextClassifier (LLM) to automatically deduce severity and department"
-    # We must ensure the extracted categories are valid enums
-    department = "ENGINEERING"
-    severity = "MEDIUM" 
-    category = "ALIGNMENT_DEFECT"
-    
+    classifier = DefectTextClassifier()
+    classification = classifier.classify(request.description)
+
+    # Validate category against DefectCategory enum
+    raw_cat = classification.get("defect_category", "")
     try:
-        from ml.defect_text_classifier import DefectTextClassifier
-        classifier = DefectTextClassifier()
-        analysis = classifier.classify(request.description)
-        # Simply use our valid defaults for safety unless we do rigid mapping
-        # since LLMs might return arbitrary strings not in our Enum
-    except Exception as e:
-        pass
+        category = DefectCategory(raw_cat)
+    except ValueError:
+        category = DefectCategory.GAUGE_IRREGULARITY
+
+    # Validate severity against DefectSeverity enum
+    raw_sev = classification.get("severity", "")
+    try:
+        severity = DefectSeverity(raw_sev)
+    except ValueError:
+        severity = DefectSeverity.MEDIUM
+
+    department, asset_type = CATEGORY_DEPARTMENT_ASSET_MAP.get(
+        category, (Department.ENGINEERING, AssetType.RAIL)
+    )
+
+    # DEPT_USER can only submit for their own department
+    if current_user.role == UserRole.DEPT_USER and current_user.department:
+        if department != current_user.department:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Cannot submit complaint for department {department.value} as user belongs to {current_user.department.value}",
+            )
 
     task = MaintenanceTask(
         task_id=f"TSK-{uuid.uuid4().hex[:8].upper()}",
         source_system="USER_COMPLAINT",
         source_record_id="",
         department=department,
-        asset_type="RAIL",
+        asset_type=asset_type,
         asset_id="",
         defect_category=category,
         raw_severity=severity,
@@ -765,13 +826,17 @@ def submit_complaint(request: ComplaintRequest):
         km_location=request.km_location,
         estimated_duration_hours=2.0,
         inspector_remarks=request.description,
-        status="UNVERIFIED",
+        status=TaskStatus.UNVERIFIED,
         reported_date=datetime.now().date(),
         ml_predicted_severity=None,
-        ml_predicted_duration_hours=0.0
+        ml_predicted_duration_hours=0.0,
+        source="user",
     )
     
     app.state.tasks.append(task)
+    session = get_session(engine)
+    save_tasks(session, [task])
+    session.close()
     return task
 
 # ──────────────────────────────────────────────────────────────────────
@@ -780,7 +845,7 @@ def submit_complaint(request: ComplaintRequest):
 from backend.database import get_session, save_live_status, load_live_status
 
 @app.post("/api/trains/live/sync")
-def sync_live_trains():
+def sync_live_trains(current_user: User = Depends(require_controller)):
     adapter = app.state.data_integration.railradar_adapter
     if adapter is None:
         raise HTTPException(status_code=503, detail="RailRadar not configured — set RAILRADAR_API_KEYS in .env")
@@ -818,7 +883,7 @@ def sync_live_trains():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/trains/live")
-def get_live_trains():
+def get_live_trains(current_user: User = Depends(require_viewer_or_above)):
     session = get_session(engine)
     statuses = load_live_status(session)
     session.close()
@@ -829,7 +894,10 @@ def get_live_trains():
 # ──────────────────────────────────────────────────────────────────────
 
 @app.post("/api/timetable/import", response_model=TimetableImportResponse)
-def import_timetable(request: TimetableImportRequest):
+def import_timetable(
+    request: TimetableImportRequest,
+    current_user: User = Depends(require_controller),
+):
     """Wire COAAdapter to produce TrainSlot data from raw COA JSON."""
     try:
         slots = app.state.data_integration.coa_adapter.parse(request.records)
@@ -849,7 +917,10 @@ def import_timetable(request: TimetableImportRequest):
 # ──────────────────────────────────────────────────────────────────────
 
 @app.post("/api/plans/generate", response_model=GeneratePlanResponse)
-def generate_plan(request: GeneratePlanRequest, current_user: User = Depends(require_super_admin)):
+def generate_plan(
+    request: GeneratePlanRequest,
+    current_user: User = Depends(require_controller),
+):
     # BUG FIX (item 4): regenerate from a clean slate. Reset every task not
     # locked in by an APPROVED plan back to PENDING (see docstring on
     # _reset_unlocked_tasks_for_regeneration), and never re-offer a window
@@ -952,7 +1023,7 @@ def generate_plan(request: GeneratePlanRequest, current_user: User = Depends(req
 
 
 @app.get("/api/plans")
-def list_plans():
+def list_plans(current_user: User = Depends(require_viewer_or_above)):
     return [
         {
             "plan_id": p.plan_id,
@@ -971,7 +1042,7 @@ def list_plans():
 
 
 @app.get("/api/plans/{plan_id}")
-def get_plan(plan_id: str):
+def get_plan(plan_id: str, current_user: User = Depends(require_viewer_or_above)):
     if plan_id not in app.state.plans:
         raise HTTPException(status_code=404, detail="Plan not found")
     return app.state.plans[plan_id]
@@ -982,7 +1053,11 @@ def get_plan(plan_id: str):
 # ──────────────────────────────────────────────────────────────────────
 
 @app.post("/api/plans/{plan_id}/approve")
-def approve_plan(plan_id: str, request: PlanApproveRequest, current_user: User = Depends(require_super_admin)):
+def approve_plan(
+    plan_id: str,
+    request: PlanApproveRequest,
+    current_user: User = Depends(require_controller),
+):
     if plan_id not in app.state.plans:
         raise HTTPException(status_code=404, detail="Plan not found")
     plan = app.state.plans[plan_id]
@@ -996,7 +1071,11 @@ def approve_plan(plan_id: str, request: PlanApproveRequest, current_user: User =
 
 
 @app.post("/api/plans/{plan_id}/reject")
-def reject_plan(plan_id: str, request: PlanRejectRequest, current_user: User = Depends(require_super_admin)):
+def reject_plan(
+    plan_id: str,
+    request: PlanRejectRequest,
+    current_user: User = Depends(require_controller),
+):
     if plan_id not in app.state.plans:
         raise HTTPException(status_code=404, detail="Plan not found")
     plan = app.state.plans[plan_id]
@@ -1009,7 +1088,11 @@ def reject_plan(plan_id: str, request: PlanRejectRequest, current_user: User = D
 
 
 @app.post("/api/plans/{plan_id}/modify")
-def modify_plan(plan_id: str, request: PlanModifyRequest, current_user: User = Depends(require_super_admin)):
+def modify_plan(
+    plan_id: str,
+    request: PlanModifyRequest,
+    current_user: User = Depends(require_controller),
+):
     if plan_id not in app.state.plans:
         raise HTTPException(status_code=404, detail="Plan not found")
     plan = app.state.plans[plan_id]
@@ -1036,7 +1119,7 @@ def modify_plan(plan_id: str, request: PlanModifyRequest, current_user: User = D
 
 
 @app.get("/api/plans/{plan_id}/briefing")
-def get_briefing(plan_id: str):
+def get_briefing(plan_id: str, current_user: User = Depends(require_viewer_or_above)):
     if plan_id not in app.state.plans:
         raise HTTPException(status_code=404, detail="Plan not found")
     plan = app.state.plans[plan_id]
@@ -1049,7 +1132,7 @@ def get_briefing(plan_id: str):
 # ──────────────────────────────────────────────────────────────────────
 
 @app.post("/api/plans/{plan_id}/simulate")
-def simulate_plan(plan_id: str):
+def simulate_plan(plan_id: str, current_user: User = Depends(require_viewer_or_above)):
     if plan_id not in app.state.plans:
         raise HTTPException(status_code=404, detail="Plan not found")
     plan = app.state.plans[plan_id]
@@ -1067,7 +1150,7 @@ def simulate_plan(plan_id: str):
 # ──────────────────────────────────────────────────────────────────────
 
 @app.post("/api/query", response_model=QueryResponse)
-def nl_query(request: QueryRequest):
+def nl_query(request: QueryRequest, current_user: User = Depends(require_viewer_or_above)):
     # Find context plan
     plan = None
     if request.plan_id and request.plan_id in app.state.plans:
@@ -1097,13 +1180,9 @@ def nl_query(request: QueryRequest):
 # ──────────────────────────────────────────────────────────────────────
 
 @app.post("/api/replan")
-def replan(request: ReplanRequest, current_user: User = Depends(require_admin)):
+def replan(request: ReplanRequest, current_user: User = Depends(require_controller)):
     """
-    BUG FIX: this mutates a live schedule (same class of action as
-    /api/plans/generate, which requires SUPER_ADMIN) but previously had no
-    role requirement at all. Set to require_admin rather than
-    require_super_admin so a DEPT_ADMIN can still replan around their own
-    department's emergencies without needing top-level access.
+    Mutates a live schedule around an emergency task. Requires CONTROLLER or ADMIN.
     """
     if request.plan_id not in app.state.plans:
         raise HTTPException(status_code=404, detail="Plan not found")
@@ -1155,7 +1234,10 @@ def replan(request: ReplanRequest, current_user: User = Depends(require_admin)):
 # ──────────────────────────────────────────────────────────────────────
 
 @app.get("/api/tasks/{task_id}/analysis")
-def get_task_analysis(task_id: str):
+def get_task_analysis(
+    task_id: str,
+    current_user: User = Depends(require_viewer_or_above),
+):
     """Get full multi-layer analysis for a single task."""
     task = None
     for t in app.state.tasks:
@@ -1164,6 +1246,9 @@ def get_task_analysis(task_id: str):
             break
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    if not can_access_task(current_user, task):
+        raise HTTPException(status_code=403, detail="Cannot view task analysis for a different department")
 
     sections = app.state.sections
     corridors = app.state.corridors
@@ -1201,7 +1286,7 @@ def get_task_analysis(task_id: str):
 # ──────────────────────────────────────────────────────────────────────
 
 @app.get("/api/adversarial/attacks")
-def list_attack_types():
+def list_attack_types(current_user: User = Depends(require_controller)):
     """List available adversarial attack types."""
     return {
         name: {
@@ -1213,7 +1298,10 @@ def list_attack_types():
 
 
 @app.post("/api/adversarial/simulate/{attack_type}")
-def run_adversarial_attack(attack_type: str):
+def run_adversarial_attack(
+    attack_type: str,
+    current_user: User = Depends(require_controller),
+):
     """Run an adversarial attack against the current plan."""
     if not app.state.plans:
         raise HTTPException(status_code=400, detail="No plans available. Generate a plan first.")
@@ -1235,7 +1323,7 @@ def run_adversarial_attack(attack_type: str):
 
 
 @app.post("/api/adversarial/run-all")
-def run_all_adversarial():
+def run_all_adversarial(current_user: User = Depends(require_controller)):
     """Run all 5 adversarial attacks and return a resilience report."""
     if not app.state.plans:
         raise HTTPException(status_code=400, detail="No plans available. Generate a plan first.")
@@ -1267,12 +1355,12 @@ def run_all_adversarial():
 # ──────────────────────────────────────────────────────────────────────
 
 @app.get("/api/corridors", response_model=List[Corridor])
-def list_corridors():
+def list_corridors(current_user: User = Depends(require_viewer_or_above)):
     return app.state.corridors
 
 
 @app.get("/api/alerts", response_model=List[EarlyWarning])
-def list_alerts():
+def list_alerts(current_user: User = Depends(require_viewer_or_above)):
     return app.state.alerts
 
 
@@ -1281,12 +1369,12 @@ def list_alerts():
 # ──────────────────────────────────────────────────────────────────────
 
 @app.get("/api/dashboard/stats", response_model=DashboardStats)
-def dashboard_stats(current_user: User = Depends(require_admin)):
+def dashboard_stats(current_user: User = Depends(require_viewer_or_above)):
     tasks = app.state.tasks
 
-    # RBAC filtering
-    if current_user.role == UserRole.DEPT_ADMIN and current_user.department:
-        tasks = [t for t in tasks if t.department == current_user.department]
+    # RBAC filtering: if DEPT_USER, calculate stats only on own department tasks
+    if current_user.role == UserRole.DEPT_USER and current_user.department:
+        tasks = [t for t in tasks if (t.department == current_user.department or t.department.value == current_user.department.value)]
 
     plans = list(app.state.plans.values())
     latest_plan = max(plans, key=lambda p: p.created_at) if plans else None
@@ -1316,8 +1404,9 @@ class DemoActionRequest(BaseModel):
     issue_id: str
     action: str
 
+
 @app.post("/api/demo/action")
-def demo_action(request: DemoActionRequest, current_user: User = Depends(get_current_user)):
+def demo_action(request: DemoActionRequest, current_user: User = Depends(require_admin)):
     """Logs frontend demo actions to the terminal."""
     logger.info(f"DEMO UI ACTION: User {current_user.email} marked '{request.issue_id}' as {request.action}")
     return {"status": "ok"}
@@ -1328,24 +1417,11 @@ def demo_action(request: DemoActionRequest, current_user: User = Depends(get_cur
 # ──────────────────────────────────────────────────────────────────────
 
 @app.post("/api/demo/setup")
-def setup_demo(current_user: User = Depends(require_super_admin)):
-    """Run full synthetic data generation pipeline.
-
-    BUG FIX: this used to have no role requirement at all, despite wiping
-    and reseeding the entire dataset — the single most destructive action
-    in the whole API. Now requires the same SUPER_ADMIN level as
-    /api/plans/generate, which is far less destructive by comparison.
-    """
+def setup_demo(current_user: User = Depends(require_admin)):
+    """Run full synthetic data generation pipeline."""
     logger.info("Setting up demo data...")
 
     # 1. Generate synthetic dataset
-    # DEMO DATA FIX: was num_tasks=500 against a 7-day window pool, which
-    # produced ~1.2x more task-hours of demand than window-hours of supply
-    # (every plan was structurally oversubscribed) and an unrealistic ~34%
-    # safety-critical share. window_days now defaults to 30 (see
-    # railopt/synthetic_data.py), so num_tasks is lowered into the
-    # suggested 150-250 range to match; safety-critical share is now ~12%
-    # via the rebalanced defect weights in that module.
     dataset = generate_full_dataset(seed=42, num_tasks=200)
 
     app.state.corridors = dataset["corridors"]
@@ -1377,9 +1453,6 @@ def setup_demo(current_user: User = Depends(require_super_admin)):
     predictor.load("ml/models/impact_predictor.pkl")
     app.state.impact_predictor = predictor
 
-    # BUG FIX: the duration estimator was trained by pipeline.train_all()
-    # (it calls train_duration_estimator() internally) but was never loaded
-    # into app.state, so /api/plans/generate had no way to use it.
     duration_estimator = DurationEstimator()
     duration_estimator.load("ml/models/duration_estimator.pkl")
     app.state.duration_estimator = duration_estimator
@@ -1415,8 +1488,10 @@ def setup_demo(current_user: User = Depends(require_super_admin)):
         "department_distribution": dept_counts,
         "ml_metrics": metrics,
     }
+
+
 @app.get("/api/map/blocks")
-def get_map_blocks(plan_id: str, current_user: User = Depends(get_current_user)):
+def get_map_blocks(plan_id: str, current_user: User = Depends(require_viewer_or_above)):
     if plan_id not in app.state.plans:
         raise HTTPException(status_code=404, detail="Plan not found")
     

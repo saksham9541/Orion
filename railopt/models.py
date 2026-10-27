@@ -25,10 +25,6 @@ class UserRole(str, Enum):
     CONTROLLER = "CONTROLLER"
     DEPT_USER = "DEPT_USER"
     VIEWER = "VIEWER"
-    # Backwards compatibility aliases
-    SUPER_ADMIN = "ADMIN"
-    DEPT_ADMIN = "CONTROLLER"
-    TECHNICIAN = "DEPT_USER"
 
 class Department(str, Enum):
     """Three maintenance departments of Indian Railways."""
