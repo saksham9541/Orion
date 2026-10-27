@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from backend.main import app, on_startup
@@ -46,7 +45,6 @@ def test_app_today_timezone_handling(monkeypatch):
     """_get_app_today returns timezone-aware operational date and falls back safely on invalid timezone."""
     from backend.main import _get_app_today
     import datetime
-    import zoneinfo
 
     # Default timezone
     monkeypatch.delenv("APP_TIMEZONE", raising=False)

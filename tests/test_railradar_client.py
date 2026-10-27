@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 from sqlalchemy import create_engine
 
 from integrations.railradar_client import RailRadarClient, RailRadarError, mask_key, key_identifier
-from backend.database import Base, init_db, get_session, record_api_usage, get_api_usage_count, set_api_cache, get_api_cache
+from backend.database import init_db, get_session, record_api_usage, set_api_cache
 
 
 @pytest.fixture

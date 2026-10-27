@@ -1,6 +1,5 @@
 import logging
 from datetime import date, time, timedelta
-import pytest
 
 from optimizer.cpsat_solver import BlockScheduler, SchedulerConfig
 from railopt.models import (

@@ -8,7 +8,6 @@ Unit tests for Step 1 & Step 2:
 - Role verification (ADMIN, CONTROLLER, DEPT_USER, VIEWER)
 """
 import datetime
-import uuid
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -24,18 +23,11 @@ from backend.auth import (
 )
 from backend.database import (
     Base,
-    init_db,
-    get_session,
     save_user,
-    get_user_by_email,
     get_failed_login_count,
-    record_login_attempt,
-    clear_failed_login_attempts,
     get_database_url,
-    get_engine,
     UserRecord,
     TaskRecord,
-    BlockPlanRecord,
 )
 from railopt.models import UserRole, Department
 

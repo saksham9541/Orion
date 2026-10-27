@@ -8,6 +8,7 @@ NL briefings, what-if simulation, and a one-click demo setup.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import logging
 import os
 from datetime import date, datetime, timedelta
@@ -148,7 +149,13 @@ logger.addHandler(ch)
 # App setup
 # ──────────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="RailOpt API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    on_startup()
+    yield
+
+
+app = FastAPI(title="RailOpt API", version="1.0.0", lifespan=lifespan)
 
 import time
 
@@ -190,7 +197,6 @@ app.add_middleware(
 engine = get_engine()
 
 
-@app.on_event("startup")
 def on_startup():
     # Initialize basic state defaults so app never fails with AttributeError
     app.state.tasks = []
@@ -1706,7 +1712,7 @@ def setup_demo(current_user: User = Depends(require_admin)):
     _batch_score_windows(app.state.windows)
 
     # 5. Multi-layer analysis (Layers 2-5 + blending)
-    analysis = _run_multi_layer_analysis(app.state.tasks)
+    _run_multi_layer_analysis(app.state.tasks)
     logger.info("Multi-layer analysis applied to all tasks")
 
     # 6. Persist to DB: Delete only synthetic rows, preserving user rows

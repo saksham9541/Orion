@@ -8,13 +8,12 @@ Verifies:
 5. Mark as read & acknowledge endpoints
 """
 import pytest
-from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.main import app
-from backend.database import Base, UserRecord, NotificationRecord, TaskRecord
+from backend.database import Base, UserRecord
 from backend.auth import hash_password, create_access_token
 
 
@@ -197,6 +196,9 @@ def test_issue_alert_dispatch_and_routing(notif_test_env):
         assert eng_msg["type"] == "ISSUE_RAISED"
         assert eng_msg["notification"]["issue_id"] == task_data["task_id"]
 
+        assert ws_snt is not None
+        assert ws_creator is not None
+
 
 def test_offline_user_notifications_rest_flow(notif_test_env):
     """
@@ -215,6 +217,7 @@ def test_offline_user_notifications_rest_flow(notif_test_env):
     )
     assert count_res.status_code == 200
     initial_unread = count_res.json()["unread_count"]
+    assert initial_unread >= 0
 
     # Submit an Engineering complaint while eng_peer is offline (no WebSocket connected)
     payload = {

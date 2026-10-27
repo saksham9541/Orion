@@ -1,5 +1,4 @@
 import hashlib
-import pytest
 from datetime import date
 from fastapi.testclient import TestClient
 

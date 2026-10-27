@@ -5,14 +5,11 @@ Tests the full pipeline: synthetic data → ML scoring → optimization →
 block merging → SLA → briefing generation.
 """
 
-import pytest
 from datetime import date, time, timedelta
 
 from railopt.models import (
     BlockPlan,
-    BlockType,
     BlockWindow,
-    Corridor,
     DefectCategory,
     DefectSeverity,
     Department,
@@ -23,8 +20,6 @@ from railopt.models import (
     TaskStatus,
     TrafficDensityClass,
     ALWAYS_EMERGENCY,
-    SAFETY_CRITICAL_DEFECTS,
-    MAX_DEFERRAL_HOURS,
 )
 
 
@@ -590,6 +585,7 @@ class TestFullPipeline:
         briefing = gen.generate_weekly_briefing(plan, tasks)
 
         # Assertions
+        assert escalated is not None
         assert plan is not None
         assert plan.total_tasks_scheduled >= 0
         assert isinstance(briefing, str)

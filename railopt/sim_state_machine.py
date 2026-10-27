@@ -100,7 +100,6 @@ def train_depart(train: Train) -> None:
 def train_enter_resource(train: Train, resource_id: str, sim_time: float) -> None:
     train.state = TrainState.OCCUPYING
     train.current_resource_id = resource_id
-    entry = train.scheduled_times.get(resource_id, (sim_time, None))
     train.actual_times[resource_id] = (sim_time, train.actual_times.get(resource_id, (None, None))[1])
     train.compute_delay(sim_time)
 

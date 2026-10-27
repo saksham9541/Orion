@@ -15,7 +15,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.main import app
-from backend.database import Base, init_db, save_user, save_tasks, save_corridors, save_plan, UserRecord, TaskRecord
+from backend.database import Base, save_user, save_tasks, save_corridors, save_plan, UserRecord
 from backend.auth import hash_password, create_access_token
 from railopt.models import (
     MaintenanceTask,
@@ -26,7 +26,6 @@ from railopt.models import (
     AssetType,
     DefectCategory,
     TaskStatus,
-    UserRole,
     PlanHorizon,
     ScheduledBlock,
 )

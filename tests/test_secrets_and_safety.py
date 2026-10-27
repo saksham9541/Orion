@@ -1,4 +1,3 @@
-import os
 import pytest
 import jwt
 from fastapi import HTTPException
@@ -9,7 +8,6 @@ from backend.database import Base, UserRecord, save_user
 from backend.auth import (
     get_jwt_secret,
     decode_token,
-    create_access_token,
     authenticate_user,
     hash_password,
 )

@@ -10,7 +10,7 @@ try:
     from integrations.railradar_client import key_identifier
 except ImportError:
     key_identifier = lambda k: k[-4:]
-from backend.database import Base, init_db, get_session, get_api_usage_count
+from backend.database import init_db, get_session, get_api_usage_count
 
 
 @pytest.fixture

@@ -15,7 +15,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from agents.department_agent import DepartmentAgent, DepartmentProposal
-from agents.arbitrator_agent import ArbitratorAgent, NegotiationAgreement, ConflictResolution
+from agents.arbitrator_agent import ArbitratorAgent
 from agents.early_warning_agent import EarlyWarningAgent
 from agents.replanning_agent import ReplanningAgent, ReplanResult
 from agents.agent_orchestrator import AgentOrchestrator, AgentConsensusPlan
