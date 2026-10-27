@@ -114,6 +114,21 @@ def test_emergency_beats_higher_criticality_normal_task():
     assert "TASK-NORMAL-HIGH-CRIT" in plan.deferred_task_ids
 
 
+def test_emergency_repro_criticality_40_vs_95():
+    """Repro: one window (max_tasks=1, duration 4h), EMERGENCY with score=40 and normal with score=95."""
+    section = _make_section("SEC-TEST-1")
+    window = _make_window("BW-1", section_id="SEC-TEST-1", duration=4.0, max_tasks=1)
+    emerg = _make_task("EMERG-40", section_id="SEC-TEST-1", duration=2.0, criticality=40.0, is_emergency=True)
+    normal = _make_task("NORMAL-95", section_id="SEC-TEST-1", duration=2.0, criticality=95.0, severity=DefectSeverity.HIGH, is_emergency=False)
+
+    scheduler = BlockScheduler(config=SchedulerConfig(time_limit_seconds=10, emergency_must_schedule=True))
+    plan = scheduler.solve(tasks=[emerg, normal], windows=[window], sections={"SEC-TEST-1": section})
+
+    scheduled_ids = [tid for b in plan.scheduled_blocks for tid in b.task_ids]
+    assert "EMERG-40" in scheduled_ids
+    assert "NORMAL-95" in plan.deferred_task_ids
+
+
 def test_emergency_task_with_no_compatible_window(caplog):
     """An emergency task with no compatible window must be logged with logger.warning and exposed in plan output."""
     section = _make_section("SEC-TEST-1")
