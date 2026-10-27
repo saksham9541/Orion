@@ -40,3 +40,26 @@ def test_startup_marks_models_unloaded_when_missing():
         on_startup()
 
     assert app.state.models_loaded is False
+
+
+def test_app_today_timezone_handling(monkeypatch):
+    """_get_app_today returns timezone-aware operational date and falls back safely on invalid timezone."""
+    from backend.main import _get_app_today
+    import datetime
+    import zoneinfo
+
+    # Default timezone
+    monkeypatch.delenv("APP_TIMEZONE", raising=False)
+    today_default = _get_app_today()
+    assert isinstance(today_default, datetime.date)
+
+    # Custom valid timezone
+    monkeypatch.setenv("APP_TIMEZONE", "UTC")
+    today_utc = _get_app_today()
+    assert isinstance(today_utc, datetime.date)
+
+    # Invalid timezone fallback
+    monkeypatch.setenv("APP_TIMEZONE", "Invalid/Nonexistent_Timezone")
+    today_fallback = _get_app_today()
+    assert isinstance(today_fallback, datetime.date)
+

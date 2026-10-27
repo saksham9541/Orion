@@ -199,6 +199,7 @@ Configure via `.env` (refer to `.env.example`):
 | `RAILRADAR_KEY_LIMIT` | Safe monthly request cap per key | `90` |
 | `NVIDIA_API_KEY` | NVIDIA NIM / OpenAI-compatible API key for LLM | — |
 | `TRUST_PROXY` | Set to `1` behind reverse proxies (Render, Nginx) to extract client IP from `X-Forwarded-For` for rate limiting | `0` |
+| `APP_TIMEZONE` | Timezone for operational plan date range defaults | `Asia/Kolkata` |
 
 ### Deployment on Render
 

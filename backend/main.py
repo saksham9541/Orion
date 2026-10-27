@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import List, Optional
+import zoneinfo
 
 from fastapi import FastAPI, HTTPException, Depends, Request, WebSocket, WebSocketDisconnect, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -159,7 +160,7 @@ async def log_requests(request: Request, call_next):
     # Note: Log only request.url.path to prevent sensitive query params (e.g. ?token=...)
     # from being exposed in access logs.
     client_host = request.client.host if request.client else "127.0.0.1"
-    print(f"INFO:     {client_host} - \"{request.method} {request.url.path}\" {response.status_code} ({process_time:.1f}ms)", flush=True)
+    logger.info("%s - \"%s %s\" %d (%.1fms)", client_host, request.method, request.url.path, response.status_code, process_time)
     return response
 
 DEFAULT_CORS_ORIGINS = [
@@ -349,7 +350,10 @@ def refresh_token_endpoint(request: RefreshTokenRequest):
             return {"access_token": new_access_token, "token_type": "bearer"}
         finally:
             session.close()
-    except Exception:
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Error processing refresh token request: %s", exc)
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
 
@@ -1101,6 +1105,16 @@ def import_timetable(
 # Plan generation (items #1, #2, #3, #5)
 # ──────────────────────────────────────────────────────────────────────
 
+def _get_app_today() -> date:
+    """Return timezone-aware today date based on APP_TIMEZONE (default Asia/Kolkata)."""
+    tz_name = os.environ.get("APP_TIMEZONE", "Asia/Kolkata")
+    try:
+        tz = zoneinfo.ZoneInfo(tz_name)
+    except Exception:
+        tz = zoneinfo.ZoneInfo("Asia/Kolkata")
+    return datetime.now(tz).date()
+
+
 @app.post("/api/plans/generate", response_model=GeneratePlanResponse)
 def generate_plan(
     request: GeneratePlanRequest,
@@ -1123,7 +1137,7 @@ def generate_plan(
     # railopt/synthetic_data.py), and this actually filters it down to what
     # the request asked for.
     horizon_days = 7 if request.horizon == PlanHorizon.WEEKLY else 30
-    range_start = request.start_date or date.today()
+    range_start = request.start_date or _get_app_today()
     range_end = request.end_date or (range_start + timedelta(days=horizon_days))
 
     # Ensure window pool exists
