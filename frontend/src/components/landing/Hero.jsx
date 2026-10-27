@@ -1,12 +1,13 @@
-import { Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
-import HeroScene from './HeroScene'
 import AuroraBackground from './AuroraBackground'
 import HeroSidePanels from './HeroSidePanels'
 import AssembledTitle from './AssembledTitle'
 import Button from '@/components/common/Button'
+
+const HeroScene = lazy(() => import('./HeroScene'))
 
 // Everything below is timed against HeroScene's own animation clock: the
 // swarm separates into four department clusters by ~1.05s, then sweeps onto
