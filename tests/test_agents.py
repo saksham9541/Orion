@@ -474,6 +474,61 @@ def test_replanning_agent_emergency_absorption():
     assert res.updated_plan.scheduled_blocks[0].block_type == BlockType.COMBINED
 
 
+def test_replanning_agent_emergency_creates_new_block_window():
+    """When an emergency task has no existing block on its section, ReplanningAgent creates a new slot from 02:00 to 04:30."""
+    agent = ReplanningAgent()
+    target_d = date(2026, 11, 2)
+
+    # current_plan has blocks on SEC-01 only
+    existing_block = ScheduledBlock(
+        block_id="BLK-01",
+        window_id="WIN-01",
+        corridor_id="COR-01",
+        section_id="SEC-01",
+        section_name="Alpha",
+        date=target_d,
+        start_time=time(1, 0),
+        end_time=time(4, 0),
+        duration_hours=3.0,
+        task_ids=["T1"],
+        departments=[Department.ENGINEERING],
+        block_type=BlockType.TRAFFIC_BLOCK,
+    )
+
+    current_plan = BlockPlan(
+        plan_id="PLN-01",
+        horizon=PlanHorizon.WEEKLY,
+        start_date=target_d,
+        end_date=target_d + timedelta(days=7),
+        created_at=datetime.now(timezone.utc),
+        scheduled_blocks=[existing_block],
+        total_tasks_scheduled=1,
+        total_tasks_deferred=0,
+        total_block_hours=3.0,
+        total_merge_savings_hours=0.0,
+        total_trains_affected=2,
+        sla_compliance_pct=100.0,
+        departments_summary={"ENGINEERING": 1},
+        deferred_task_ids=[],
+    )
+
+    # Emergency task is on SEC-02 (no existing block on SEC-02)
+    emergency_task = create_sample_task(
+        "EMG-NEW-SEC", Department.ENGINEERING, section_id="SEC-02", severity=DefectSeverity.EMERGENCY
+    )
+
+    res = agent.handle_emergency(current_plan, emergency_task, [])
+
+    assert isinstance(res, ReplanResult)
+    assert res.emergency_task_id == "EMG-NEW-SEC"
+    new_blocks = [b for b in res.updated_plan.scheduled_blocks if b.section_id == "SEC-02"]
+    assert len(new_blocks) == 1
+    emergency_block = new_blocks[0]
+    assert emergency_block.start_time == time(2, 0)
+    assert emergency_block.end_time == time(4, 30)
+    assert "EMG-NEW-SEC" in emergency_block.task_ids
+
+
 # ──────────────────────────────────────────────────────────────────────
 # 5. AgentOrchestrator End-to-End Consensus Cycle
 # ──────────────────────────────────────────────────────────────────────
