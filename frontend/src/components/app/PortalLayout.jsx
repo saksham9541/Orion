@@ -39,15 +39,34 @@ export default function PortalLayout({ children, role }) {
 
       <header className="sticky top-0 z-30 border-b border-line bg-surface">
         <div className="mx-auto flex max-w-[1480px] flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
-          <Link to={home} className="flex items-baseline gap-3 rounded" aria-label="RailOpt home">
-            <span className="flex items-center gap-2 text-[17px] font-bold uppercase tracking-tight">
-              <span className="inline-block h-3.5 w-3.5 rounded-sm bg-merge" aria-hidden="true" />
-              RailOpt
-            </span>
-            <span className="hidden text-[10px] font-semibold uppercase tracking-widest text-faint md:inline">
-              Railway Maintenance Management Portal
-            </span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1)
+                } else {
+                  navigate('/dashboard')
+                }
+              }}
+              className="flex items-center gap-1.5 px-2.5 h-8 rounded border border-line bg-surface text-muted hover:text-ink hover:bg-raised transition-colors text-xs font-semibold shadow-sm"
+              aria-label="Go back"
+              title="Go back"
+            >
+              <ArrowLeft size={14} />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+
+            <Link to={home} className="flex items-baseline gap-3 rounded" aria-label="RailOpt home">
+              <span className="flex items-center gap-2 text-[17px] font-bold uppercase tracking-tight">
+                <span className="inline-block h-3.5 w-3.5 rounded-sm bg-merge" aria-hidden="true" />
+                RailOpt
+              </span>
+              <span className="hidden text-[10px] font-semibold uppercase tracking-widest text-faint md:inline">
+                Railway Maintenance Management Portal
+              </span>
+            </Link>
+          </div>
 
           <div className="ml-auto flex items-center gap-2">
             {currentUser?.id === 'admin' && (

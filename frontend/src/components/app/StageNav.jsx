@@ -38,11 +38,12 @@ export default function StageNav() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleBack}
-            className="flex items-center justify-center h-8 w-8 rounded border border-line bg-base text-muted hover:text-ink hover:bg-[#f8fafc] transition-colors"
+            className="flex items-center gap-1.5 px-2.5 h-8 rounded border border-line bg-base text-muted hover:text-ink hover:bg-[#f8fafc] transition-colors text-xs font-semibold shadow-sm"
             aria-label="Go back"
             title="Go back"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={15} />
+            <span className="hidden sm:inline">Back</span>
           </button>
           <div>
             <h1 className="text-xl tracking-tight font-medium uppercase leading-tight">RAILOPT</h1>

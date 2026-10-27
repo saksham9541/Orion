@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { useAppState } from '@/state/AppState'
 import ThemeToggle from '@/components/common/ThemeToggle'
 
@@ -35,6 +36,16 @@ export default function Login() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-base p-4 font-sans text-ink">
+      <div className="absolute left-4 top-4">
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink hover:bg-raised transition-colors shadow-sm"
+        >
+          <ArrowLeft size={14} />
+          <span>Back to Home</span>
+        </button>
+      </div>
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>

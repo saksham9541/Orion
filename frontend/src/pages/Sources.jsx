@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { AlertTriangle, Check } from 'lucide-react'
 import PageHeader from '@/components/app/PageHeader'
+import StageFooter from '@/components/app/StageFooter'
 import DeptTag from '@/components/common/DeptTag'
 import { corridors, sourceSystems } from '@/data/corridors'
 import ObjectivePanel from '@/components/optimize/ObjectivePanel'
@@ -157,6 +158,8 @@ export default function Sources() {
 
         <ObjectivePanel />
       </div>
+
+      <StageFooter reason="return to block plan" />
     </>
   )
 }
