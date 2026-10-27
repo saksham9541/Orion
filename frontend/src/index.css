@@ -362,24 +362,20 @@
   }
 }
 
-/* IndiaRailwayMap: Leaflet's default tooltip chrome (white box + border +
-   arrow) doesn't match the plain outlined-text station labels the map is
-   meant to have. This strips it down to just the text. Global rather than
-   scoped because Leaflet renders tooltips into its own pane, outside any
-   component-local style boundary. */
+/* IndiaRailwayMap: Station labels rendered with dark translucent glass
+   for high contrast against satellite terrain and dark tactical basemaps */
 .railopt-station-label {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0 0 0 4px;
-  font-size: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  padding: 1px 6px;
+  font-size: 11px;
   font-weight: 600;
-  color: #334155;
-  text-shadow:
-    1px 1px 0 #fff,
-    -1px -1px 0 #fff,
-    1px -1px 0 #fff,
-    -1px 1px 0 #fff;
+  color: #f8fafc;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  white-space: nowrap;
 }
 .railopt-station-label::before {
   display: none;
