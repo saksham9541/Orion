@@ -1,6 +1,21 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, ArrowLeft, MessageSquare, User, AlertTriangle } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import {
+  LogOut,
+  ArrowLeft,
+  MessageSquare,
+  User,
+  AlertTriangle,
+  Layers,
+  Calendar,
+  Sliders,
+  Database,
+  Plus,
+  LayoutDashboard,
+  ShieldAlert,
+  Sparkles,
+  Share2
+} from 'lucide-react'
 import AssistantPanel from './AssistantPanel'
 import ThemeToggle from '@/components/common/ThemeToggle'
 import NotificationBell from '@/components/common/NotificationBell'
@@ -8,18 +23,9 @@ import IssueAlertModal from '@/components/common/IssueAlertModal'
 import ReportComplaintModal from './ReportComplaintModal'
 import { useAppState } from '@/state/AppState'
 
-/**
- * The portal frame: one compact top bar and the page beneath it.
- *
- * There is deliberately no left-hand navigation. Every entry in the old
- * sidebar pointed at the same screen, so it added width and clutter without
- * adding a single place to go. The three things in it that actually do
- * something — the assistant, the signed-in user, and sign-out — are now
- * controls in this bar. Theme switching lives here too, since the portal
- * needs to work in both themes and had no way to change between them.
- */
 export default function PortalLayout({ children, role }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { currentUser, logout } = useAppState()
   const [isAssistantOpen, setIsAssistantOpen] = useState(false)
   const [isComplaintModalOpen, setIsComplaintModalOpen] = useState(false)
@@ -32,13 +38,32 @@ export default function PortalLayout({ children, role }) {
     navigate('/login')
   }
 
+  // Top navigation pill items inspired by the SugarCRM reference design
+  const navTabs = [
+    { label: 'Overview', to: '/dashboard' },
+    { label: 'Super Admin', to: '/admin' },
+    { label: 'S&T Dept', to: '/snt' },
+    { label: 'Engineering', to: '/engineering' },
+    { label: 'TRD', to: '/trd' },
+    { label: 'Technician', to: '/technician' },
+    { label: 'Schedule', to: '/plan' },
+  ]
+
+  const isTabActive = (tabTo) => {
+    if (tabTo === '/dashboard') return location.pathname === '/dashboard'
+    return location.pathname.startsWith(tabTo)
+  }
+
   return (
-    <div className="min-h-screen bg-base font-sans text-ink">
+    <div className="min-h-screen bg-base font-sans text-ink transition-colors duration-300 flex flex-col">
       <IssueAlertModal />
       <ReportComplaintModal isOpen={isComplaintModalOpen} onClose={() => setIsComplaintModalOpen(false)} />
 
-      <header className="sticky top-0 z-30 border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-[1480px] flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
+      {/* TOP HEADER WITH MODERN PILL NAVIGATION */}
+      <header className="sticky top-0 z-30 border-b border-line/60 bg-base/90 backdrop-blur-md px-4 sm:px-6 py-2.5">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4">
+          
+          {/* Left: Brand Logo & Back Button */}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -49,26 +74,50 @@ export default function PortalLayout({ children, role }) {
                   navigate('/dashboard')
                 }
               }}
-              className="flex items-center gap-1.5 px-2.5 h-8 rounded border border-line bg-surface text-muted hover:text-ink hover:bg-raised transition-colors text-xs font-semibold shadow-sm"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:bg-raised transition-all shadow-sm"
               aria-label="Go back"
               title="Go back"
             >
-              <ArrowLeft size={14} />
-              <span className="hidden sm:inline">Back</span>
+              <ArrowLeft size={15} />
             </button>
 
-            <Link to={home} className="flex items-baseline gap-3 rounded" aria-label="RailOpt home">
-              <span className="flex items-center gap-2 text-[17px] font-bold uppercase tracking-tight">
-                <span className="inline-block h-3.5 w-3.5 rounded-sm bg-merge" aria-hidden="true" />
-                RailOpt
+            <Link to={home} className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-surface/50 transition-colors" aria-label="RailOpt home">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-merge text-deep font-bold text-xs shadow-sm">
+                RO
               </span>
-              <span className="hidden text-[10px] font-semibold uppercase tracking-widest text-faint md:inline">
-                Railway Maintenance Management Portal
-              </span>
+              <div className="flex flex-col">
+                <span className="text-[15px] font-bold uppercase tracking-tight leading-none text-ink">
+                  RailOpt
+                </span>
+                <span className="hidden text-[9px] font-bold uppercase tracking-widest text-faint sm:inline">
+                  Operations Portal
+                </span>
+              </div>
             </Link>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          {/* Center: Modern Pill Navigation Tabs (Like "Cases" in reference design) */}
+          <nav className="hidden lg:flex items-center gap-1 rounded-full border border-line bg-surface/70 p-1 shadow-sm backdrop-blur-sm">
+            {navTabs.map((tab) => {
+              const active = isTabActive(tab.to)
+              return (
+                <Link
+                  key={tab.to}
+                  to={tab.to}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                    active
+                      ? 'bg-slate-900 text-white shadow-md dark:bg-white dark:text-slate-900'
+                      : 'text-muted hover:text-ink hover:bg-raised/70'
+                  }`}
+                >
+                  {tab.label}
+                </Link>
+              )
+            })}
+          </nav>
+
+          {/* Right: Actions, Utilities & Profile */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {currentUser?.id === 'admin' && (
               <>
                 <button
@@ -92,7 +141,6 @@ export default function PortalLayout({ children, role }) {
                       });
                       if (res.ok) {
                         setServerStatus('ready')
-                        // Reload page after short delay so dashboards pick up new data
                         setTimeout(() => window.location.reload(), 1500)
                       } else {
                         setServerStatus('error')
@@ -102,71 +150,187 @@ export default function PortalLayout({ children, role }) {
                       setServerStatus('error')
                     }
                   }}
-                  className="btn-quiet px-3 py-1.5 text-[12px] font-medium flex items-center gap-2 mr-1"
+                  className="hidden md:flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] font-semibold text-muted hover:text-ink hover:bg-raised transition-colors shadow-sm"
                 >
-                  <span className={`font-bold uppercase tracking-widest ${serverStatus === 'ready' ? 'text-ok' :
-                      serverStatus === 'error' ? 'text-danger' :
-                        serverStatus === 'loading' ? 'text-warn' : 'text-danger'
-                    }`}>
+                  <span className={`h-2 w-2 rounded-full ${
+                    serverStatus === 'ready' ? 'bg-ok' :
+                    serverStatus === 'error' ? 'bg-danger' :
+                    serverStatus === 'loading' ? 'bg-warn animate-ping' : 'bg-danger'
+                  }`} />
+                  <span>
                     {serverStatus === 'loading' ? 'Setting up...' :
-                      serverStatus === 'ready' ? '✓ Server Ready' :
-                        serverStatus === 'error' ? 'Error — Retry' :
-                          'Setup Server'}
+                     serverStatus === 'ready' ? 'Server Ready' :
+                     serverStatus === 'error' ? 'Retry Setup' :
+                     'Setup Server'}
                   </span>
                 </button>
                 <Link
                   to="/simulate"
-                  className="btn-primary px-3 py-1.5 text-[12px] font-medium flex items-center gap-2 mr-1"
+                  className="hidden sm:flex items-center gap-1.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-opacity"
                 >
-                  <span className="font-bold uppercase tracking-widest">Generate Plan</span>
+                  <Sparkles size={12} />
+                  <span>Generate Plan</span>
                 </Link>
               </>
             )}
+
+            {/* Quick Action: Report Defect (+) */}
             <button
               type="button"
               onClick={() => setIsComplaintModalOpen(true)}
-              className="btn-action px-3 py-1.5 text-[12px] font-medium flex items-center gap-2"
+              className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:bg-raised hover:border-amber-500/40 transition-colors shadow-sm"
+              title="Report New Railway Defect"
             >
-              <AlertTriangle size={14} aria-hidden="true" />
-              <span className="hidden sm:inline font-bold uppercase tracking-widest">Report Defect</span>
+              <AlertTriangle size={13} className="text-amber-500" />
+              <span className="hidden sm:inline">Report Defect</span>
             </button>
+
+            {/* Assistant Drawer Trigger */}
             <button
               type="button"
               onClick={() => setIsAssistantOpen(true)}
-              className="btn-quiet px-3 py-1.5 text-[12px] font-medium"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:bg-raised transition-colors shadow-sm"
+              title="RailOpt Assistant"
             >
-              <MessageSquare size={14} aria-hidden="true" />
-              <span className="hidden sm:inline">RailOpt Assistant</span>
-              <span className="sm:hidden">Assistant</span>
+              <MessageSquare size={15} />
             </button>
 
             <NotificationBell />
             <ThemeToggle />
 
-            <div className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
-
-            <div className="flex items-center gap-2 px-1">
-              <span className="flex h-8 w-8 items-center justify-center rounded border border-line bg-raised text-muted">
-                <User size={15} aria-hidden="true" />
+            {/* User Profile Pill */}
+            <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-2.5 py-1 shadow-sm">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 text-[10px] font-bold">
+                {currentUser?.id ? currentUser.id.slice(0, 2).toUpperCase() : 'OP'}
               </span>
-              <span className="hidden text-[13px] font-medium leading-tight sm:block">
+              <span className="hidden text-xs font-semibold text-ink sm:inline">
                 {currentUser?.label || 'Officer'}
               </span>
             </div>
 
+            {/* Logout Button */}
             <button
               type="button"
               onClick={handleLogout}
-              className="btn-quiet px-3 py-1.5 text-[12px] font-medium hover:border-danger/40 hover:text-danger"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-danger hover:border-danger/30 hover:bg-danger/5 transition-colors shadow-sm"
+              title="Log out"
             >
-              <LogOut size={14} aria-hidden="true" />
-              Log out
+              <LogOut size={14} />
             </button>
           </div>
+
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1480px] px-6 py-6">{children}</main>
+      {/* BODY WITH LEFT FLOATING DOCK & MAIN CLAY/BENTO CANVAS */}
+      <div className="flex-1 mx-auto flex w-full max-w-[1600px] gap-4 p-4 sm:p-6 lg:p-7">
+        
+        {/* LEFT FLOATING VERTICAL ICON DOCK (Identical to reference screenshot) */}
+        <aside className="hidden md:flex flex-col items-center gap-2.5 rounded-[26px] border border-line/80 bg-surface/90 backdrop-blur-md p-2.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] h-fit sticky top-20">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1)
+              } else {
+                navigate('/dashboard')
+              }
+            }}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted hover:text-ink hover:bg-raised transition-colors"
+            title="Go Back"
+          >
+            <ArrowLeft size={16} />
+          </button>
+
+          <div className="h-px w-5 bg-line/80" />
+
+          <button
+            type="button"
+            onClick={() => navigate('/network')}
+            className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+              location.pathname === '/network' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-muted hover:text-ink hover:bg-raised'
+            }`}
+            title="Digital Twin Network (/network)"
+          >
+            <Share2 size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsComplaintModalOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted hover:text-ink hover:bg-raised transition-colors"
+            title="Add / Report Defect"
+          >
+            <Plus size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/simulate')}
+            className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+              location.pathname === '/simulate' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-muted hover:text-ink hover:bg-raised'
+            }`}
+            title="Scenario Simulator (/simulate)"
+          >
+            <Sliders size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/plan')}
+            className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+              location.pathname === '/plan' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-muted hover:text-ink hover:bg-raised'
+            }`}
+            title="Weekly Block Plan (/plan)"
+          >
+            <Calendar size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/tasks')}
+            className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+              location.pathname === '/tasks' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-muted hover:text-ink hover:bg-raised'
+            }`}
+            title="Pending Work Demand (/tasks)"
+          >
+            <Layers size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/sources')}
+            className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+              location.pathname === '/sources' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-muted hover:text-ink hover:bg-raised'
+            }`}
+            title="Data Sources (/sources)"
+          >
+            <Database size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsAssistantOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted hover:text-ink hover:bg-raised transition-colors"
+            title="RailOpt AI Assistant"
+          >
+            <MessageSquare size={16} />
+          </button>
+
+          <div className="h-px w-5 bg-line/80 mt-2" />
+
+          {/* Theme Switcher at bottom of dock (Just like sun/moon in screenshot) */}
+          <div className="pt-1">
+            <ThemeToggle />
+          </div>
+        </aside>
+
+        {/* MAIN BENTO / SQUIRCLE CANVAS */}
+        <main className="flex-1 min-w-0 rounded-[32px] border border-line/70 bg-surface/85 dark:bg-surface/50 backdrop-blur-md p-5 sm:p-7 lg:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.03)]">
+          {children}
+        </main>
+
+      </div>
 
       <AssistantPanel isOpen={isAssistantOpen} onClose={() => setIsAssistantOpen(false)} />
     </div>

@@ -19,13 +19,46 @@ import {
   RefreshCw,
   Wrench,
   Layers,
-  ArrowUpDown
+  ArrowUpDown,
+  MoreHorizontal,
+  Calendar,
+  Plus,
+  Share2,
+  FileText
 } from 'lucide-react'
 import PortalLayout from '@/components/app/PortalLayout'
 import { useAppState } from '@/state/AppState'
 import IndiaRailwayMap from '@/components/network/IndiaRailwayMap'
 import DepartmentTaskModal from '@/components/app/DepartmentTaskModal'
 import { fetchLiveTrains, fetchTasks, updateTaskStatus } from '@/api'
+
+const TEAM_MEMBERS_BY_DEPT = {
+  snt: [
+    { initials: 'RK', name: 'Rajesh Kumar', role: 'SSE / Signaling', badgeColor: 'bg-blue-500', count: 2 },
+    { initials: 'VS', name: 'Vikram Singh', role: 'JE / Telemetry', badgeColor: 'bg-indigo-500', count: 3 },
+    { initials: 'AM', name: 'Ananya Mishra', role: 'Signal Maintainer', badgeColor: 'bg-rose-500', count: 1 },
+    { initials: 'PR', name: 'Priya Roy', role: 'Axle Counter Spec.', badgeColor: 'bg-amber-500', count: 2 },
+    { initials: 'DN', name: 'Deepak Nair', role: 'Point Machine Tech', badgeColor: 'bg-emerald-500', count: 1 },
+  ],
+  engineering: [
+    { initials: 'AK', name: 'Amit Kaul', role: 'SSE / P-Way', badgeColor: 'bg-amber-600', count: 3 },
+    { initials: 'ST', name: 'Sanjay Tiwari', role: 'Track Inspector', badgeColor: 'bg-blue-600', count: 2 },
+    { initials: 'RP', name: 'Rohan Patil', role: 'USFD Specialist', badgeColor: 'bg-emerald-600', count: 1 },
+    { initials: 'MS', name: 'Meera Sharma', role: 'Bridge Engineer', badgeColor: 'bg-rose-600', count: 2 },
+    { initials: 'HK', name: 'Harish Kumar', role: 'Gang Mate', badgeColor: 'bg-purple-600', count: 1 },
+  ],
+  trd: [
+    { initials: 'NK', name: 'Naveen Kumar', role: 'SSE / OHE', badgeColor: 'bg-indigo-600', count: 2 },
+    { initials: 'VB', name: 'Vipin Bansal', role: 'Power Supply Lead', badgeColor: 'bg-amber-600', count: 3 },
+    { initials: 'SG', name: 'Sunita Ghosh', role: 'Catenary Inspector', badgeColor: 'bg-emerald-600', count: 1 },
+    { initials: 'RD', name: 'Ravi Das', role: 'Substation Tech', badgeColor: 'bg-rose-600', count: 2 },
+  ],
+  technician: [
+    { initials: 'RK', name: 'Rakesh Kumar', role: 'Field Tech Lead', badgeColor: 'bg-blue-500', count: 4 },
+    { initials: 'MD', name: 'Manish Dayal', role: 'Site Mechanic', badgeColor: 'bg-emerald-500', count: 2 },
+    { initials: 'AJ', name: 'Arun Joshi', role: 'Safety Mate', badgeColor: 'bg-amber-500', count: 1 },
+  ]
+}
 
 const DEFAULT_TASKS_BY_DEPT = {
   snt: [
@@ -577,103 +610,130 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         </div>
       )}
 
-      {/* Header */}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      {/* Header — Styled like "Customer Journeys" from the reference design */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink uppercase flex items-center gap-2">
-            <span className="w-2.5 h-2.5 bg-info rounded-full inline-block" />
-            {title}
-          </h1>
-          <p className="text-[11px] text-muted uppercase tracking-widest mt-1">
-            Department Intelligence & Task Management Portal
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
+              Maintenance Journeys
+            </h1>
+            <span className="rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+              {department}
+            </span>
+          </div>
+          <p className="text-xs text-muted mt-1">
+            {title} · Defect Lifecycle, Investigation & Cross-Department Resolution Flow
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={loadTasks}
-          disabled={loading}
-          className="btn-quiet flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
-        >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          Refresh Tasks
-        </button>
+        {/* Team Avatars Cluster & Utility Buttons (Identical to reference screenshot) */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div className="flex items-center -space-x-2">
+            {(TEAM_MEMBERS_BY_DEPT[deptId] || TEAM_MEMBERS_BY_DEPT.snt).map((member, idx) => (
+              <div
+                key={idx}
+                className="relative group cursor-pointer transition-transform hover:-translate-y-0.5"
+                title={`${member.name} — ${member.role}`}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 text-[10px] font-bold shadow-sm">
+                  {member.initials}
+                </div>
+                <span className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white ${member.badgeColor} ring-1 ring-surface`}>
+                  {member.count}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="h-6 w-px bg-line/80 hidden sm:block" />
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={loadTasks}
+              disabled={loading}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:bg-raised transition-colors shadow-sm"
+              title="Refresh Tasks"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const pending = tasks.find((t) => t.status === 'PENDING')
+                if (pending) openTaskModal(pending)
+                else if (tasks[0]) openTaskModal(tasks[0])
+              }}
+              className="flex items-center gap-1.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3.5 py-2 text-xs font-semibold shadow-sm hover:opacity-90 transition-opacity"
+            >
+              <Sparkles size={13} />
+              <span>Review Urgent</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Dynamic Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-surface p-4 border border-line rounded-xl shadow-sm">
-          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-2">Total Department Tasks</p>
-          <p className="text-2xl font-light tracking-tight text-ink">{stats.total}</p>
+      {/* Dynamic Metric Bento Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-6">
+        <div className="bg-surface p-4 border border-line rounded-2xl shadow-sm hover:shadow-md transition-all">
+          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-1">Total Tasks</p>
+          <p className="text-2xl font-bold tracking-tight text-ink">{stats.total}</p>
+          <span className="text-[11px] text-muted">Across division lines</span>
         </div>
-        <div className="bg-surface p-4 border border-line rounded-xl shadow-sm">
-          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-2">Pending Action</p>
-          <p className="text-2xl font-light tracking-tight text-amber-500">{stats.pending}</p>
+        <div className="bg-surface p-4 border border-line rounded-2xl shadow-sm hover:shadow-md transition-all">
+          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-1">Pending Allocation</p>
+          <p className="text-2xl font-bold tracking-tight text-amber-500">{stats.pending}</p>
+          <span className="text-[11px] text-amber-600/80 font-medium">Awaiting departmental sign-off</span>
         </div>
-        <div className="bg-surface p-4 border border-line rounded-xl shadow-sm">
-          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-2">Active / Scheduled</p>
-          <p className="text-2xl font-light tracking-tight text-info">{stats.inProgress}</p>
+        <div className="bg-surface p-4 border border-line rounded-2xl shadow-sm hover:shadow-md transition-all">
+          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-1">Active / Scheduled</p>
+          <p className="text-2xl font-bold tracking-tight text-info">{stats.inProgress}</p>
+          <span className="text-[11px] text-blue-600/80 font-medium">Possession slots reserved</span>
         </div>
-        <div className="bg-surface p-4 border border-line rounded-xl shadow-sm">
-          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-2">Resolved / Completed</p>
-          <p className="text-2xl font-light tracking-tight text-emerald-500">{stats.resolved}</p>
+        <div className="bg-surface p-4 border border-line rounded-2xl shadow-sm hover:shadow-md transition-all">
+          <p className="text-[10px] font-bold text-faint uppercase tracking-wider mb-1">Resolved & Done</p>
+          <p className="text-2xl font-bold tracking-tight text-emerald-500">{stats.resolved}</p>
+          <span className="text-[11px] text-emerald-600/80 font-medium">Verified by signal lead</span>
         </div>
       </div>
 
-      {/* Map Section */}
-      <div className="mb-6 h-96 w-full overflow-hidden rounded-xl border border-line bg-surface shadow-sm relative z-0">
-        <IndiaRailwayMap
-          issues={tasks}
-          selectedIssueId={selectedTask?.id}
-          onSelectIssue={(id) => {
-            const found = tasks.find((t) => t.id === id)
-            if (found) {
-              setSelectedTaskId(id)
-              openTaskModal(found)
-            }
-          }}
-          showHeatmap={true}
-          trains={liveTrains}
-        />
-      </div>
-
-      {/* ALL RELATED TASKS TABLE (POP-THROUGH QUEUE) */}
-      <div className="bg-surface border border-line rounded-xl shadow-sm overflow-hidden mb-6">
-        {/* Table Header & Controls */}
-        <div className="p-4 sm:p-5 border-b border-line flex flex-wrap items-center justify-between gap-4 bg-surface">
+      {/* THE 4-STAGE WORKFLOW JOURNEY BOARD (The exact visual centerpiece from the screenshot!) */}
+      <div className="mb-6 rounded-[28px] border border-line/80 bg-raised/40 dark:bg-slate-900/40 p-5 sm:p-6 shadow-sm">
+        
+        {/* Journey Board Header with Search & Filter Pills */}
+        <div className="mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/50">
           <div>
             <h2 className="text-base font-bold text-ink uppercase tracking-wide flex items-center gap-2">
               <Layers size={17} className="text-info" />
-              Department Maintenance Tasks & Defect Queue
+              New Case Management & Lifecycle Stages
             </h2>
-            <p className="text-[11px] text-muted tracking-wide mt-0.5">
-              Click any task row to pop up the full defect intelligence and authorization controls.
+            <p className="text-[11px] text-muted">
+              Interactive interconnected flow from defect intake to technical resolution. Click any card to pop-up full action controls.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search Input */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-2.5 text-muted" />
+              <Search size={13} className="absolute left-3 top-2.5 text-muted" />
               <input
                 type="text"
-                placeholder="Search tasks, defects, KM..."
+                placeholder="Search journey defects..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-48 sm:w-60 rounded-lg border border-line bg-base pl-9 pr-3 py-1.5 text-xs text-ink placeholder:text-muted focus:border-info focus:outline-none"
+                className="w-44 sm:w-56 rounded-full border border-line bg-surface pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-muted focus:border-info focus:outline-none shadow-sm"
               />
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex items-center rounded-lg border border-line bg-raised p-0.5 text-xs">
-              {['ALL', 'PENDING', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'REJECTED'].map((filterKey) => (
+            <div className="flex items-center rounded-full border border-line bg-surface p-0.5 shadow-sm text-xs">
+              {['ALL', 'PENDING', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED'].map((filterKey) => (
                 <button
                   key={filterKey}
                   type="button"
                   onClick={() => setStatusFilter(filterKey)}
-                  className={`rounded-md px-2.5 py-1 text-[11px] font-bold uppercase transition-colors ${
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase transition-all ${
                     statusFilter === filterKey
-                      ? 'bg-surface text-ink shadow-sm'
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
                       : 'text-muted hover:text-ink'
                   }`}
                 >
@@ -684,106 +744,422 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
           </div>
         </div>
 
-        {/* Tasks Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-line bg-raised/50 font-bold uppercase tracking-wider text-muted text-[10px]">
-                <th className="px-4 py-3">Task ID</th>
-                <th className="px-4 py-3">Defect Category</th>
-                <th className="px-4 py-3">Location / Section</th>
-                <th className="px-4 py-3">Severity</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Reported</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60">
-              {filteredTasks.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted">
-                    <Wrench size={24} className="mx-auto mb-2 opacity-30" />
-                    <p className="text-sm font-medium">No tasks found matching current filters</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery('')
-                        setStatusFilter('ALL')
-                      }}
-                      className="mt-2 text-xs font-semibold text-info hover:underline"
-                    >
-                      Reset filters
-                    </button>
-                  </td>
-                </tr>
-              ) : (
-                filteredTasks.map((task) => {
-                  const isSelected = selectedTask?.id === task.id
-                  return (
-                    <tr
-                      key={task.id}
-                      onClick={() => openTaskModal(task)}
-                      className={`cursor-pointer transition-colors group ${
-                        isSelected ? 'bg-info/10' : 'hover:bg-raised/70'
-                      }`}
-                    >
-                      <td className="px-4 py-3.5 font-mono font-bold text-ink">
-                        <div className="flex items-center gap-1.5">
-                          <span>{task.id}</span>
-                          {task.isSafetyCritical && (
-                            <span title="Safety Critical Defect">
-                              <ShieldAlert size={13} className="text-red-500 shrink-0" />
-                            </span>
-                          )}
+        {/* 4 Interconnected Columns Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 relative">
+          
+          {/* Column 1: Case Allocation */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
+                1. Case Allocation
+              </h3>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-bold">
+                {filteredTasks.filter(t => t.status === 'PENDING').length}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {filteredTasks
+                .filter(t => t.status === 'PENDING' || t.status === 'REPORTED')
+                .slice(0, 3)
+                .map((task) => (
+                  <div
+                    key={task.id}
+                    onClick={() => {
+                      setSelectedTaskId(task.id)
+                      openTaskModal(task)
+                    }}
+                    className="group rounded-2xl border border-line bg-surface p-3.5 shadow-sm hover:shadow-md hover:border-amber-500/50 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {task.id.slice(3, 6)}
                         </div>
-                      </td>
+                        <div>
+                          <p className="text-xs font-bold text-ink leading-tight group-hover:text-info transition-colors">
+                            {task.defectType}
+                          </p>
+                          <span className="text-[10px] font-mono text-muted">{task.id}</span>
+                        </div>
+                      </div>
 
-                      <td className="px-4 py-3.5">
-                        <span className="font-semibold text-ink block">{task.defectType}</span>
-                        <span className="text-[11px] text-muted line-clamp-1">{task.what}</span>
-                      </td>
-
-                      <td className="px-4 py-3.5 text-muted">
-                        <span className="font-medium text-ink block">{task.corridorId}</span>
-                        <span className="text-[11px]">{task.exactLocation}</span>
-                      </td>
-
-                      <td className="px-4 py-3.5">
-                        <span className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase border ${getSeverityBadge(task.severity)}`}>
-                          {task.severity}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3.5">
-                        <span className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase border ${getStatusBadge(task.status)}`}>
-                          {task.status}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3.5 text-muted whitespace-nowrap">
-                        {task.reported_date}
-                      </td>
-
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                      <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleQuickAction(task.id, 'AUTHORIZE', 'Quick authorized from Journey Board')
+                          }}
+                          className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-emerald-500/15 text-muted hover:text-emerald-600 transition-colors"
+                          title="Authorize Case"
+                        >
+                          <CheckCircle2 size={13} />
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
                             openTaskModal(task)
                           }}
-                          className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface px-2.5 py-1 text-[11px] font-bold uppercase text-info hover:bg-info hover:text-white transition-colors shadow-sm"
+                          className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-raised text-muted hover:text-ink transition-colors"
+                          title="Options"
+                        >
+                          <MoreHorizontal size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] pt-2 border-t border-line/40">
+                      <span className="text-muted truncate max-w-[120px]">{task.exactLocation}</span>
+                      <span className={`rounded-full px-2 py-0.5 font-bold uppercase border ${getSeverityBadge(task.severity)}`}>
+                        {task.severity}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+              {filteredTasks.filter(t => t.status === 'PENDING').length === 0 && (
+                <div className="rounded-2xl border border-dashed border-line/80 p-4 text-center text-xs text-muted">
+                  No pending cases in intake queue
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Column 2: Issue Identification */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
+                2. Issue Identification
+              </h3>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 text-[10px] font-bold">
+                {filteredTasks.length}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {filteredTasks.slice(0, 3).map((task) => (
+                <div
+                  key={`id-${task.id}`}
+                  onClick={() => {
+                    setSelectedTaskId(task.id)
+                    openTaskModal(task)
+                  }}
+                  className="group rounded-2xl border border-line bg-surface p-3.5 shadow-sm hover:shadow-md hover:border-info/50 transition-all cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        {task.corridorId ? task.corridorId.slice(4, 6) : 'ND'}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-ink leading-tight group-hover:text-info transition-colors">
+                          Identify {task.defectType.replace('_', ' ')}
+                        </p>
+                        <span className="text-[10px] text-muted">Telemetry & ML Scored</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 text-[10px]">
+                        ✓
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openTaskModal(task)
+                        }}
+                        className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-raised text-muted hover:text-ink transition-colors"
+                      >
+                        <MoreHorizontal size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] pt-2 border-t border-line/40">
+                    <span className="text-muted">Est: {task.estDuration} hrs</span>
+                    <span className="font-mono text-info font-bold">{task.id}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Column 3: Technical Resolution */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
+                3. Technical Resolution
+              </h3>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 text-[10px] font-bold">
+                {filteredTasks.filter(t => t.status === 'SCHEDULED' || t.status === 'IN_PROGRESS').length}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {filteredTasks
+                .filter(t => t.status === 'SCHEDULED' || t.status === 'IN_PROGRESS' || t.status === 'PENDING')
+                .slice(0, 3)
+                .map((task) => (
+                  <div
+                    key={`res-${task.id}`}
+                    onClick={() => {
+                      setSelectedTaskId(task.id)
+                      openTaskModal(task)
+                    }}
+                    className="group rounded-2xl border border-line bg-surface p-3.5 shadow-sm hover:shadow-md hover:border-purple-500/50 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                          TR
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-ink leading-tight group-hover:text-purple-600 transition-colors">
+                            Coordinate Block Sanction
+                          </p>
+                          <span className="text-[10px] text-muted">{task.id} · {task.sectionId}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleQuickAction(task.id, 'START_ACTION', 'Started action from board')
+                          }}
+                          className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-purple-500/15 text-muted hover:text-purple-600 transition-colors"
+                          title="Start Maintenance Action"
+                        >
+                          <PlayCircle size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openTaskModal(task)
+                          }}
+                          className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-raised text-muted hover:text-ink transition-colors"
+                        >
+                          <MoreHorizontal size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] pt-2 border-t border-line/40">
+                      <span className="text-muted">Window: 02:00-04:30 AM</span>
+                      <span className={`rounded-full px-2 py-0.5 font-bold uppercase border ${getStatusBadge(task.status)}`}>
+                        {task.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Column 4: Problem Resolution & Active Execution (with the Black Card from reference screenshot!) */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
+                4. Problem Resolution
+              </h3>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-bold">
+                {filteredTasks.filter(t => t.status === 'COMPLETED').length}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {/* THE SLEEK BLACK CARD (Directly from reference design screenshot!) */}
+              <div
+                onClick={() => {
+                  const activeTask = tasks.find(t => t.status === 'IN_PROGRESS') || tasks[0]
+                  if (activeTask) {
+                    setSelectedTaskId(activeTask.id)
+                    openTaskModal(activeTask)
+                  }
+                }}
+                className="rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 p-4 shadow-lg cursor-pointer hover:scale-[1.01] transition-transform"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
+                    Live Possession
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold uppercase tracking-wide leading-tight">
+                  Active Request Processing
+                </h4>
+                <p className="text-[11px] opacity-75 mt-1">
+                  Track possession live on mainline corridor with telemetry streaming.
+                </p>
+              </div>
+
+              {/* Resolved / Closed Cards */}
+              {filteredTasks
+                .filter(t => t.status === 'COMPLETED' || t.status === 'IN_PROGRESS')
+                .slice(0, 2)
+                .map((task) => (
+                  <div
+                    key={`comp-${task.id}`}
+                    onClick={() => {
+                      setSelectedTaskId(task.id)
+                      openTaskModal(task)
+                    }}
+                    className="group rounded-2xl border border-line bg-surface p-3.5 shadow-sm hover:shadow-md hover:border-emerald-500/50 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                          ✓
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-ink leading-tight group-hover:text-emerald-600 transition-colors">
+                            {task.defectType} Verified
+                          </p>
+                          <span className="text-[10px] font-mono text-muted">{task.id}</span>
+                        </div>
+                      </div>
+                      <MoreHorizontal size={13} className="text-muted opacity-80" />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] pt-2 border-t border-line/40">
+                      <span className="text-emerald-600 font-semibold">Ready for reopening</span>
+                      <span className="text-muted">Jointly Signed</span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* BOTTOM SECTION: 2-COLUMN BENTO GRID (Suggested Knowledge Table + Live Railway Telemetry Map) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+        
+        {/* Left (7 cols): Suggested Knowledge & Defect Registry Table (Matches screenshot table!) */}
+        <div className="lg:col-span-7 bg-surface border border-line rounded-[28px] shadow-sm p-5 flex flex-col">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-line/60">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2">
+                <FileText size={16} className="text-info" />
+                Suggested Knowledge & Defect Registry
+              </h2>
+              <p className="text-[11px] text-muted">
+                Official maintenance ledger. Click any row to pop-through full action controls.
+              </p>
+            </div>
+
+            <span className="text-[11px] font-mono font-bold text-muted bg-raised px-2.5 py-1 rounded-full border border-line">
+              {filteredTasks.length} Records
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-line bg-raised/40 text-[10px] font-bold uppercase tracking-wider text-muted">
+                  <th className="px-3.5 py-2.5 rounded-l-xl">Subject / Task</th>
+                  <th className="px-3 py-2.5">Status</th>
+                  <th className="px-3 py-2.5">Location</th>
+                  <th className="px-3 py-2.5">Severity</th>
+                  <th className="px-3 py-2.5 text-right rounded-r-xl">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line/40">
+                {filteredTasks.slice(0, 6).map((task) => {
+                  const isSelected = selectedTask?.id === task.id
+                  return (
+                    <tr
+                      key={`row-${task.id}`}
+                      onClick={() => {
+                        setSelectedTaskId(task.id)
+                        openTaskModal(task)
+                      }}
+                      className={`cursor-pointer transition-colors group ${
+                        isSelected ? 'bg-info/10' : 'hover:bg-raised/60'
+                      }`}
+                    >
+                      <td className="px-3.5 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-ink">{task.id}</span>
+                          <span className="text-muted truncate max-w-[150px]">{task.defectType}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3">
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase border ${getStatusBadge(task.status)}`}>
+                          {task.status}
+                        </span>
+                      </td>
+
+                      <td className="px-3 py-3 text-muted">
+                        <span className="font-medium text-ink block">{task.sectionId}</span>
+                        <span className="text-[10px]">{task.exactLocation}</span>
+                      </td>
+
+                      <td className="px-3 py-3">
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border ${getSeverityBadge(task.severity)}`}>
+                          {task.severity}
+                        </span>
+                      </td>
+
+                      <td className="px-3 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openTaskModal(task)
+                          }}
+                          className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-1 text-[10px] font-bold uppercase text-info hover:bg-info hover:text-white transition-colors shadow-sm"
                         >
                           <span>Pop-up</span>
-                          <ExternalLink size={12} />
+                          <ExternalLink size={11} />
                         </button>
                       </td>
                     </tr>
                   )
-                })
-              )}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {/* Right (5 cols): Live Railway Network & Telemetry Map */}
+        <div className="lg:col-span-5 bg-surface border border-line rounded-[28px] shadow-sm p-5 flex flex-col">
+          <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-line/60">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-ink flex items-center gap-2">
+                <MapPin size={16} className="text-rose-500" />
+                Live Railway Network & Telemetry
+              </h2>
+              <p className="text-[11px] text-muted">Real-time corridor telemetry & defect heatmap</p>
+            </div>
+            <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-ok">
+              <span className="h-2 w-2 rounded-full bg-ok animate-pulse" /> Live GPS
+            </span>
+          </div>
+
+          <div className="h-80 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-sm relative z-0">
+            <IndiaRailwayMap
+              issues={tasks}
+              selectedIssueId={selectedTask?.id}
+              onSelectIssue={(id) => {
+                const found = tasks.find((t) => t.id === id)
+                if (found) {
+                  setSelectedTaskId(id)
+                  openTaskModal(found)
+                }
+              }}
+              showHeatmap={true}
+              trains={liveTrains}
+            />
+          </div>
+        </div>
+
       </div>
 
       {/* SELECTED TASK INTELLIGENCE ANALYSIS SECTION */}

@@ -253,41 +253,73 @@ export default function AdminDashboard() {
 
   return (
     <PortalLayout role="admin">
-      <div className="mb-6 flex flex-wrap justify-between items-end gap-4">
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink uppercase flex items-center gap-2">
-            <span className="w-2.5 h-2.5 bg-info rounded-full inline-block"></span>
-            Super Admin Control Room
-          </h1>
-          <p className="text-[11px] text-muted uppercase tracking-widest mt-1">Railway Network Overview & Real-Time Defect Monitoring</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
+              Control Room Operations
+            </h1>
+            <span className="rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+              SUPER ADMIN
+            </span>
+          </div>
+          <p className="text-xs text-muted mt-1">
+            Indian Railways Network Overview · Real-Time Defect Monitoring & Block Sanction Feed
+          </p>
         </div>
 
-        <button
-          type="button"
-          onClick={loadTasks}
-          disabled={loading}
-          className="btn-quiet flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
-        >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          <span>Refresh Defect Feed</span>
-        </button>
+        {/* Executive Controllers Cluster & Utilities */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div className="flex items-center -space-x-2">
+            {[
+              { initials: 'CC', name: 'Chief Controller - NDLS', role: 'Head of Operations', badgeColor: 'bg-blue-600', count: 4 },
+              { initials: 'DR', name: 'Divisional Railway Mgr', role: 'Executive Authority', badgeColor: 'bg-emerald-600', count: 2 },
+              { initials: 'SK', name: 'Senior Section Eng', role: 'Signaling & Interlocking', badgeColor: 'bg-indigo-600', count: 5 },
+              { initials: 'PM', name: 'Power & Catenary Lead', role: 'TRD Controller', badgeColor: 'bg-amber-600', count: 1 }
+            ].map((member, idx) => (
+              <div
+                key={idx}
+                className="relative group cursor-pointer transition-transform hover:-translate-y-0.5"
+                title={`${member.name} (${member.role})`}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 text-[10px] font-bold shadow-sm">
+                  {member.initials}
+                </div>
+                <span className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white ${member.badgeColor} ring-1 ring-surface`}>
+                  {member.count}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="h-6 w-px bg-line/80 hidden sm:block" />
+
+          <button
+            type="button"
+            onClick={loadTasks}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink hover:bg-raised transition-colors shadow-sm"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh Feed</span>
+          </button>
+        </div>
       </div>
 
-      {/* FILTERS — the single source both the map, the heatmap layer and
-          the alert centre table read from below. */}
-      <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 bg-surface border border-line rounded-lg px-4 py-3">
+      {/* FILTERS — Modern Pill Controls (Matches the screenshot) */}
+      <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 bg-surface border border-line/80 rounded-2xl p-3 sm:px-4 shadow-sm">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-faint uppercase tracking-widest">Severity</span>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
             {SEVERITY_FILTERS.map((s) => (
               <button
                 key={s}
                 onClick={() => setSeverityFilter(s)}
                 aria-pressed={severityFilter === s}
-                className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border transition-colors ${
+                className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
                   severityFilter === s
-                    ? 'bg-merge text-deep border-merge'
-                    : 'bg-surface text-muted border-line hover:bg-raised'
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                    : 'bg-surface text-muted hover:text-ink hover:bg-raised'
                 }`}
               >
                 {s}
@@ -298,16 +330,16 @@ export default function AdminDashboard() {
         <div className="h-4 w-px bg-line hidden sm:block" />
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-faint uppercase tracking-widest">Department</span>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
             {DEPT_FILTERS.map((d) => (
               <button
                 key={d}
                 onClick={() => setDeptFilter(d)}
                 aria-pressed={deptFilter === d}
-                className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border transition-colors ${
+                className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
                   deptFilter === d
-                    ? 'bg-merge text-deep border-merge'
-                    : 'bg-surface text-muted border-line hover:bg-raised'
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                    : 'bg-surface text-muted hover:text-ink hover:bg-raised'
                 }`}
               >
                 {d === 'ALL' ? 'ALL DEPARTMENTS' : d}
@@ -324,7 +356,7 @@ export default function AdminDashboard() {
         {/* LEFT/MAIN: MAP & ALERTS */}
         <div className={`flex flex-col gap-6 transition-all duration-300 ${selectedIssue ? 'w-1/2' : 'w-full'}`}>
           {/* INDIA MAP */}
-          <div className="bg-surface border border-line rounded-lg shadow-sm flex-1 flex flex-col overflow-hidden">
+          <div className="bg-surface border border-line rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden">
             <div className="bg-bar text-onbar px-4 py-3 flex flex-wrap justify-between items-center gap-y-2 shrink-0">
               <h2 className="text-[11px] font-bold uppercase tracking-wider">India Railway Control Map</h2>
               <div className="flex items-center gap-4">
@@ -366,7 +398,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* ALERT CENTER */}
-          <div className="bg-surface border border-line rounded-lg shadow-sm h-1/3 flex flex-col shrink-0 overflow-hidden">
+          <div className="bg-surface border border-line rounded-2xl shadow-sm h-1/3 flex flex-col shrink-0 overflow-hidden">
              <div className="bg-raised border-b border-line px-4 py-2.5 flex justify-between items-center">
               <h2 className="text-[11px] font-bold text-muted uppercase tracking-wider">Alert Center</h2>
               <span className="text-[10px] font-bold text-faint uppercase tracking-widest">
@@ -439,7 +471,7 @@ export default function AdminDashboard() {
 
         {/* RIGHT: ISSUE DETAIL PANEL */}
         {selectedIssue && (
-          <div className="w-1/2 bg-surface border border-line rounded-lg shadow-xl overflow-hidden flex flex-col animate-in slide-in-from-right-4">
+          <div className="w-1/2 bg-surface border border-line rounded-2xl shadow-xl overflow-hidden flex flex-col animate-in slide-in-from-right-4">
             <div className="bg-bar text-onbar px-6 py-4 flex justify-between items-center shrink-0">
               <div>
                 <h2 className="text-sm font-bold uppercase tracking-wider">Issue Details</h2>

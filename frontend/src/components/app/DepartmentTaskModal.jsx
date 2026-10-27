@@ -97,11 +97,11 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
       {/* Backdrop click */}
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
-      <div className="relative w-full max-w-3xl rounded-xl border border-line bg-surface shadow-2xl overflow-hidden z-10 my-8">
+      <div className="relative w-full max-w-3xl rounded-[28px] border border-line/80 bg-surface shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden z-10 my-8">
         {/* Header */}
         <div className="border-b border-line bg-surface px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-raised text-ink">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-raised text-ink">
               <Wrench size={20} />
             </span>
             <div>
@@ -279,7 +279,7 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
               type="button"
               disabled={updatingStatus !== null || task.status === 'SCHEDULED'}
               onClick={() => handleAction('SCHEDULED', 'Authorized')}
-              className={`flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+              className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
                 task.status === 'SCHEDULED'
                   ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-500/30'
                   : 'bg-surface border-line text-ink hover:border-blue-500 hover:text-blue-600'
@@ -294,7 +294,7 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
               type="button"
               disabled={updatingStatus !== null || task.status === 'IN_PROGRESS'}
               onClick={() => handleAction('IN_PROGRESS', 'In Progress')}
-              className={`flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+              className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
                 task.status === 'IN_PROGRESS'
                   ? 'bg-amber-600 text-white border-amber-600 ring-2 ring-amber-500/30'
                   : 'bg-surface border-line text-ink hover:border-amber-500 hover:text-amber-600'
@@ -309,7 +309,7 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
               type="button"
               disabled={updatingStatus !== null || task.status === 'COMPLETED'}
               onClick={() => handleAction('COMPLETED', 'Resolved')}
-              className={`flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+              className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
                 task.status === 'COMPLETED'
                   ? 'bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-500/30'
                   : 'bg-surface border-line text-ink hover:border-emerald-500 hover:text-emerald-600'
@@ -324,7 +324,7 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
               type="button"
               disabled={updatingStatus !== null || task.status === 'REJECTED'}
               onClick={() => handleAction('REJECTED', 'Rejected')}
-              className={`flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+              className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
                 task.status === 'REJECTED'
                   ? 'bg-red-600 text-white border-red-600'
                   : 'bg-surface border-line text-muted hover:border-red-500 hover:text-red-600'
@@ -337,7 +337,7 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-line bg-raised px-3.5 py-2 text-xs font-semibold text-muted hover:text-ink transition-colors"
+              className="rounded-full border border-line bg-raised px-4 py-2 text-xs font-semibold text-muted hover:text-ink transition-colors"
             >
               Close
             </button>
