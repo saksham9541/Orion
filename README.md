@@ -188,13 +188,15 @@ Configure via `.env` (refer to `.env.example`):
 | `RAILRADAR_KEY_LIMIT` | Safe monthly request cap per key | `90` |
 | `NVIDIA_API_KEY` | NVIDIA NIM / OpenAI-compatible API key for LLM | — |
 | `GEMINI_API_KEY` | Optional fallback key for Gemini | — |
+| `TRUST_PROXY` | Set to `1` behind reverse proxies (Render, Nginx) to extract client IP from `X-Forwarded-For` for rate limiting | `0` |
 
 ### Deployment on Render
 
 1. Create a **Web Service** connected to this repository.
 2. In the **Environment** tab, set:
-   - `ENVIRONMENT`: `production`
-   - `JWT_SECRET`: A secure 32+ character random string
+   - `ENVIRONMENT`: `production` (required)
+   - `JWT_SECRET`: A secure 32+ character random string (required in production)
+   - `TRUST_PROXY`: `1` (ensures accurate client IP rate limiting behind Render's reverse proxy)
    - `DATABASE_URL`: Your Neon PostgreSQL connection string (`postgresql+psycopg://...sslmode=require`)
    - `CORS_ORIGINS`: Your frontend URL
    - `RAILRADAR_API_KEYS`: Comma-separated API keys

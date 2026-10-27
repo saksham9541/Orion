@@ -55,6 +55,7 @@ from backend.auth import (
     create_refresh_token,
     decode_token,
     authenticate_user,
+    get_client_ip,
     hash_password,
     get_current_user,
     require_admin,
@@ -301,7 +302,7 @@ def on_startup():
 
 @app.post("/api/auth/login", response_model=LoginResponse)
 def login(request: LoginRequest, http_req: Request):
-    client_ip = http_req.client.host if http_req.client else None
+    client_ip = get_client_ip(http_req)
     user_record, error = authenticate_user(request.email, request.password, client_ip=client_ip)
     
     if error:

@@ -61,6 +61,21 @@ def get_jwt_secret() -> str:
     return secret
 
 
+def get_client_ip(request: Request) -> Optional[str]:
+    """
+    Extract client IP address from the request.
+    If TRUST_PROXY=1, reads the first entry of X-Forwarded-For header (e.g. behind proxy/load balancer).
+    Otherwise, uses request.client.host if request.client exists.
+    """
+    if os.environ.get("TRUST_PROXY", "").strip() == "1":
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            first_ip = forwarded_for.split(",")[0].strip()
+            if first_ip:
+                return first_ip
+    return request.client.host if request.client else None
+
+
 JWT_SECRET = get_jwt_secret()
 
 ALGORITHM = "HS256"

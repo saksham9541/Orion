@@ -20,6 +20,7 @@ from backend.auth import (
     create_refresh_token,
     decode_token,
     authenticate_user,
+    get_client_ip,
 )
 from backend.database import (
     Base,
@@ -260,4 +261,87 @@ def test_auth_api_flow(auth_db, monkeypatch):
     assert created["email"] == "track@railopt.gov.in"
     assert created["department"] == "ENGINEERING"
     assert created["role"] == "DEPT_USER"
+
+
+def test_get_client_ip_modes(monkeypatch):
+    """Test get_client_ip with TRUST_PROXY=1 and default/TRUST_PROXY=0."""
+    from starlette.datastructures import Headers
+    from unittest.mock import MagicMock
+
+    # Case 1: Default (TRUST_PROXY unset or 0) -> uses request.client.host, ignores X-Forwarded-For
+    monkeypatch.delenv("TRUST_PROXY", raising=False)
+    req1 = MagicMock()
+    req1.client.host = "10.0.0.1"
+    req1.headers = Headers({"X-Forwarded-For": "203.0.113.5, 10.0.0.1"})
+    assert get_client_ip(req1) == "10.0.0.1"
+
+    monkeypatch.setenv("TRUST_PROXY", "0")
+    assert get_client_ip(req1) == "10.0.0.1"
+
+    # Case 2: TRUST_PROXY=1 -> reads first IP from X-Forwarded-For
+    monkeypatch.setenv("TRUST_PROXY", "1")
+    req2 = MagicMock()
+    req2.client.host = "10.0.0.1"
+    req2.headers = Headers({"X-Forwarded-For": "203.0.113.5, 198.51.100.2"})
+    assert get_client_ip(req2) == "203.0.113.5"
+
+    # Case 3: TRUST_PROXY=1 but no X-Forwarded-For -> falls back to client.host
+    req3 = MagicMock()
+    req3.client.host = "10.0.0.1"
+    req3.headers = Headers({})
+    assert get_client_ip(req3) == "10.0.0.1"
+
+    # Case 4: No client object
+    req4 = MagicMock()
+    req4.client = None
+    req4.headers = Headers({})
+    assert get_client_ip(req4) is None
+
+
+def test_login_rate_limiting_with_trust_proxy(auth_db, monkeypatch):
+    """Test that login rate-limits against the forwarded client IP when TRUST_PROXY=1."""
+    from fastapi.testclient import TestClient
+    from backend.main import app
+
+    monkeypatch.setenv("TRUST_PROXY", "1")
+    monkeypatch.setattr("backend.database.get_engine", lambda: auth_db)
+    monkeypatch.setattr("backend.auth.get_session", lambda: sessionmaker(bind=auth_db, expire_on_commit=False)())
+    monkeypatch.setattr("backend.main.engine", auth_db)
+
+    SessionLocal = sessionmaker(bind=auth_db, expire_on_commit=False)
+    session = SessionLocal()
+
+    user = UserRecord(
+        id="usr_rate_limit_proxy",
+        name="Rate Limit Target",
+        email="target@railopt.gov.in",
+        password_hash=hash_password("RealPassword123!"),
+        role=UserRole.VIEWER.value,
+        is_active=True,
+    )
+    save_user(session, user)
+    session.close()
+
+    client = TestClient(app)
+    forwarded_ip = "198.51.100.99"
+    headers = {"X-Forwarded-For": f"{forwarded_ip}, 10.0.0.1"}
+
+    # Fail 5 times with bad password from forwarded_ip
+    for _ in range(5):
+        resp = client.post(
+            "/api/auth/login",
+            headers=headers,
+            json={"email": "target@railopt.gov.in", "password": "WrongPassword!"},
+        )
+        assert resp.status_code == 401
+
+    # 6th attempt should be locked out (429) for this IP
+    resp_locked = client.post(
+        "/api/auth/login",
+        headers=headers,
+        json={"email": "target@railopt.gov.in", "password": "RealPassword123!"},
+    )
+    assert resp_locked.status_code == 429
+    assert "locked" in resp_locked.json()["detail"].lower()
+
 
