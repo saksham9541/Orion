@@ -780,7 +780,16 @@ def list_tasks(
     corridor: Optional[str] = None,
     current_user: User = Depends(require_viewer_or_above),
 ):
-    tasks = app.state.tasks
+    tasks = getattr(app.state, "tasks", [])
+    if not tasks:
+        session = get_session(engine)
+        try:
+            db_tasks, _ = load_tasks(session)
+            if db_tasks:
+                app.state.tasks = db_tasks
+                tasks = db_tasks
+        finally:
+            session.close()
     
     # RBAC: DEPT_USER only gets tasks of their own department
     if current_user.role == UserRole.DEPT_USER and current_user.department:
@@ -799,7 +808,7 @@ def list_tasks(
 
 @app.get("/api/tasks/{task_id}")
 def get_task(task_id: str, current_user: User = Depends(require_viewer_or_above)):
-    for t in app.state.tasks:
+    for t in getattr(app.state, "tasks", []):
         if t.task_id == task_id:
             if not can_access_task(current_user, t):
                 raise HTTPException(status_code=403, detail="Cannot view task for a different department")
@@ -811,6 +820,28 @@ def get_task(task_id: str, current_user: User = Depends(require_viewer_or_above)
                 "source": "ML_MODEL" if t.ml_predicted_duration_hours else "MANUAL"
             }
             return resp
+
+    session = get_session(engine)
+    try:
+        db_tasks, _ = load_tasks(session)
+        for t in db_tasks:
+            if t.task_id == task_id:
+                if not hasattr(app.state, "tasks") or app.state.tasks is None:
+                    app.state.tasks = []
+                app.state.tasks.append(t)
+                if not can_access_task(current_user, t):
+                    raise HTTPException(status_code=403, detail="Cannot view task for a different department")
+                resp = t.model_dump()
+                resp["duration_estimate"] = {
+                    "point_estimate": t.ml_predicted_duration_hours if t.ml_predicted_duration_hours else t.estimated_duration_hours,
+                    "confidence_lower": t.ml_duration_confidence_lower,
+                    "confidence_upper": t.ml_duration_confidence_upper,
+                    "source": "ML_MODEL" if t.ml_predicted_duration_hours else "MANUAL"
+                }
+                return resp
+    finally:
+        session.close()
+
     raise HTTPException(status_code=404, detail="Task not found")
 
 
@@ -824,21 +855,55 @@ def update_task_status(
     request: TaskStatusUpdate,
     current_user: User = Depends(require_dept_or_above),
 ):
-    for t in app.state.tasks:
+    target = None
+    for t in getattr(app.state, "tasks", []):
         if t.task_id == task_id:
-            if not can_access_task(current_user, t):
-                raise HTTPException(status_code=403, detail="Cannot update task for different department")
-            
-            try:
-                t.status = TaskStatus(request.status)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid status")
-                
-            session = get_session(engine)
-            save_tasks(session, [t]) # Upsert
-            session.close()
-            return {"status": "ok", "new_status": t.status.value}
-    raise HTTPException(status_code=404, detail="Task not found")
+            target = t
+            break
+
+    session = get_session(engine)
+    try:
+        if target is None:
+            db_tasks, _ = load_tasks(session)
+            for t in db_tasks:
+                if t.task_id == task_id:
+                    target = t
+                    if not hasattr(app.state, "tasks") or app.state.tasks is None:
+                        app.state.tasks = []
+                    app.state.tasks.append(t)
+                    break
+
+        if target is None:
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+        if not can_access_task(current_user, target):
+            raise HTTPException(status_code=403, detail="Cannot update task for different department")
+
+        # Normalize status string and support common aliases
+        status_input = request.status.strip().upper()
+        alias_map = {
+            "ACKNOWLEDGED": "ESCALATED",
+            "ACTION STARTED": "SCHEDULED",
+            "START ACTION": "IN_PROGRESS",
+            "IN PROGRESS": "IN_PROGRESS",
+            "RESOLVED": "COMPLETED",
+            "DONE": "COMPLETED",
+            "AUTHORIZED": "SCHEDULED",
+            "AUTHORIZE": "SCHEDULED",
+            "APPROVE": "SCHEDULED",
+            "REJECT": "REJECTED",
+        }
+        status_val = alias_map.get(status_input, status_input)
+
+        try:
+            target.status = TaskStatus(status_val)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {request.status}")
+
+        save_tasks(session, [target])  # Upsert to DB
+        return {"status": "ok", "new_status": target.status.value, "task_id": target.task_id}
+    finally:
+        session.close()
 
 
 class ComplaintRequest(BaseModel):
