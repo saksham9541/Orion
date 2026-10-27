@@ -156,7 +156,10 @@ async def log_requests(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     process_time = (time.time() - start_time) * 1000
-    print(f"INFO:     {request.client.host} - \"{request.method} {request.url.path}\" {response.status_code} ({process_time:.1f}ms)", flush=True)
+    # Note: Log only request.url.path to prevent sensitive query params (e.g. ?token=...)
+    # from being exposed in access logs.
+    client_host = request.client.host if request.client else "127.0.0.1"
+    print(f"INFO:     {client_host} - \"{request.method} {request.url.path}\" {response.status_code} ({process_time:.1f}ms)", flush=True)
     return response
 
 DEFAULT_CORS_ORIGINS = [
@@ -1901,7 +1904,10 @@ async def websocket_notifications(
     """
     Authenticated WebSocket endpoint for real-time issue notifications.
     Accepts JWT token in query param (?token=...), Authorization header, or Sec-WebSocket-Protocol.
+    NOTE: Using Authorization header or Sec-WebSocket-Protocol is preferred over query params
+    because query strings are easily captured in access/proxy logs.
     """
+    subprotocol: Optional[str] = None
     auth_token = token
     if not auth_token:
         auth_header = websocket.headers.get("authorization", "")
@@ -1910,7 +1916,8 @@ async def websocket_notifications(
     if not auth_token:
         protocols = websocket.headers.get("sec-websocket-protocol", "")
         if protocols:
-            auth_token = protocols.split(",")[0].strip()
+            subprotocol = protocols.split(",")[0].strip()
+            auth_token = subprotocol
 
     if not auth_token:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -1938,7 +1945,14 @@ async def websocket_notifications(
     finally:
         session.close()
 
-    await manager.connect(websocket, user_id=str(user_id), role=user_role, department=user_dept, email=user_email)
+    await manager.connect(
+        websocket,
+        user_id=str(user_id),
+        role=user_role,
+        department=user_dept,
+        email=user_email,
+        subprotocol=subprotocol,
+    )
     try:
         while True:
             data = await websocket.receive_text()

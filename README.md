@@ -220,6 +220,17 @@ Full details are documented in [docs/PERMISSIONS.md](docs/PERMISSIONS.md).
 
 ---
 
-## 9. License
+## 9. Real-Time WebSocket Notifications
+
+- Endpoint: `/ws/notifications`
+- Authentication methods:
+  1. `Sec-WebSocket-Protocol: <token>` (Recommended — echoed by server in handshake response)
+  2. `Authorization: Bearer <token>`
+  3. `?token=<token>` (Supported for backward compatibility)
+- **Security Note**: Passing tokens via header or `Sec-WebSocket-Protocol` is strongly preferred over URL query parameters because query strings are often captured in access logs and proxy logs. The HTTP request logging middleware logs only `request.url.path` to prevent query string leakage.
+
+---
+
+## 10. License
 
 Built for Smart India Hackathon 2026 — Ministry of Railways.

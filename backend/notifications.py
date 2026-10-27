@@ -37,8 +37,9 @@ class ConnectionManager:
         role: str,
         department: Optional[str] = None,
         email: Optional[str] = None,
+        subprotocol: Optional[str] = None,
     ):
-        await websocket.accept()
+        await websocket.accept(subprotocol=subprotocol)
         if user_id not in self.active_connections:
             self.active_connections[user_id] = []
         self.active_connections[user_id].append(websocket)

@@ -113,22 +113,35 @@ def notif_test_env(tmp_path, monkeypatch):
 
 
 def test_websocket_auth(notif_test_env):
-    """WebSocket connection requires a valid JWT token."""
+    """WebSocket connection requires a valid JWT token via query param, header, or Sec-WebSocket-Protocol."""
     client = notif_test_env["client"]
     valid_token = notif_test_env["tokens"]["admin"]
 
-    # Valid token connects successfully
+    # 1. Valid token in query param connects successfully
     with client.websocket_connect(f"/ws/notifications?token={valid_token}") as ws:
         ws.send_text("ping")
         data = ws.receive_text()
         assert data == "pong"
 
-    # Missing token fails connection
+    # 2. Valid token in Sec-WebSocket-Protocol echoes subprotocol and connects
+    with client.websocket_connect("/ws/notifications", subprotocols=[valid_token]) as ws:
+        assert ws.accepted_subprotocol == valid_token
+        ws.send_text("ping")
+        data = ws.receive_text()
+        assert data == "pong"
+
+    # 3. Valid token in Authorization header connects
+    with client.websocket_connect("/ws/notifications", headers={"Authorization": f"Bearer {valid_token}"}) as ws:
+        ws.send_text("ping")
+        data = ws.receive_text()
+        assert data == "pong"
+
+    # 4. Missing token fails connection
     with pytest.raises(Exception):
         with client.websocket_connect("/ws/notifications"):
             pass
 
-    # Invalid token fails connection
+    # 5. Invalid token fails connection
     with pytest.raises(Exception):
         with client.websocket_connect("/ws/notifications?token=invalid_token_123"):
             pass
