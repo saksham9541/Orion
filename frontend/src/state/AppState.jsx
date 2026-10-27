@@ -23,19 +23,30 @@ const AppStateContext = createContext(null)
 
 function loadSavedUser() {
   try {
-    const saved = localStorage.getItem('railopt_user')
-    return saved ? JSON.parse(saved) : null
+    const sessionSaved = sessionStorage.getItem('railopt_user')
+    if (sessionSaved) return JSON.parse(sessionSaved)
+    return null
   } catch {
     return null
   }
 }
 
 export function getStoredToken() {
-  return localStorage.getItem('railopt_token')
+  return sessionStorage.getItem('railopt_token') || null
+}
+
+export function setStoredToken(token) {
+  if (token) {
+    sessionStorage.setItem('railopt_token', token)
+  } else {
+    sessionStorage.removeItem('railopt_token')
+  }
+  // Clear localStorage to prevent cross-tab contamination
+  localStorage.removeItem('railopt_token')
 }
 
 export function getStoredEmail() {
-  return localStorage.getItem('railopt_email')
+  return sessionStorage.getItem('railopt_email') || null
 }
 
 export function AppStateProvider({ children }) {
@@ -45,12 +56,18 @@ export function AppStateProvider({ children }) {
     const user = roleById[roleId]
     if (!user) return
 
-    // Save user to localStorage immediately so page refresh works
-    localStorage.setItem('railopt_user', JSON.stringify(user))
+    // Save strictly to sessionStorage for complete tab isolation
+    sessionStorage.setItem('railopt_user', JSON.stringify(user))
+
+    // Clear any legacy localStorage to avoid cross-tab leakage
+    localStorage.removeItem('railopt_user')
+    localStorage.removeItem('railopt_token')
+    localStorage.removeItem('railopt_email')
 
     // Get a real JWT from the backend
     const email = ROLE_EMAILS[roleId] || 'admin@railopt.gov.in'
-    localStorage.setItem('railopt_email', email)
+    sessionStorage.setItem('railopt_email', email)
+
     try {
       const res = await fetch('http://localhost:8000/api/auth/login', {
         method: 'POST',
@@ -59,7 +76,7 @@ export function AppStateProvider({ children }) {
       })
       if (res.ok) {
         const data = await res.json()
-        localStorage.setItem('railopt_token', data.access_token)
+        sessionStorage.setItem('railopt_token', data.access_token)
       }
     } catch {
       // Backend might not be running yet — that's OK, api.js will retry
@@ -69,6 +86,9 @@ export function AppStateProvider({ children }) {
   }, [])
 
   const logout = useCallback(() => {
+    sessionStorage.removeItem('railopt_user')
+    sessionStorage.removeItem('railopt_token')
+    sessionStorage.removeItem('railopt_email')
     localStorage.removeItem('railopt_user')
     localStorage.removeItem('railopt_token')
     localStorage.removeItem('railopt_email')

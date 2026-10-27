@@ -2,11 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { Bell, Check, CheckCheck, AlertTriangle, AlertCircle, ExternalLink } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '@/state/NotificationContext'
+import { useAppState } from '@/state/AppState'
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
   const navigate = useNavigate()
+  const { currentUser } = useAppState()
   const { notifications, unreadCount, markAsRead, acknowledge, isConnected } = useNotifications()
 
   // Close dropdown when clicking outside
@@ -25,8 +27,15 @@ export default function NotificationBell() {
       markAsRead(notif.id)
     }
     setIsOpen(false)
-    if (notif.issue_id) {
-      navigate(`/tasks?search=${notif.issue_id}`)
+    const issueId = notif.issue_id || ''
+    const roleId = currentUser?.id
+
+    if (roleId && roleId !== 'admin') {
+      navigate(`/${roleId}${issueId ? `?issue=${issueId}` : ''}`)
+    } else if (roleId === 'admin') {
+      navigate(issueId ? `/admin?issue=${issueId}` : '/admin')
+    } else {
+      navigate(issueId ? `/tasks?search=${issueId}` : '/tasks')
     }
   }
 

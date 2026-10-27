@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getStoredToken, getStoredEmail } from '@/state/AppState';
+import { getStoredToken, getStoredEmail, setStoredToken } from '@/state/AppState';
 
 const api = axios.create({
   baseURL: 'http://localhost:8000/api',
@@ -24,7 +24,7 @@ async function ensureToken() {
     })
     .then((res) => {
       const token = res.data.access_token;
-      localStorage.setItem('railopt_token', token);
+      setStoredToken(token);
       return token;
     })
     .catch(() => {
@@ -53,7 +53,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
       // Clear cached token so ensureToken fetches a fresh one
-      localStorage.removeItem('railopt_token');
+      setStoredToken(null);
       tokenPromise = null;
       const token = await ensureToken();
       if (token) {

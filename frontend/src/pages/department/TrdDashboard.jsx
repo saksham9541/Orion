@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import DepartmentDashboard from '@/components/app/DepartmentDashboard'
 import { fetchTasks } from '@/api'
 
 export default function TrdDashboard() {
+  const [searchParams] = useSearchParams()
+  const targetIssueId = searchParams.get('issue') || searchParams.get('search')
   const [task, setTask] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -11,7 +14,7 @@ export default function TrdDashboard() {
     setLoading(true)
     fetchTasks({ department: 'TRD' })
       .then(res => {
-        const t = res.data[0]
+        const t = (targetIssueId ? res.data.find(x => x.task_id === targetIssueId) : null) || res.data[0]
         if (!t) {
           setError('No TRD tasks found. Click Setup Server to generate data.')
           setLoading(false)
@@ -46,7 +49,7 @@ export default function TrdDashboard() {
         setError('Could not load tasks. Click Setup Server to initialize.')
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [targetIssueId])
 
   const activeTask = task || {
     id: 'TRD-STANDBY',

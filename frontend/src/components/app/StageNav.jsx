@@ -16,6 +16,17 @@ export default function StageNav() {
   const { currentUser, logout } = useAppState()
   const navigate = useNavigate()
 
+  const handleBack = () => {
+    const roleId = currentUser?.id
+    if (roleId && roleId !== 'admin') {
+      navigate(`/${roleId}`)
+    } else if (roleId === 'admin') {
+      navigate('/admin')
+    } else {
+      navigate(-1)
+    }
+  }
+
   const handleLogout = () => {
     logout()
     navigate('/login')
@@ -26,7 +37,7 @@ export default function StageNav() {
       <div className="flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate(-1)}
+            onClick={handleBack}
             className="flex items-center justify-center h-8 w-8 rounded border border-line bg-base text-muted hover:text-ink hover:bg-[#f8fafc] transition-colors"
             aria-label="Go back"
             title="Go back"

@@ -1,9 +1,11 @@
 import { AlertCircle, AlertTriangle, CheckCircle, ExternalLink, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '@/state/NotificationContext'
+import { useAppState } from '@/state/AppState'
 
 export default function IssueAlertModal() {
   const navigate = useNavigate()
+  const { currentUser } = useAppState()
   const { activePopup, acknowledge, dismissPopup, markAsRead } = useNotifications()
 
   if (!activePopup) return null
@@ -21,10 +23,15 @@ export default function IssueAlertModal() {
   const handleViewIssue = () => {
     markAsRead(activePopup.id)
     dismissPopup()
-    if (activePopup.issue_id) {
-      navigate(`/tasks?search=${activePopup.issue_id}`)
+    const issueId = activePopup.issue_id || ''
+    const roleId = currentUser?.id
+
+    if (roleId && roleId !== 'admin') {
+      navigate(`/${roleId}${issueId ? `?issue=${issueId}` : ''}`)
+    } else if (roleId === 'admin') {
+      navigate(issueId ? `/admin?issue=${issueId}` : '/admin')
     } else {
-      navigate('/tasks')
+      navigate(issueId ? `/tasks?search=${issueId}` : '/tasks')
     }
   }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ShieldAlert, CheckCircle2, X, Bell, ClipboardCheck, PlayCircle, CircleCheck, Flame } from 'lucide-react'
 import PortalLayout from '@/components/app/PortalLayout'
 import { useAppState } from '@/state/AppState'
@@ -76,14 +76,22 @@ const backendToUiStatus = {
 
 export default function AdminDashboard() {
   const { currentUser } = useAppState()
+  const [searchParams] = useSearchParams()
+  const urlIssueId = searchParams.get('issue') || searchParams.get('search')
   const [issues, setIssues] = useState([])
-  const [selectedIssueId, setSelectedIssueId] = useState(null)
+  const [selectedIssueId, setSelectedIssueId] = useState(urlIssueId || null)
   const [severityFilter, setSeverityFilter] = useState('ALL')
   const [deptFilter, setDeptFilter] = useState('ALL')
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [liveTrains, setLiveTrains] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  useEffect(() => {
+    if (urlIssueId) {
+      setSelectedIssueId(urlIssueId)
+    }
+  }, [urlIssueId])
 
   useEffect(() => {
     setLoading(true)
@@ -109,6 +117,9 @@ export default function AdminDashboard() {
         }
       }))
       setIssues(mapped)
+      if (urlIssueId) {
+        setSelectedIssueId(urlIssueId)
+      }
       setError(null)
     }).catch(err => {
       console.error('Failed to fetch tasks:', err)
@@ -116,7 +127,7 @@ export default function AdminDashboard() {
     }).finally(() => {
       setLoading(false)
     })
-  }, [])
+  }, [urlIssueId])
 
   useEffect(() => {
     fetchLiveTrains()

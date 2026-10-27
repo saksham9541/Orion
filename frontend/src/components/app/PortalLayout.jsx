@@ -65,7 +65,7 @@ export default function PortalLayout({ children, role }) {
                       });
                       const loginData = await loginRes.json();
                       const token = loginData.access_token;
-                      localStorage.setItem('railopt_token', token);
+                      sessionStorage.setItem('railopt_token', token);
 
                       const res = await fetch('http://localhost:8000/api/demo/setup', {
                         method: 'POST',
