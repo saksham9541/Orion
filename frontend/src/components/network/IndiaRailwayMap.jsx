@@ -39,18 +39,18 @@ const CARTO_DARK_URL =
 const ESRI_ATTRIBUTION =
   '&copy; <a href="https://www.esri.com/" target="_blank" rel="noreferrer">Esri</a>, Maxar, Earthstar'
 
-// Clean Nothing OS technical severity palette — no rainbow festival colors
+// Deep, darkened technical severity palette — grounded tones, no bright neon glows
 function getColor(severity, status) {
-  if (status === 'RESOLVED') return '#64748b' // slate-500
+  if (status === 'RESOLVED') return '#334155' // dark slate
   switch (severity) {
     case 'CRITICAL':
-      return '#D71920' // Nothing Red
+      return '#991b1b' // deep dark crimson / maroon
     case 'HIGH':
-      return '#FF9554' // High orange
+      return '#9a3412' // deep dark burnt rust
     case 'MEDIUM':
-      return '#FACC15' // Amber/yellow
+      return '#854d0e' // deep dark amber / bronze
     default:
-      return '#A3A3A3' // Muted neutral
+      return '#1e293b' // deep dark charcoal
   }
 }
 
@@ -75,8 +75,15 @@ function FlyToSelection({ station }) {
   return null
 }
 
-const SEVERITY_RADIUS = { CRITICAL: 32, HIGH: 24, MEDIUM: 18, LOW: 12 }
-const SEVERITY_OPACITY = { CRITICAL: 0.25, HIGH: 0.2, MEDIUM: 0.15, LOW: 0.08 }
+const SEVERITY_RADIUS = { CRITICAL: 28, HIGH: 22, MEDIUM: 16, LOW: 10 }
+const SEVERITY_OPACITY = { CRITICAL: 0.22, HIGH: 0.16, MEDIUM: 0.12, LOW: 0.06 }
+
+const ROUTE_PALETTE = {
+  amber: { label: 'Amber', color: '#ea580c' }, // Classic railway orange (OpenRailwayMap standard)
+  crimson: { label: 'Crimson', color: '#b91c1c' }, // Deep Nothing Red
+  cyan: { label: 'Cyan', color: '#0284c7' }, // Deep tactical cyan
+  slate: { label: 'Slate', color: '#64748b' }, // Dark technical slate
+}
 
 export default function IndiaRailwayMap({
   issues = [],
@@ -86,6 +93,7 @@ export default function IndiaRailwayMap({
   trains = [],
 }) {
   const [mapMode, setMapMode] = useState('satellite') // 'satellite' | 'dark'
+  const [routeTheme, setRouteTheme] = useState('amber') // default to classic Railway Amber/Orange
 
   const issuesByStation = useMemo(
     () =>
@@ -102,18 +110,40 @@ export default function IndiaRailwayMap({
     return STATIONS.find((s) => s.id === issue.locationId) ?? null
   }, [issues, selectedIssueId])
 
+  const activeRouteColor = ROUTE_PALETTE[routeTheme]?.color || '#ea580c'
+
   return (
     <div className="w-full h-full relative overflow-hidden bg-slate-950 border border-line rounded-lg isolate z-0">
-      {/* Sleek Minimalist Basemap Switcher (Nothing OS Style) */}
-      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5">
+      {/* Sleek Minimalist HUD Controls */}
+      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-black/85 backdrop-blur-md px-2 py-1 rounded-md border border-white/15 shadow-lg">
         <button
           type="button"
           onClick={() => setMapMode((m) => (m === 'satellite' ? 'dark' : 'satellite'))}
-          className="px-2.5 py-1 rounded bg-black/80 hover:bg-black text-white/80 hover:text-white border border-white/20 text-[10px] font-mono tracking-widest uppercase transition-colors shadow-md backdrop-blur-md"
+          className="px-2 py-0.5 rounded text-[10px] font-mono tracking-wider uppercase text-white/80 hover:text-white transition-colors"
           title="Toggle Satellite Terrain / Dark Tactical Basemap"
         >
           {mapMode === 'satellite' ? '🛰️ Satellite' : '🗺️ Dark'}
         </button>
+
+        <div className="w-[1px] h-3.5 bg-white/20 mx-0.5" />
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] font-mono text-white/50 uppercase tracking-widest">Route:</span>
+          {Object.entries(ROUTE_PALETTE).map(([key, item]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setRouteTheme(key)}
+              className={`w-3.5 h-3.5 rounded-full border transition-transform ${
+                routeTheme === key
+                  ? 'border-white scale-110 shadow-sm'
+                  : 'border-transparent opacity-50 hover:opacity-100 hover:scale-105'
+              }`}
+              style={{ backgroundColor: item.color }}
+              title={`Switch route color to ${item.label}`}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Clean Subtle Network Watermark */}
@@ -156,27 +186,27 @@ export default function IndiaRailwayMap({
           />
         )}
 
-        {/* 2. Domestic Indian Rail Corridors — Subtle Technical Monochrome Track (NO Rainbow Colors) */}
+        {/* 2. Domestic Indian Rail Corridors — Dark-cased Railway Tracks with Distinct Route Color */}
         {INDIAN_RAIL_CORRIDORS.map((corridor) => (
           <Fragment key={corridor.id}>
-            {/* Outer subtle dark track casing */}
+            {/* Dark track casing for high ground contrast */}
             <Polyline
               positions={corridor.coords}
               pathOptions={{
                 color: '#000000',
-                weight: 2.8,
-                opacity: 0.7,
+                weight: 3.4,
+                opacity: 0.85,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
             />
-            {/* Inner clean hairline track */}
+            {/* Vibrant, clean railway route line */}
             <Polyline
               positions={corridor.coords}
               pathOptions={{
-                color: '#cbd5e1',
-                weight: 1.2,
-                opacity: 0.55,
+                color: activeRouteColor,
+                weight: 1.8,
+                opacity: 0.9,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -212,22 +242,22 @@ export default function IndiaRailwayMap({
             )
           })}
 
-        {/* 4. Live Trains (ONLY real trains from backend prop — NO fake rainbow fleet) */}
+        {/* 4. Live Trains (ONLY real trains from backend prop — Darkened, sleek markers) */}
         {trains &&
           trains.length > 0 &&
           trains.map((train, idx) => {
             const isDelayed = train.delay_minutes > 0
             const lat = train.lat || (STATIONS[idx % STATIONS.length].lat + 0.2)
             const lng = train.lng || (STATIONS[idx % STATIONS.length].lng + 0.2)
-            const color = isDelayed ? '#D71920' : '#ffffff'
+            const color = isDelayed ? '#991b1b' : '#0f172a'
 
             return (
               <CircleMarker
                 key={`live-train-${train.train_number || idx}`}
                 center={[lat, lng]}
                 radius={3.5}
-                color={isDelayed ? '#ffffff' : '#0f172a'}
-                weight={1.2}
+                color="#000000"
+                weight={1.5}
                 fillColor={color}
                 fillOpacity={1}
               >
@@ -245,39 +275,41 @@ export default function IndiaRailwayMap({
             )
           })}
 
-        {/* 5. Indian Railway Stations — Clean, uncluttered technical markers */}
+        {/* 5. Indian Railway Stations — Darkened, deep technical dots */}
         {STATIONS.map((s) => {
           const issue = issuesByStation[s.id]
           const hasIssue = Boolean(issue)
           const isResolved = hasIssue && issue.status === 'RESOLVED'
           const isSelected = hasIssue && selectedIssueId === issue.id
-          const color = hasIssue ? getColor(issue.severity, issue.status) : '#64748b'
-          const radius = isSelected ? 8 : hasIssue && !isResolved ? 6 : 4
+          const dotColor = hasIssue ? getColor(issue.severity, issue.status) : '#090d16'
+          const borderColor = hasIssue ? '#000000' : '#1e293b'
+          const radius = isSelected ? 7 : hasIssue && !isResolved ? 5.5 : 3.5
 
-          // Only keep label permanently visible if it's the selected station or has an active issue.
-          // Otherwise, show label on hover to prevent text overlap clutter.
+          // Only keep label permanently visible if it's the selected station or has an active issue
           const showPermanentLabel = isSelected || (hasIssue && !isResolved)
 
           return (
             <Fragment key={`${s.id}-${issue?.status || 'none'}`}>
-              {/* Subtle accent ring around stations with active issues */}
+              {/* Subtle darkened accent ring around stations with active issues */}
               {hasIssue && !isResolved && (
                 <CircleMarker
                   center={[s.lat, s.lng]}
-                  radius={radius + 4}
-                  color={color}
-                  weight={1}
+                  radius={radius + 3.5}
+                  color={dotColor}
+                  weight={1.2}
+                  opacity={0.4}
                   fillColor="transparent"
                   interactive={false}
                 />
               )}
 
+              {/* Darkened station marker dot */}
               <CircleMarker
                 center={[s.lat, s.lng]}
                 radius={radius}
-                color={hasIssue ? '#ffffff' : '#475569'}
-                weight={hasIssue ? 2 : 1.5}
-                fillColor={hasIssue ? color : '#0f172a'}
+                color={borderColor}
+                weight={2}
+                fillColor={dotColor}
                 fillOpacity={1}
                 eventHandlers={{
                   click: () => hasIssue && onSelectIssue?.(issue.id),
@@ -297,7 +329,7 @@ export default function IndiaRailwayMap({
                   <Popup>
                     <div className="text-[12px] p-1 font-sans">
                       <p className="font-bold text-slate-900">{issue.locationName}</p>
-                      <p className="mt-0.5 uppercase tracking-wide text-[10px] font-mono font-bold" style={{ color }}>
+                      <p className="mt-0.5 uppercase tracking-wide text-[10px] font-mono font-bold" style={{ color: dotColor }}>
                         {isResolved ? 'RESOLVED' : issue.severity} · {issue.department}
                       </p>
                       <p className="mt-1 text-slate-700">{issue.type}</p>
