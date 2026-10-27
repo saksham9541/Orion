@@ -71,8 +71,7 @@ class BlockScheduler:
         and inter-department merging, while minimizing disruption.
         """
         cfg = self.config
-        if time_limit_seconds is not None:  # only override the config if the caller asks
-            cfg.time_limit_seconds = time_limit_seconds
+        time_limit = time_limit_seconds if time_limit_seconds is not None else cfg.time_limit_seconds
 
         SCALE = 10  # CP-SAT needs integers: keep 1 decimal
         num_tasks, num_windows = len(tasks), len(windows)
@@ -200,7 +199,7 @@ class BlockScheduler:
         if cfg.emergency_must_schedule and emerg_with_compat:
             model, x, tasks_in_window = _build_model(hard_emergency=True)
             solver = cp_model.CpSolver()
-            solver.parameters.max_time_in_seconds = float(cfg.time_limit_seconds)
+            solver.parameters.max_time_in_seconds = float(time_limit)
             status = solver.Solve(model)
             if status == cp_model.INFEASIBLE:
                 fell_back_to_soft = True
@@ -209,12 +208,12 @@ class BlockScheduler:
                 )
                 model, x, tasks_in_window = _build_model(hard_emergency=False)
                 solver = cp_model.CpSolver()
-                solver.parameters.max_time_in_seconds = float(cfg.time_limit_seconds)
+                solver.parameters.max_time_in_seconds = float(time_limit)
                 status = solver.Solve(model)
         else:
             model, x, tasks_in_window = _build_model(hard_emergency=False)
             solver = cp_model.CpSolver()
-            solver.parameters.max_time_in_seconds = float(cfg.time_limit_seconds)
+            solver.parameters.max_time_in_seconds = float(time_limit)
             status = solver.Solve(model)
 
         solver_status_name = solver.StatusName(status)

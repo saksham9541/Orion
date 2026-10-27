@@ -164,3 +164,23 @@ def test_emergency_fallback_when_hard_infeasible():
     scheduled_ids = [tid for b in plan.scheduled_blocks for tid in b.task_ids]
     assert len(scheduled_ids) == 1
     assert any("infeasible" in w.lower() for w in plan.warnings)
+
+
+def test_solve_does_not_mutate_config_time_limit():
+    """Consecutive solve() calls must not leak the time_limit_seconds override to self.config."""
+    config = SchedulerConfig(time_limit_seconds=60)
+    scheduler = BlockScheduler(config=config)
+    assert scheduler.config.time_limit_seconds == 60
+
+    section = _make_section("SEC-TEST-1")
+    window = _make_window("BW-1", section_id="SEC-TEST-1")
+    task = _make_task("TASK-1", section_id="SEC-TEST-1")
+
+    # Call 1 with override
+    scheduler.solve(tasks=[task], windows=[window], sections={"SEC-TEST-1": section}, time_limit_seconds=5)
+    assert scheduler.config.time_limit_seconds == 60, "First solve() mutated self.config.time_limit_seconds"
+
+    # Call 2 without override
+    scheduler.solve(tasks=[task], windows=[window], sections={"SEC-TEST-1": section})
+    assert scheduler.config.time_limit_seconds == 60, "Second solve() saw mutated time_limit_seconds"
+
