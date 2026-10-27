@@ -108,7 +108,7 @@ export default function IndiaRailwayMap({ issues, selectedIssueId, onSelectIssue
   }, [issues, selectedIssueId])
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-[#f8fafc] border border-slate-200 rounded-lg">
+    <div className="w-full h-full relative overflow-hidden bg-[#f8fafc] border border-slate-200 rounded-lg isolate z-0">
       <MapContainer
         center={INDIA_CENTER}
         zoom={INDIA_INITIAL_ZOOM}

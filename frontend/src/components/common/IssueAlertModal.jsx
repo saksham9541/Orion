@@ -51,7 +51,7 @@ export default function IssueAlertModal() {
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="issue-alert-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 overflow-y-auto"
         >
           {/* Backdrop */}
           <motion.div

@@ -398,7 +398,7 @@ export default function AdminDashboard() {
                 <span className="text-xs font-mono font-bold text-warn uppercase tracking-widest">Simulation Data</span>
               </div>
             )}
-            <div className="flex-1 bg-raised relative p-4 min-h-[380px]">
+            <div className="flex-1 bg-raised relative p-4 min-h-[380px] isolate z-0">
               <IndiaRailwayMap
                 issues={filteredIssues}
                 selectedIssueId={selectedIssueId}

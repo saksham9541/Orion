@@ -1166,7 +1166,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
             </span>
           </div>
 
-          <div className="h-96 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-sm relative z-0">
+          <div className="h-96 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-sm relative z-0 isolate">
             <IndiaRailwayMap
               issues={tasks}
               selectedIssueId={selectedTask?.id}
