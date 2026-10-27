@@ -18,7 +18,7 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
     e.preventDefault()
     setLoading(true)
     try {
-      await submitComplaint({
+      const res = await submitComplaint({
         description: desc,
         corridor_id: corridor,
         section_id: section,
@@ -27,10 +27,13 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
         severity: severity,
       })
       setSuccess(true)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('railopt:task-created', { detail: res.data }))
+      }
       setTimeout(() => {
         setSuccess(false)
         onClose()
-      }, 1800)
+      }, 1500)
     } catch (err) {
       console.error(err)
       alert("Failed to submit issue. Please check server connection.")

@@ -152,6 +152,9 @@ export function NotificationProvider({ children }) {
             setUnreadCount((prev) => prev + 1)
             // Immediately interrupt screen with Real-time Alert Popup!
             setActivePopup(notif)
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('railopt:task-created', { detail: notif }))
+            }
           }
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err)

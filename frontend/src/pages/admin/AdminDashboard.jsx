@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, ShieldAlert, CheckCircle2, X, Bell, ClipboardCheck, PlayCircle, CircleCheck, Flame } from 'lucide-react'
+import { AlertTriangle, ShieldAlert, CheckCircle2, X, Bell, ClipboardCheck, PlayCircle, CircleCheck, Flame, RefreshCw } from 'lucide-react'
 import PortalLayout from '@/components/app/PortalLayout'
 import { useAppState } from '@/state/AppState'
+import { useNotifications } from '@/state/NotificationContext'
 import IndiaRailwayMap from '@/components/network/IndiaRailwayMap'
-import { fetchLiveTrains } from '@/api'
+import { fetchLiveTrains, fetchTasks, updateTaskStatus } from '@/api'
 
 /**
  * The status flow every issue moves through. One admin action is available
  * at a time — whichever one advances the issue to the next stage — rather
- * than four buttons sitting there decoratively. Frontend demo state only:
- * nothing here calls a backend, and refreshing the page resets it.
+ * than four buttons sitting there decoratively.
  */
 const STATUS_FLOW = ['NEW', 'ACKNOWLEDGED', 'DEPARTMENT NOTIFIED', 'IN PROGRESS', 'RESOLVED']
 
@@ -52,8 +52,6 @@ const STATUS_BADGE = {
   RESOLVED: 'tag tag-ok',
 }
 
-import { fetchTasks, updateTaskStatus } from '@/api'
-
 const SEVERITY_FILTERS = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM']
 const DEPT_FILTERS = ['ALL', 'ENGINEERING', 'S&T', 'TRD']
 
@@ -67,15 +65,65 @@ const uiToBackendStatus = {
 
 const backendToUiStatus = {
   'PENDING': 'NEW',
+  'UNVERIFIED': 'NEW',
+  'SCORED': 'NEW',
+  'SUBMITTED': 'NEW',
   'ESCALATED': 'ACKNOWLEDGED',
   'SCHEDULED': 'DEPARTMENT NOTIFIED',
   'IN_PROGRESS': 'IN PROGRESS',
   'COMPLETED': 'RESOLVED',
-  'DEFERRED': 'RESOLVED' // Fallback
+  'DEFERRED': 'RESOLVED',
+  'REJECTED': 'RESOLVED'
+}
+
+const VALID_STATION_IDS = ['NDLS', 'LDH', 'ASR', 'JP', 'LKO', 'BCT', 'HWH', 'MAS', 'SBC', 'SC']
+
+function resolveStationId(sectionId, corridorId, taskId) {
+  if (VALID_STATION_IDS.includes(sectionId)) return sectionId
+  const c = (corridorId || '').toUpperCase()
+  if (c.includes('DELHI') || c.includes('NDLS')) return 'NDLS'
+  if (c.includes('MUMBAI') || c.includes('BCT')) return 'BCT'
+  if (c.includes('KOLKATA') || c.includes('HOWRAH') || c.includes('HWH')) return 'HWH'
+  if (c.includes('CHENNAI') || c.includes('MAS')) return 'MAS'
+  if (c.includes('LUDHIANA') || c.includes('LDH')) return 'LDH'
+  if (c.includes('JAIPUR') || c.includes('JP')) return 'JP'
+  if (c.includes('LUCKNOW') || c.includes('LKO')) return 'LKO'
+  const hash = (taskId || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return VALID_STATION_IDS[hash % VALID_STATION_IDS.length]
+}
+
+function mapTaskForAdmin(t) {
+  const stationId = resolveStationId(t.section_id, t.corridor_id, t.task_id)
+  const severity = (t.ml_predicted_severity || t.raw_severity || 'MEDIUM').toUpperCase()
+  const dept = t.department === 'SNT' ? 'S&T' : (t.department || 'ENGINEERING').toUpperCase()
+  const status = backendToUiStatus[t.status] || 'NEW'
+  const defectType = t.defect_category ? String(t.defect_category).replace(/_/g, ' ') : 'Track defect'
+
+  return {
+    id: t.task_id,
+    locationId: stationId,
+    locationName: t.corridor_id || 'Mainline Corridor',
+    exactLocation: `KM ${t.km_location ?? '—'} (${t.section_id || 'Sector'})`,
+    department: dept,
+    severity: severity,
+    status: status,
+    type: defectType,
+    time: t.reported_date ? `Reported ${t.reported_date}` : 'Just now',
+    details: {
+      what: t.inspector_remarks || `${defectType} reported on ${t.corridor_id || 'sector'}.`,
+      why: [{ level: 'CONFIRMED', text: `Criticality Score: ${(t.ml_criticality_score ?? 0.85).toFixed(2)}` }],
+      how: [],
+      impact: 'Predicted Duration: ' + (t.ml_predicted_duration_hours || t.estimated_duration_hours || 2) + ' hrs',
+      seriousness: severity,
+      recommendation: 'Use RailOpt Optimizer to generate maintenance schedule block.',
+      supporting: `Overdue: ${t.days_overdue ?? 0} days. Historical failures: ${t.historical_failure_count ?? 0}.`
+    }
+  }
 }
 
 export default function AdminDashboard() {
   const { currentUser } = useAppState()
+  const { notifications } = useNotifications()
   const [searchParams] = useSearchParams()
   const urlIssueId = searchParams.get('issue') || searchParams.get('search')
   const [issues, setIssues] = useState([])
@@ -87,6 +135,23 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const loadTasks = useCallback(async () => {
+    try {
+      const res = await fetchTasks()
+      const backendTasks = Array.isArray(res.data) ? res.data : []
+      const mapped = backendTasks.map(mapTaskForAdmin)
+      // Reverse order so newly reported tasks appear at the very top!
+      mapped.reverse()
+      setIssues(mapped)
+      setError(null)
+    } catch (err) {
+      console.error('Failed to fetch tasks:', err)
+      setError('Could not load tasks. Click Setup Server to initialize.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (urlIssueId) {
       setSelectedIssueId(urlIssueId)
@@ -94,40 +159,31 @@ export default function AdminDashboard() {
   }, [urlIssueId])
 
   useEffect(() => {
-    setLoading(true)
-    fetchTasks().then(res => {
-      const mapped = res.data.map(t => ({
-        id: t.task_id,
-        locationId: t.section_id,
-        locationName: t.corridor_id,
-        exactLocation: `KM ${t.km_location || '—'}`,
-        department: t.department === 'SNT' ? 'S&T' : t.department,
-        severity: t.ml_predicted_severity || t.raw_severity || 'MEDIUM',
-        status: backendToUiStatus[t.status] || 'NEW',
-        type: t.defect_category,
-        time: t.reported_date,
-        details: {
-          what: t.inspector_remarks || 'No remarks provided.',
-          why: [{ level: 'CONFIRMED', text: `Criticality Score: ${(t.ml_criticality_score ?? 0).toFixed(1)}` }],
-          how: [],
-          impact: 'Predicted Duration: ' + (t.ml_predicted_duration_hours ?? 0) + ' hrs',
-          seriousness: t.ml_predicted_severity || t.raw_severity || 'MEDIUM',
-          recommendation: 'Use RailOpt Optimizer to generate a plan.',
-          supporting: `Overdue: ${t.days_overdue ?? 0} days. Historical failures: ${t.historical_failure_count ?? 0}.`
-        }
-      }))
-      setIssues(mapped)
-      if (urlIssueId) {
-        setSelectedIssueId(urlIssueId)
-      }
-      setError(null)
-    }).catch(err => {
-      console.error('Failed to fetch tasks:', err)
-      setError('Could not load tasks. Click Setup Server to initialize.')
-    }).finally(() => {
-      setLoading(false)
-    })
-  }, [urlIssueId])
+    loadTasks()
+
+    // 1. Listen for global task created events (from ReportComplaintModal)
+    const handleTaskCreated = () => {
+      loadTasks()
+    }
+    window.addEventListener('railopt:task-created', handleTaskCreated)
+
+    // 2. Polling interval (every 3.5s) so reported tasks appear live across browser tabs
+    const pollTimer = setInterval(() => {
+      loadTasks()
+    }, 3500)
+
+    return () => {
+      window.removeEventListener('railopt:task-created', handleTaskCreated)
+      clearInterval(pollTimer)
+    }
+  }, [loadTasks])
+
+  // Also auto-reload whenever a new WebSocket alert notification arrives
+  useEffect(() => {
+    if (notifications.length > 0) {
+      loadTasks()
+    }
+  }, [notifications.length, loadTasks])
 
   useEffect(() => {
     fetchLiveTrains()
@@ -197,14 +253,24 @@ export default function AdminDashboard() {
 
   return (
     <PortalLayout role="admin">
-      <div className="mb-6 flex justify-between items-end">
+      <div className="mb-6 flex flex-wrap justify-between items-end gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-ink uppercase flex items-center gap-2">
             <span className="w-2.5 h-2.5 bg-info rounded-full inline-block"></span>
             Super Admin Control Room
           </h1>
-          <p className="text-[11px] text-muted uppercase tracking-widest mt-1">Railway Network Overview</p>
+          <p className="text-[11px] text-muted uppercase tracking-widest mt-1">Railway Network Overview & Real-Time Defect Monitoring</p>
         </div>
+
+        <button
+          type="button"
+          onClick={loadTasks}
+          disabled={loading}
+          className="btn-quiet flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
+        >
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          <span>Refresh Defect Feed</span>
+        </button>
       </div>
 
       {/* FILTERS — the single source both the map, the heatmap layer and

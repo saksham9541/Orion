@@ -106,17 +106,18 @@ def resolve_issue_recipients(
     dept_norm = (department_designated or "").strip().upper()
 
     for u in users:
-        # Exclude creator
-        if creator_id and str(u.id) == str(creator_id):
-            continue
-        if creator_email and u.email and creator_email and u.email.strip().lower() == creator_email.strip().lower():
-            continue
-
         u_role = (u.role or "").strip().lower()
         u_dept = (u.department or "").strip().upper()
 
         is_super_admin = u_role in ("admin", "super_admin")
         is_designated_dept = bool(dept_norm and (u_dept == dept_norm))
+
+        # Only exclude non-admin creator from self-alert; Super Admin ALWAYS receives every notification
+        if not is_super_admin:
+            if creator_id and str(u.id) == str(creator_id):
+                continue
+            if creator_email and u.email and creator_email.strip().lower() == u.email.strip().lower():
+                continue
 
         if is_super_admin or is_designated_dept:
             recipients.append(u)
