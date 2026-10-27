@@ -200,6 +200,18 @@ def test_solve_does_not_mutate_config_time_limit():
     assert scheduler.config.time_limit_seconds == 60, "Second solve() saw mutated time_limit_seconds"
 
 
+def test_solve_time_limit_override_preserves_config():
+    """set config.time_limit_seconds = 10, call solve(..., time_limit_seconds=3), assert config.time_limit_seconds is still 10."""
+    config = SchedulerConfig(time_limit_seconds=10)
+    scheduler = BlockScheduler(config=config)
+    section = _make_section("SEC-TEST-1")
+    window = _make_window("BW-1", section_id="SEC-TEST-1")
+    task = _make_task("TASK-1", section_id="SEC-TEST-1")
+
+    scheduler.solve(tasks=[task], windows=[window], sections={"SEC-TEST-1": section}, time_limit_seconds=3)
+    assert scheduler.config.time_limit_seconds == 10
+
+
 def test_overlapping_windows_on_same_section_cannot_both_be_scheduled():
     """Two windows on the same section with overlapping times cannot both be scheduled."""
     section = _make_section("SEC-TEST-1")
