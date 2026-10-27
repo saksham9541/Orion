@@ -362,21 +362,47 @@
   }
 }
 
-/* IndiaRailwayMap: Station labels rendered with dark translucent glass
-   for high contrast against satellite terrain and dark tactical basemaps */
+/* IndiaRailwayMap: Modern command-center station labels & dark popup overrides */
 .railopt-station-label {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-  padding: 1px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #f8fafc;
-  backdrop-filter: blur(4px);
-  pointer-events: none;
-  white-space: nowrap;
+  background: rgba(10, 15, 29, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+  padding: 2px 7px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #f8fafc !important;
+  backdrop-filter: blur(8px) !important;
+  pointer-events: none !important;
+  white-space: nowrap !important;
 }
 .railopt-station-label::before {
-  display: none;
+  display: none !important;
+}
+
+.railopt-map-container .leaflet-popup-content-wrapper {
+  background: rgba(13, 19, 33, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+  padding: 0 !important;
+  color: #f8fafc !important;
+}
+.railopt-map-container .leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.4 !important;
+}
+.railopt-map-container .leaflet-popup-tip {
+  background: rgba(13, 19, 33, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: none !important;
+}
+.railopt-map-container .leaflet-popup-close-button {
+  color: #94a3b8 !important;
+  padding: 6px 8px !important;
+}
+.railopt-map-container .leaflet-popup-close-button:hover {
+  color: #ffffff !important;
 }
