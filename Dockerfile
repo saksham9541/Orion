@@ -21,6 +21,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy backend and application source code
 COPY . .
 
+# Pre-train ML models so the container starts instantly with full AI scoring
+RUN python scripts/train_models.py --tasks 200
+
 EXPOSE 8000
 
 CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

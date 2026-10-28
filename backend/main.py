@@ -243,6 +243,28 @@ def on_startup():
                     "corridors": corridors_failed,
                     "alerts": 0,
                 }
+
+                # Auto-seed synthetic data on brand-new empty production databases
+                if not app.state.corridors or not app.state.tasks:
+                    try:
+                        logger.info("Empty database detected on startup. Auto-seeding initial synthetic dataset...")
+                        from railopt.synthetic_data import generate_full_dataset
+                        dataset = generate_full_dataset(seed=42, num_tasks=150, window_days=30)
+                        if not app.state.tasks:
+                            app.state.tasks = dataset["tasks"]
+                            save_tasks(session, dataset["tasks"])
+                        if not app.state.corridors:
+                            app.state.corridors = dataset["corridors"]
+                            save_corridors(session, dataset["corridors"])
+                        for corridor in app.state.corridors:
+                            if hasattr(corridor, 'sections') and corridor.sections:
+                                for section in corridor.sections:
+                                    app.state.sections[section.section_id] = section
+                        app.state.windows = dataset.get("block_windows", [])
+                        app.state.train_slots = dataset.get("train_slots", [])
+                        logger.info("Auto-seeded %d synthetic tasks and %d corridors to database.", len(app.state.tasks), len(app.state.corridors))
+                    except Exception as e:
+                        logger.warning("Failed to auto-seed initial synthetic dataset: %s", e)
             finally:
                 session.close()
         except Exception as e:
