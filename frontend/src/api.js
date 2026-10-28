@@ -1,8 +1,21 @@
 import axios from 'axios';
 import { getStoredToken, getStoredEmail, setStoredToken } from '@/state/AppState';
 
-// Base API and WebSocket URLs derived from Vite environment variable
-export const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+// Base API and WebSocket URLs with automatic cloud production fallback
+const RENDER_PROD_API = 'https://orion-backend-q2q3.onrender.com';
+
+const getInitialApiBase = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // When running on Vercel deployment or production build, connect directly to live Render backend
+  if (typeof window !== 'undefined' && (window.location.hostname.endsWith('vercel.app') || window.location.hostname.includes('render.com'))) {
+    return RENDER_PROD_API;
+  }
+  return import.meta.env.PROD ? RENDER_PROD_API : 'http://localhost:8000';
+};
+
+export const API_BASE = getInitialApiBase().replace(/\/+$/, '');
 export const WS_BASE = API_BASE.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
 
 export const getWsNotificationsUrl = (token) => {

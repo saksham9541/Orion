@@ -175,20 +175,18 @@ DEFAULT_CORS_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://orion-two-rho.vercel.app",
 ]
 
 def get_cors_origins() -> list[str]:
     origins_env = os.environ.get("CORS_ORIGINS", "").strip()
-    is_prod = os.environ.get("ENVIRONMENT", "").strip().lower() == "production"
-    if origins_env:
-        return [o.strip() for o in origins_env.split(",") if o.strip()]
-    if is_prod:
-        logger.warning("CORS_ORIGINS is not set in production. Falling back to localhost defaults.")
-    return DEFAULT_CORS_ORIGINS
+    origins = [o.strip() for o in origins_env.split(",") if o.strip()] if origins_env else []
+    return list(set(DEFAULT_CORS_ORIGINS + origins))
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
