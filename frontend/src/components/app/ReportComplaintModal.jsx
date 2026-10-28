@@ -12,10 +12,12 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
   const [km, setKm] = useState('14.5')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [errorMsg, setErrorMsg] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
+    setErrorMsg(null)
     try {
       const res = await submitComplaint({
         description: desc,
@@ -28,14 +30,19 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
       setSuccess(true)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('railopt:task-created', { detail: res.data }))
+        try {
+          localStorage.setItem('railopt_task_sync', Date.now().toString())
+        } catch (_) {}
       }
       setTimeout(() => {
         setSuccess(false)
+        setDesc('')
         onClose()
       }, 1500)
     } catch (err) {
       console.error(err)
-      alert("Failed to submit issue. Please check server connection.")
+      const detail = err.response?.data?.detail || err.message || "Failed to submit issue. Please check server connection."
+      setErrorMsg(detail)
     } finally {
       setLoading(false)
     }
@@ -200,6 +207,13 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
                     onChange={e => setKm(e.target.value)}
                   />
                 </div>
+                
+                {errorMsg && (
+                  <div className="rounded-xl border border-[#DC3030]/30 bg-[#FCE8E8] p-3 text-xs text-[#DC3030] font-mono flex items-center gap-2">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
                 
                 <button
                   type="submit"

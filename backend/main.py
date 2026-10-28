@@ -1012,7 +1012,9 @@ async def submit_complaint(
     from datetime import datetime, timezone
     
     classifier = DefectTextClassifier()
-    classification = classifier.classify(request.description)
+    # When department and severity are already provided by the operator, skip slow LLM calls for instant submission
+    should_use_llm = not (request.department_designated and request.severity)
+    classification = classifier.classify(request.description, use_llm=should_use_llm)
 
     # Validate category against DefectCategory enum
     raw_cat = classification.get("defect_category", "")

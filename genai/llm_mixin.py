@@ -70,15 +70,16 @@ class LLMMixin:
         try:
             from openai import OpenAI
 
+            timeout_sec = float(os.environ.get("LLM_TIMEOUT", "3.0"))
             self._client = OpenAI(
                 base_url=NVIDIA_BASE_URL,
                 api_key=os.environ["NVIDIA_API_KEY"],
-                timeout=20,
-                max_retries=1,
+                timeout=timeout_sec,
+                max_retries=0,
             )
             logger.info(
-                "%s: NVIDIA LLM initialized (model=%s)",
-                self.__class__.__name__, self._default_model,
+                "%s: NVIDIA LLM initialized (model=%s, timeout=%.1fs)",
+                self.__class__.__name__, self._default_model, timeout_sec,
             )
         except ImportError:
             logger.warning(

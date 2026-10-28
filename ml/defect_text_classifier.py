@@ -66,12 +66,30 @@ class DefectTextClassifier(GeminiMixin):
             severity = DefectSeverity.MEDIUM.value
             
         defect_category = DefectCategory.GAUGE_IRREGULARITY.value
-        if "rail" in text_lower and "fracture" in text_lower:
+        if "fracture" in text_lower or ("rail" in text_lower and "broken" in text_lower):
             defect_category = DefectCategory.RAIL_FRACTURE.value
-        elif "signal" in text_lower and "fail" in text_lower:
+        elif any(w in text_lower for w in ["crack", "fissure"]):
+            defect_category = DefectCategory.RAIL_CRACK.value
+        elif any(w in text_lower for w in ["signal", "signalling", "interlock", "aspect", "lamp"]):
             defect_category = DefectCategory.SIGNAL_FAILURE.value
-        elif "ohe" in text_lower and "break" in text_lower:
+        elif any(w in text_lower for w in ["point machine", "switch", "turnout"]):
+            defect_category = DefectCategory.POINT_MACHINE_FAILURE.value
+        elif any(w in text_lower for w in ["track circuit", "axle counter"]):
+            defect_category = DefectCategory.TRACK_CIRCUIT_FAILURE.value
+        elif any(w in text_lower for w in ["ohe", "catenary", "pantograph", "contact wire", "traction"]):
             defect_category = DefectCategory.OHE_BREAK.value
+        elif any(w in text_lower for w in ["weld", "joint", "fishplate"]):
+            defect_category = DefectCategory.WELD_DEFECT.value
+        elif any(w in text_lower for w in ["sleeper", "tie"]):
+            defect_category = DefectCategory.SLEEPER_DAMAGE.value
+        elif any(w in text_lower for w in ["ballast", "cushion"]):
+            defect_category = DefectCategory.BALLAST_DEFICIENCY.value
+        elif any(w in text_lower for w in ["water", "flood", "waterlogging", "drain"]):
+            defect_category = DefectCategory.WATERLOGGING.value
+        elif any(w in text_lower for w in ["level crossing", "gate"]):
+            defect_category = DefectCategory.LEVEL_CROSSING_DEFECT.value
+        elif any(w in text_lower for w in ["alignment", "gauge", "twist"]):
+            defect_category = DefectCategory.ALIGNMENT_DEFECT.value
             
         return {
             "severity": severity,
