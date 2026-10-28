@@ -297,10 +297,10 @@ def seed_default_users(session: Session):
 
 
 def init_db(engine):
-    """Fallback table creation for SQLite local tests; production uses Alembic migrations."""
+    """Initializes tables and seeds default users; safe for both SQLite and PostgreSQL."""
+    Base.metadata.create_all(engine)
     url = str(engine.url)
     if url.startswith("sqlite"):
-        Base.metadata.create_all(engine)
         # Ensure newer columns exist on existing local SQLite databases
         with engine.connect() as conn:
             for table, col, col_type in [
