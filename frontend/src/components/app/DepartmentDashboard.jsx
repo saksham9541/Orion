@@ -617,7 +617,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
               Maintenance Journeys
-              <span className="h-3 w-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 inline-block animate-pulse" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#D99A2B] inline-block" />
             </h1>
             <span className="rounded-full border border-line bg-surface px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-muted">
               LIVE RADAR
@@ -719,7 +719,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         <div className="mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line/60">
           <div>
             <h2 className="text-base font-bold tracking-tight text-gradient-brand flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 inline-block" />
+              <span className="h-2 w-2 rounded-full bg-[#D99A2B] inline-block" />
               Lifecycle Pipeline
             </h2>
             <p className="text-[10.5px] font-mono uppercase tracking-widest text-muted mt-0.5">

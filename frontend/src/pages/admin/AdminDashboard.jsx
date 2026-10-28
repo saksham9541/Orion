@@ -288,7 +288,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gradient-brand flex items-center gap-2">
               Control Room Operations
-              <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 inline-block animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-[#D99A2B] inline-block" />
             </h1>
             <span className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-muted">
               (01)

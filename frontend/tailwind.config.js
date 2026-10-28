@@ -42,8 +42,12 @@ export default {
         high: 'rgb(var(--c-high) / <alpha-value>)', // "High" severity, between warn and danger
         info: 'rgb(var(--c-info) / <alpha-value>)', // acknowledged / notified
 
-        // Nothing OS signature red accent
-        nothingRed: '#d71920',
+        // Industrial railway operations palette tokens
+        accent: 'rgb(var(--c-accent) / <alpha-value>)',
+        action: 'rgb(var(--c-action) / <alpha-value>)',
+        'surface-ok': 'rgb(var(--c-surface-ok) / <alpha-value>)',
+        'surface-warn': 'rgb(var(--c-surface-warn) / <alpha-value>)',
+        'surface-danger': 'rgb(var(--c-surface-danger) / <alpha-value>)',
 
         // Panel title bars stay dark in both themes, so their text tokens are
         // fixed rather than following ink/muted.
@@ -52,10 +56,10 @@ export default {
         barmuted: 'rgb(var(--c-barmuted) / <alpha-value>)',
       },
       fontFamily: {
-        brand: ['"Plus Jakarta Sans"', '"Space Grotesk"', 'system-ui', 'sans-serif'],
-        dot: ['"Plus Jakarta Sans"', '"Space Grotesk"', 'system-ui', 'sans-serif'],
-        sans: ['"Plus Jakarta Sans"', '"Space Grotesk"', 'Archivo', 'system-ui', 'sans-serif'],
-        mono: ['"Space Mono"', '"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        brand: ['Inter', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        dot: ['Inter', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        sans: ['Inter', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', '"Space Mono"', 'ui-monospace', 'monospace'],
       },
       fontSize: {
         '7xl': ['4.75rem', { lineHeight: '0.94', letterSpacing: '-0.035em' }],

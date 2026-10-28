@@ -143,63 +143,63 @@ export default function TechnicianDashboard() {
     <PortalLayout role="technician">
       <div className="space-y-10">
         
-        {/* TOP STATION HEADER — AIRY & SPACIOUS */}
+        {/* TOP STATION HEADER — INDUSTRIAL PRECISION */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-7 sm:p-8 rounded-[32px] border border-line/70 bg-surface/90 shadow-sm"
+          className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 sm:p-7 rounded-2xl border border-line bg-surface shadow-sm"
         >
-          <div className="flex items-center gap-5">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30">
-              <Wrench size={26} />
+          <div className="flex items-center gap-4 sm:gap-5">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#282D2A] text-[#D99A2B] border border-[#3A403B]">
+              <Wrench size={22} />
             </span>
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gradient-brand">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-ink font-sans">
                   Field Crew Workbench
                 </h1>
-                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-mono font-bold text-emerald-500 uppercase flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                <span className="rounded-md bg-[#E5F5EC] border border-[#0D996B]/30 px-2.5 py-1 text-xs font-mono font-semibold text-[#0D996B] uppercase flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#0D996B] inline-block" />
                   UNIT 04 · ON-DUTY
                 </span>
               </div>
-              <p className="text-xs font-mono text-muted uppercase tracking-widest mt-1.5">
+              <p className="text-xs font-mono text-muted uppercase tracking-normal mt-1">
                 PERMIT #IR-PWR-8821 · GEOFENCE: KM 14.500 [NDLS-TKD-UP] · SHIFT: NIGHT-02
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setIsReportOpen(true)}
-              className="flex items-center gap-2.5 px-6 py-3 rounded-full bg-red-600 hover:bg-red-700 text-white font-mono text-xs font-bold uppercase tracking-wider shadow-md shadow-red-900/20 transition-all active:scale-[0.98]"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#DC3030] hover:bg-[#b92525] text-white font-sans text-xs font-semibold tracking-wide shadow-sm transition-all active:scale-[0.98]"
             >
-              <Plus size={16} />
+              <Plus size={15} />
               <span>Report Site Defect</span>
             </button>
             <button
               onClick={loadTasks}
-              className="p-3 rounded-full border border-line bg-raised hover:bg-surface text-muted hover:text-ink transition-colors shadow-sm"
+              className="p-2.5 rounded-lg border border-line bg-surface hover:bg-base text-muted hover:text-ink transition-colors shadow-sm"
               title="Refresh Workbench"
             >
-              <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
         </motion.div>
 
-        {/* 4-UP BENTO KPI DECK — GENEROUS GAPS & BREATHING SPACE */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* 4-UP KPI DECK — EASY TO SCAN & CRISP */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="p-6 sm:p-7 rounded-[28px] border border-line/80 bg-surface/80 backdrop-blur-md shadow-sm space-y-2"
+            className="p-5 sm:p-6 rounded-xl border border-line bg-surface shadow-sm space-y-1"
           >
-            <p className="text-xs font-mono font-bold text-muted uppercase tracking-[0.18em]">
+            <p className="text-xs font-mono font-semibold text-muted uppercase tracking-wider">
               [ 01 // ASSIGNED ORDERS ]
             </p>
-            <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-ink">{stats.total}</p>
-            <span className="text-xs font-mono text-muted uppercase tracking-wider block">
+            <p className="text-3xl font-bold font-sans tracking-tight text-ink">{stats.total}</p>
+            <span className="text-xs font-mono text-muted uppercase tracking-normal block">
               {stats.inProgress} ACTIVE IN PROGRESS
             </span>
           </motion.div>
@@ -208,16 +208,16 @@ export default function TechnicianDashboard() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="p-6 sm:p-7 rounded-[28px] border border-line/80 bg-surface/80 backdrop-blur-md shadow-sm space-y-2"
+            className="p-5 sm:p-6 rounded-xl border border-[#0D996B]/30 bg-surface shadow-sm space-y-1"
           >
-            <p className="text-xs font-mono font-bold text-emerald-500 uppercase tracking-[0.18em]">
+            <p className="text-xs font-mono font-semibold text-[#0D996B] uppercase tracking-wider">
               [ 02 // SAFETY INTERLOCK ]
             </p>
-            <p className="text-2xl sm:text-3xl font-bold font-sans tracking-tight text-emerald-500 flex items-center gap-2">
-              <ShieldCheck size={26} />
+            <p className="text-2xl font-bold font-sans tracking-tight text-[#0D996B] flex items-center gap-2">
+              <ShieldCheck size={24} />
               SAFE TO WORK
             </p>
-            <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider block">
+            <span className="text-xs font-mono text-[#0D996B]/90 uppercase tracking-normal block">
               25kV OHE ISOLATED & GROUNDED
             </span>
           </motion.div>
@@ -226,16 +226,16 @@ export default function TechnicianDashboard() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="p-6 sm:p-7 rounded-[28px] border border-line/80 bg-surface/80 backdrop-blur-md shadow-sm space-y-2"
+            className="p-5 sm:p-6 rounded-xl border border-[#D99019]/30 bg-surface shadow-sm space-y-1"
           >
-            <p className="text-xs font-mono font-bold text-amber-500 uppercase tracking-[0.18em]">
+            <p className="text-xs font-mono font-semibold text-[#D99019] uppercase tracking-wider">
               [ 03 // BLOCK WINDOW ]
             </p>
-            <p className="text-2xl sm:text-3xl font-bold font-sans tracking-tight text-amber-500 flex items-center gap-2">
-              <Clock size={24} />
+            <p className="text-2xl font-bold font-sans tracking-tight text-[#D99019] flex items-center gap-2">
+              <Clock size={22} />
               02h 45m
             </p>
-            <span className="text-xs font-mono text-amber-500/80 uppercase tracking-wider block">
+            <span className="text-xs font-mono text-[#D99019]/90 uppercase tracking-normal block">
               SANCTION EXPIRES 05:30 HRS
             </span>
           </motion.div>
@@ -244,64 +244,64 @@ export default function TechnicianDashboard() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="p-6 sm:p-7 rounded-[28px] border border-line/80 bg-surface/80 backdrop-blur-md shadow-sm space-y-2"
+            className="p-5 sm:p-6 rounded-xl border border-line bg-surface shadow-sm space-y-1"
           >
-            <p className="text-xs font-mono font-bold text-info uppercase tracking-[0.18em]">
+            <p className="text-xs font-mono font-semibold text-muted uppercase tracking-wider">
               [ 04 // SQUAD ON SITE ]
             </p>
-            <p className="text-2xl sm:text-3xl font-bold font-sans tracking-tight text-info flex items-center gap-2">
-              <Radio size={24} />
+            <p className="text-2xl font-bold font-sans tracking-tight text-ink flex items-center gap-2">
+              <Radio size={22} />
               4 TECHS
             </p>
-            <span className="text-xs font-mono text-info/80 uppercase tracking-wider block">
+            <span className="text-xs font-mono text-muted uppercase tracking-normal block">
               1 SSE · 1 FITTER · 2 MATES
             </span>
           </motion.div>
         </div>
 
-        {/* FULL-WIDTH PRE-WORK SAFETY PROTOCOL (UNCLUTTERED, HORIZONTAL TILES) */}
+        {/* FULL-WIDTH PRE-WORK SAFETY PROTOCOL */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="rounded-[32px] border border-line/80 bg-surface/90 p-7 sm:p-8 shadow-sm space-y-6"
+          className="rounded-2xl border border-line bg-surface p-6 sm:p-7 shadow-sm space-y-5"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-line">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-line">
             <div>
-              <h2 className="text-base sm:text-lg font-bold tracking-tight text-gradient-brand flex items-center gap-2.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 inline-block" />
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink font-sans flex items-center gap-2.5">
+                <span className="h-2 w-2 rounded-full bg-[#D99A2B] inline-block" />
                 Mandatory Safety Interlock Protocol
               </h2>
-              <p className="text-xs font-mono text-muted uppercase tracking-widest mt-1">
+              <p className="text-xs font-mono text-muted uppercase tracking-normal mt-1">
                 COMPREHENSIVE ON-TRACK PRE-WORK VERIFICATION
               </p>
             </div>
-            <span className={`self-start sm:self-auto px-3.5 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider border ${
+            <span className={`self-start sm:self-auto px-3 py-1 rounded-md text-xs font-mono font-semibold uppercase tracking-wider border ${
               allSafetyCleared
-                ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
-                : 'bg-amber-500/15 text-amber-500 border-amber-500/30'
+                ? 'bg-[#E5F5EC] text-[#0D996B] border-[#0D996B]/30'
+                : 'bg-[#FFF3D9] text-[#D99019] border-[#D99019]/30'
             }`}>
               {allSafetyCleared ? '✓ ALL SAFETY PROTOCOLS CLEARED' : '⚠ PENDING PRE-WORK VERIFICATION'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {PRE_WORK_CHECKLIST_ITEMS.map((item) => {
               const isChecked = checklist[item.id]
               return (
                 <div
                   key={item.id}
                   onClick={() => toggleChecklist(item.id)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 select-none ${
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
                     isChecked
-                      ? 'border-emerald-500/40 bg-emerald-500/5 text-ink'
-                      : 'border-line bg-raised/40 text-muted hover:border-line-hover'
+                      ? 'border-[#0D996B]/40 bg-[#E5F5EC]/60 text-ink'
+                      : 'border-line bg-base/60 text-muted hover:border-line hover:text-ink'
                   }`}
                 >
-                  <span className={`mt-0.5 shrink-0 ${isChecked ? 'text-emerald-500' : 'text-muted'}`}>
-                    {isChecked ? <CheckSquare size={19} /> : <Square size={19} />}
+                  <span className={`mt-0.5 shrink-0 ${isChecked ? 'text-[#0D996B]' : 'text-muted'}`}>
+                    {isChecked ? <CheckSquare size={18} /> : <Square size={18} />}
                   </span>
-                  <span className="text-xs font-medium leading-relaxed">
+                  <span className="text-xs font-sans font-medium leading-relaxed">
                     {item.label}
                   </span>
                 </div>
@@ -311,25 +311,25 @@ export default function TechnicianDashboard() {
 
           {/* Toolbox Status Bar */}
           <div className="pt-4 border-t border-line">
-            <span className="text-xs font-mono font-bold text-muted uppercase tracking-wider block mb-3">
+            <span className="text-xs font-mono font-semibold text-muted uppercase tracking-wider block mb-2.5">
               FIELD TOOLBOX READINESS:
             </span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
-              <div className="p-3 rounded-2xl border border-line bg-raised/60">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-xs font-mono">
+              <div className="p-3 rounded-lg border border-line bg-base/60">
                 <span className="text-muted block text-[11px]">USFD Flaw Probe:</span>
                 <span className="text-ink font-bold text-xs mt-0.5 block">READY (CAL-OK)</span>
               </div>
-              <div className="p-3 rounded-2xl border border-line bg-raised/60">
+              <div className="p-3 rounded-lg border border-line bg-base/60">
                 <span className="text-muted block text-[11px]">Hydraulic Tensor:</span>
                 <span className="text-ink font-bold text-xs mt-0.5 block">70T PRESSURISED</span>
               </div>
-              <div className="p-3 rounded-2xl border border-line bg-raised/60">
+              <div className="p-3 rounded-lg border border-line bg-base/60">
                 <span className="text-muted block text-[11px]">Torque Wrench:</span>
                 <span className="text-ink font-bold text-xs mt-0.5 block">450 N·m PRE-SET</span>
               </div>
-              <div className="p-3 rounded-2xl border border-line bg-raised/60">
+              <div className="p-3 rounded-lg border border-line bg-base/60">
                 <span className="text-muted block text-[11px]">First Aid & Defib:</span>
-                <span className="text-emerald-500 font-bold text-xs mt-0.5 block">SEALED & INSPECTED</span>
+                <span className="text-[#0D996B] font-bold text-xs mt-0.5 block">SEALED & INSPECTED</span>
               </div>
             </div>
           </div>
@@ -339,15 +339,15 @@ export default function TechnicianDashboard() {
         <div className="space-y-6">
           
           {/* Filter & Search Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:px-6 rounded-2xl border border-line/80 bg-surface shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3.5 sm:px-5 rounded-xl border border-line bg-surface shadow-sm">
             <div className="relative flex-1 max-w-md">
-              <Search size={16} className="absolute left-4 top-3 text-muted" />
+              <Search size={15} className="absolute left-3.5 top-2.5 text-muted" />
               <input
                 type="text"
                 placeholder="Filter by order ID, defect code, KM post..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full rounded-full border border-line bg-raised pl-11 pr-4 py-2 text-xs font-mono text-ink placeholder:text-muted focus:border-red-500 focus:outline-none"
+                className="w-full rounded-lg border border-line bg-base pl-10 pr-4 py-1.5 text-xs font-mono text-ink placeholder:text-muted focus:border-[#D99A2B] focus:outline-none"
               />
             </div>
 
@@ -356,10 +356,10 @@ export default function TechnicianDashboard() {
                 <button
                   key={f}
                   onClick={() => setFilterStatus(f)}
-                  className={`rounded-full px-4 py-1.5 text-xs font-mono font-bold uppercase tracking-wider transition-all ${
+                  className={`rounded-lg px-3.5 py-1.5 text-xs font-mono font-semibold uppercase tracking-wider transition-all ${
                     filterStatus === f
-                      ? 'bg-ink text-deep shadow-sm'
-                      : 'border border-line bg-raised text-muted hover:text-ink'
+                      ? 'bg-[#282D2A] text-white shadow-sm'
+                      : 'border border-line bg-surface text-muted hover:text-ink hover:bg-base'
                   }`}
                 >
                   {f}
@@ -370,90 +370,94 @@ export default function TechnicianDashboard() {
 
           {/* List State */}
           {loading && (
-            <div className="p-16 text-center text-muted font-mono text-xs flex items-center justify-center gap-3">
-              <RefreshCw size={18} className="animate-spin" />
+            <div className="p-14 text-center text-muted font-mono text-xs flex items-center justify-center gap-3">
+              <RefreshCw size={16} className="animate-spin" />
               SYNCHRONIZING FIELD WORK ORDERS...
             </div>
           )}
 
           {!loading && error && (
-            <div className="p-8 text-center text-warn bg-warn/10 rounded-3xl border border-warn/20 font-mono text-xs">
+            <div className="p-6 text-center text-[#DC3030] bg-[#FCE8E8] rounded-xl border border-[#DC3030]/20 font-mono text-xs">
               {error}
             </div>
           )}
 
           {!loading && !error && filteredTasks.length === 0 && (
-            <div className="p-16 text-center text-muted border border-dashed border-line rounded-[32px] bg-surface/50">
-              <CheckCircle className="mx-auto mb-3 text-emerald-500 opacity-60" size={44} />
-              <p className="text-base font-bold text-ink tracking-tight">No Matching Work Orders</p>
+            <div className="p-14 text-center text-muted border border-dashed border-line rounded-2xl bg-surface/50">
+              <CheckCircle className="mx-auto mb-3 text-[#0D996B] opacity-70" size={40} />
+              <p className="text-base font-bold text-ink font-sans tracking-tight">No Matching Work Orders</p>
               <p className="text-xs text-muted font-mono mt-1">All designated tasks for this filter have been satisfied.</p>
             </div>
           )}
 
           {/* Work Orders List */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-5">
             {filteredTasks.map((task) => {
               const taskId = task.task_id || task.id
-              const isCritical = ['EMERGENCY', 'CRITICAL', 'HIGH'].includes((task.severity || '').toUpperCase())
+              const sevUpper = (task.severity || '').toUpperCase()
+              const isCritical = ['EMERGENCY', 'CRITICAL', 'HIGH'].includes(sevUpper)
+              const isMedium = sevUpper === 'MEDIUM'
               const isExpanded = expandedNotes[taskId]
               const isUpdating = actionLoading === taskId
 
               return (
                 <motion.div
                   key={taskId}
-                  initial={{ opacity: 0, y: 15 }}
+                  initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  className="p-7 sm:p-8 rounded-[32px] border border-line/80 bg-surface/90 hover:bg-surface transition-all space-y-5 group shadow-sm hover:shadow-md"
+                  className="p-5 sm:p-6 rounded-xl border border-line bg-surface hover:border-[#D99A2B]/40 transition-all space-y-4 shadow-sm hover:shadow"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2.5 flex-wrap mb-2">
-                        <span className="font-mono text-xs font-bold text-ink bg-raised border border-line px-3 py-1 rounded-md">
+                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                        <span className="font-mono text-xs font-bold text-ink bg-base border border-line px-2.5 py-1 rounded-md">
                           {taskId}
                         </span>
                         <span className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold uppercase border ${
                           isCritical
-                            ? 'bg-red-500/10 text-red-500 border-red-500/30'
-                            : 'bg-blue-500/10 text-blue-500 border-blue-500/30'
+                            ? 'bg-[#FCE8E8] text-[#DC3030] border-[#DC3030]/30'
+                            : isMedium
+                            ? 'bg-[#FFF3D9] text-[#D99019] border-[#D99019]/30'
+                            : 'bg-[#E5F5EC] text-[#0D996B] border-[#0D996B]/30'
                         }`}>
                           {task.severity || 'HIGH'}
                         </span>
-                        <span className="px-2.5 py-1 rounded-md text-xs font-mono font-bold uppercase bg-raised border border-line text-muted">
+                        <span className="px-2.5 py-1 rounded-md text-xs font-mono font-semibold uppercase bg-base border border-line text-muted">
                           DEPT: {task.department || 'ENGINEERING'}
                         </span>
                       </div>
-                      <h3 className="text-base sm:text-lg font-bold text-ink tracking-tight">
+                      <h3 className="text-base sm:text-lg font-bold text-ink font-sans tracking-tight">
                         {task.defect_category || task.defectType || 'Track Maintenance Order'}
                       </h3>
                     </div>
 
-                    <div className="flex items-center gap-3 self-start sm:self-auto">
-                      <span className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold tracking-wider uppercase border ${
+                    <div className="flex items-center gap-2.5 self-start sm:self-auto">
+                      <span className={`px-3 py-1 rounded-md text-xs font-mono font-semibold uppercase border ${
                         task.status === 'IN_PROGRESS'
-                          ? 'bg-amber-500/15 text-amber-500 border-amber-500/30 animate-pulse'
+                          ? 'bg-[#FFF3D9] text-[#D99019] border-[#D99019]/40'
                           : task.status === 'COMPLETED'
-                          ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
-                          : 'bg-raised border-line text-muted'
+                          ? 'bg-[#E5F5EC] text-[#0D996B] border-[#0D996B]/40'
+                          : 'bg-base border-line text-muted'
                       }`}>
                         {task.status.replace('_', ' ')}
                       </span>
                       <button
                         type="button"
                         onClick={() => openTaskPopUp(task)}
-                        className="p-2 rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-line-hover transition-colors"
-                        title="Open Pop-up"
+                        className="p-1.5 rounded-lg border border-line bg-surface text-muted hover:text-ink hover:border-[#D99A2B] transition-colors"
+                        title="Open Details Pop-up"
                       >
-                        <ExternalLink size={16} />
+                        <ExternalLink size={15} />
                       </button>
                     </div>
                   </div>
 
-                  <p className="text-sm text-muted leading-relaxed font-sans max-w-4xl">
+                  <p className="text-sm text-[#656A66] leading-relaxed font-sans max-w-4xl">
                     {task.inspector_remarks || task.defect_description || 'Track surface anomaly detected during inspection. Requires manual tension test.'}
                   </p>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono pt-4 border-t border-line/60">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-xs font-mono pt-3.5 border-t border-line">
                     <div>
                       <span className="text-muted block text-[11px]">CORRIDOR:</span>
                       <span className="text-ink font-semibold mt-0.5 block">{task.corridor_id || 'NDLS-CNB'}</span>
@@ -477,9 +481,9 @@ export default function TechnicianDashboard() {
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="p-5 rounded-2xl border border-line bg-raised/70 space-y-3"
+                      className="p-4 rounded-xl border border-line bg-base/70 space-y-2.5"
                     >
-                      <label className="text-xs font-mono font-bold uppercase tracking-wider text-muted block">
+                      <label className="text-xs font-mono font-semibold uppercase tracking-wider text-muted block">
                         Technician Field Observation & Measurement Log:
                       </label>
                       <textarea
@@ -487,12 +491,12 @@ export default function TechnicianDashboard() {
                         placeholder="Log torque reading, rail gap millimeter, temperature..."
                         value={technicianNotes[taskId] || ''}
                         onChange={(e) => setTechnicianNotes({ ...technicianNotes, [taskId]: e.target.value })}
-                        className="w-full rounded-xl border border-line bg-surface p-3 text-xs font-mono text-ink outline-none focus:border-red-500"
+                        className="w-full rounded-lg border border-line bg-surface p-2.5 text-xs font-mono text-ink outline-none focus:border-[#D99A2B]"
                       />
                       <button
                         type="button"
                         onClick={() => alert(`Logged remarks for ${taskId}`)}
-                        className="px-4 py-2 rounded-full bg-ink text-deep text-xs font-mono font-bold uppercase tracking-wider"
+                        className="px-3.5 py-1.5 rounded-lg bg-[#282D2A] text-white text-xs font-mono font-semibold uppercase tracking-wider hover:bg-[#3A403B]"
                       >
                         Save Field Log
                       </button>
@@ -500,13 +504,13 @@ export default function TechnicianDashboard() {
                   )}
 
                   {/* Action Bar */}
-                  <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-line">
+                  <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-line">
                     {task.status !== 'IN_PROGRESS' && task.status !== 'COMPLETED' && (
                       <button
                         type="button"
                         disabled={isUpdating}
                         onClick={() => handleStatusChange(taskId, 'IN_PROGRESS')}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-600 text-black font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#D99A2B] hover:bg-[#c28723] text-white font-sans text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50"
                       >
                         <PlayCircle size={15} />
                         {isUpdating ? 'STARTING...' : 'Start Action'}
@@ -518,7 +522,7 @@ export default function TechnicianDashboard() {
                         type="button"
                         disabled={isUpdating}
                         onClick={() => handleStatusChange(taskId, 'COMPLETED')}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D996B] hover:bg-[#0a7a55] text-white font-sans text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50"
                       >
                         <CheckCircle size={15} />
                         {isUpdating ? 'UPDATING...' : 'Mark Done'}
@@ -528,19 +532,19 @@ export default function TechnicianDashboard() {
                     <button
                       type="button"
                       onClick={() => setExpandedNotes(prev => ({ ...prev, [taskId]: !prev[taskId] }))}
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-line bg-surface text-muted hover:text-ink font-mono text-xs font-semibold uppercase tracking-wider transition-colors ml-auto"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-surface text-muted hover:text-ink font-mono text-xs font-medium uppercase tracking-wider transition-colors ml-auto"
                     >
                       <span>{isExpanded ? 'Hide Log' : 'Site Anomaly Log'}</span>
-                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                     </button>
 
                     <button
                       type="button"
                       onClick={() => openTaskPopUp(task)}
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-line bg-surface text-ink hover:border-red-500 font-mono text-xs font-bold uppercase tracking-wider transition-colors"
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-line bg-surface text-ink hover:border-[#D99A2B] font-mono text-xs font-semibold uppercase tracking-wider transition-colors"
                     >
                       <span>Details</span>
-                      <ExternalLink size={14} />
+                      <ExternalLink size={13} />
                     </button>
                   </div>
                 </motion.div>
@@ -548,7 +552,6 @@ export default function TechnicianDashboard() {
             })}
           </div>
         </div>
-
       </div>
 
       {/* Pop-up Modals */}

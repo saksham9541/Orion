@@ -62,25 +62,25 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 14 }}
             transition={{ type: 'spring', damping: 26, stiffness: 360 }}
-            className="relative w-full max-w-lg rounded-[28px] border border-line/90 bg-surface p-7 shadow-[0_30px_70px_rgba(0,0,0,0.45)] z-10 my-8"
+            className="relative w-full max-w-lg rounded-2xl border border-[#E1E3DE] bg-white p-6 shadow-[0_24px_50px_rgba(40,45,42,0.18)] z-10 my-8"
           >
             {/* Header */}
-            <div className="mb-5 flex items-center justify-between border-b border-line pb-4">
+            <div className="mb-5 flex items-center justify-between border-b border-[#E1E3DE] pb-4">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FCE8E8] text-[#DC3030] border border-[#DC3030]/30">
                   <AlertTriangle size={20} />
                 </span>
                 <div>
-                  <h2 className="text-base font-bold tracking-tight text-gradient-brand">
+                  <h2 className="text-base font-bold tracking-tight text-[#252A27]">
                     Report Track Defect
                   </h2>
-                  <p className="text-[11px] text-faint font-mono">DISPATCH REAL-TIME RAIL ALERT</p>
+                  <p className="text-[11px] text-[#656A66] font-mono">DISPATCH REAL-TIME RAIL ALERT</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full p-2 text-faint hover:bg-raised hover:text-ink transition-colors border border-transparent hover:border-line"
+                className="rounded-lg p-2 text-[#656A66] hover:bg-[#F4F4F1] hover:text-[#252A27] transition-colors border border-transparent hover:border-[#E1E3DE]"
               >
                 <X size={16} />
               </button>
@@ -90,15 +90,15 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center space-y-2.5 my-4"
+                className="rounded-xl border border-[#0D996B]/30 bg-[#E5F5EC] p-6 text-center space-y-2.5 my-4"
               >
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#0D996B]/15 text-[#0D996B] border border-[#0D996B]/30">
                   <BellRing size={22} className="animate-bounce" />
                 </div>
-                <p className="text-sm font-bold text-emerald-500 tracking-tight">
+                <p className="text-sm font-bold text-[#0D996B] tracking-tight">
                   Alert Dispatched Successfully
                 </p>
-                <p className="text-xs text-muted font-mono">
+                <p className="text-xs text-[#656A66] font-mono">
                   Live alert sent via WebSocket to {department} officers & Super Admins.
                 </p>
               </motion.div>
@@ -106,14 +106,14 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Designated Department */}
                 <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-muted">
-                    <Building2 size={13} className="text-red-500" />
+                  <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-mono font-bold uppercase tracking-wider text-[#656A66]">
+                    <Building2 size={13} className="text-[#D99A2B]" />
                     Target Department
                   </label>
                   <select
                     value={department}
                     onChange={e => setDepartment(e.target.value)}
-                    className="w-full rounded-2xl border border-line bg-raised px-3.5 py-2.5 text-xs font-semibold text-ink outline-none focus:border-red-500 transition-colors"
+                    className="w-full rounded-xl border border-[#E1E3DE] bg-[#F4F4F1] px-3.5 py-2.5 text-xs font-semibold text-[#252A27] outline-none focus:border-[#D99A2B] transition-colors"
                   >
                     <option value="ENGINEERING">ENGINEERING (Track, Rails, Sleepers, Ballast)</option>
                     <option value="SNT">S&T (Signaling, Point Machines, Interlocking)</option>
@@ -123,15 +123,15 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
 
                 {/* Severity Level */}
                 <div>
-                  <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-muted">
+                  <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-[#656A66]">
                     Severity Priority Level
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { id: 'EMERGENCY', label: 'EMERGENCY', border: 'border-red-500/40', text: 'text-red-500', bg: 'bg-red-500/10' },
-                      { id: 'HIGH', label: 'HIGH', border: 'border-amber-500/40', text: 'text-amber-500', bg: 'bg-amber-500/10' },
-                      { id: 'MEDIUM', label: 'MEDIUM', border: 'border-blue-500/40', text: 'text-blue-500', bg: 'bg-blue-500/10' },
-                      { id: 'LOW', label: 'LOW', border: 'border-white/20', text: 'text-muted', bg: 'bg-raised' },
+                      { id: 'EMERGENCY', label: 'EMERGENCY', border: 'border-[#DC3030]/40', text: 'text-[#DC3030]', bg: 'bg-[#FCE8E8]' },
+                      { id: 'HIGH', label: 'HIGH', border: 'border-[#D99019]/40', text: 'text-[#D99019]', bg: 'bg-[#FFF3D9]' },
+                      { id: 'MEDIUM', label: 'MEDIUM', border: 'border-[#E1E3DE]', text: 'text-[#252A27]', bg: 'bg-[#F4F4F1]' },
+                      { id: 'LOW', label: 'LOW', border: 'border-[#E1E3DE]', text: 'text-[#656A66]', bg: 'bg-white' },
                     ].map(lvl => (
                       <button
                         key={lvl.id}
@@ -139,8 +139,8 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
                         onClick={() => setSeverity(lvl.id)}
                         className={`rounded-xl border px-2 py-2 text-[10px] font-mono font-bold uppercase tracking-wider transition-all text-center ${
                           severity === lvl.id
-                            ? `${lvl.border} ${lvl.bg} ${lvl.text} ring-2 ring-current/30`
-                            : 'border-line bg-raised text-muted hover:border-line-hover'
+                            ? `${lvl.border} ${lvl.bg} ${lvl.text} ring-2 ring-[#D99A2B]/40 font-extrabold`
+                            : 'border-[#E1E3DE] bg-[#F4F4F1] text-[#656A66] hover:border-[#282D2A]'
                         }`}
                       >
                         {lvl.label}
@@ -151,12 +151,12 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
 
                 {/* Description */}
                 <div>
-                  <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-muted">
+                  <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-[#656A66]">
                     Defect Description & Remarks
                   </label>
                   <textarea
                     required
-                    className="w-full rounded-2xl border border-line bg-raised p-3 text-xs text-ink outline-none focus:border-red-500 transition-colors placeholder:text-faint font-sans"
+                    className="w-full rounded-xl border border-[#E1E3DE] bg-[#F4F4F1] p-3 text-xs text-[#252A27] outline-none focus:border-[#D99A2B] transition-colors placeholder:text-[#656A66]/60 font-sans"
                     rows={3}
                     placeholder="e.g. Broken rail joint / sparking in catenary wire near signal pole..."
                     value={desc}
@@ -167,21 +167,21 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
                 {/* Corridor & Section */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-muted">Corridor ID</label>
+                    <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-[#656A66]">Corridor ID</label>
                     <input
                       type="text"
                       required
-                      className="w-full rounded-xl border border-line bg-raised px-3 py-2 text-xs font-mono text-ink outline-none focus:border-red-500"
+                      className="w-full rounded-xl border border-[#E1E3DE] bg-[#F4F4F1] px-3 py-2 text-xs font-mono text-[#252A27] outline-none focus:border-[#D99A2B]"
                       value={corridor}
                       onChange={e => setCorridor(e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-muted">Section ID</label>
+                    <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-[#656A66]">Section ID</label>
                     <input
                       type="text"
                       required
-                      className="w-full rounded-xl border border-line bg-raised px-3 py-2 text-xs font-mono text-ink outline-none focus:border-red-500"
+                      className="w-full rounded-xl border border-[#E1E3DE] bg-[#F4F4F1] px-3 py-2 text-xs font-mono text-[#252A27] outline-none focus:border-[#D99A2B]"
                       value={section}
                       onChange={e => setSection(e.target.value)}
                     />
@@ -190,12 +190,12 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
 
                 {/* KM Location */}
                 <div>
-                  <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-muted">Track KM Location</label>
+                  <label className="mb-1.5 block text-[11px] font-mono font-bold uppercase tracking-wider text-[#656A66]">Track KM Location</label>
                   <input
                     type="number"
                     step="0.1"
                     required
-                    className="w-full rounded-xl border border-line bg-raised px-3 py-2 text-xs font-mono text-ink outline-none focus:border-red-500"
+                    className="w-full rounded-xl border border-[#E1E3DE] bg-[#F4F4F1] px-3 py-2 text-xs font-mono text-[#252A27] outline-none focus:border-[#D99A2B]"
                     value={km}
                     onChange={e => setKm(e.target.value)}
                   />
@@ -204,7 +204,7 @@ export default function ReportComplaintModal({ isOpen, onClose }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full mt-2 flex items-center justify-center gap-2 rounded-full bg-red-600 hover:bg-red-700 py-3 text-xs font-bold font-mono uppercase tracking-widest text-white shadow-lg shadow-red-900/20 transition-all disabled:opacity-50 active:scale-[0.98]"
+                  className="w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-[#DC3030] hover:bg-[#B92424] py-3 text-xs font-bold font-mono uppercase tracking-widest text-white shadow-sm transition-all disabled:opacity-50 active:scale-[0.98]"
                 >
                   <Send size={14} />
                   {loading ? 'BROADCASTING DISPATCH...' : 'SUBMIT & DISPATCH ALERT'}

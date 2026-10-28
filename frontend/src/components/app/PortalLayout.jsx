@@ -49,12 +49,12 @@ export default function PortalLayout({ children, role }) {
       <IssueAlertModal />
       <ReportComplaintModal isOpen={isComplaintModalOpen} onClose={() => setIsComplaintModalOpen(false)} />
 
-      {/* TOP HEADER WITH AIRY NOTHING OS PILL NAVIGATION */}
-      <header className="sticky top-0 z-30 border-b border-line/60 bg-base/80 backdrop-blur-xl px-6 sm:px-10 py-3.5 transition-all">
+      {/* TOP HEADER WITH INDUSTRIAL GRAPHITE NAVIGATION */}
+      <header className="sticky top-0 z-30 border-b border-line bg-base/90 backdrop-blur-xl px-6 sm:px-10 py-3 transition-all">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6">
           
           {/* Left: Brand Logo & Back Button */}
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-3.5 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -64,43 +64,43 @@ export default function PortalLayout({ children, role }) {
                   navigate('/dashboard')
                 }
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:bg-raised transition-all shadow-sm active:scale-95"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted hover:text-ink hover:bg-base transition-all shadow-sm active:scale-95"
               aria-label="Go back"
               title="Go back"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={15} />
             </button>
 
-            <Link to={home} className="flex items-center gap-3 rounded-2xl px-2 py-1 hover:bg-surface/50 transition-colors" aria-label="RailOpt home">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white font-bold text-xs shadow-md">
+            <Link to={home} className="flex items-center gap-3 rounded-xl px-2 py-1 hover:bg-surface/50 transition-colors" aria-label="RailOpt home">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#282D2A] text-[#D99A2B] border border-[#3A403B] font-mono font-bold text-xs shadow-sm">
                 R1
               </span>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[17px] font-bold tracking-tight text-gradient-brand">
+                  <span className="text-[17px] font-bold tracking-tight text-ink font-sans">
                     RailOpt
                   </span>
-                  <span className="h-2 w-2 rounded-full bg-indigo-500 inline-block animate-pulse" />
+                  <span className="h-2 w-2 rounded-full bg-[#D99A2B] inline-block" />
                 </div>
-                <span className="text-[9.5px] font-mono uppercase tracking-[0.18em] text-muted">
+                <span className="text-[9.5px] font-mono uppercase tracking-wider text-muted">
                   System OS · 02
                 </span>
               </div>
             </Link>
           </div>
 
-          {/* Center: Nothing OS Pill Navigation Tabs */}
-          <nav className="hidden xl:flex items-center gap-1.5 rounded-full border border-line/80 bg-surface/90 p-1.5 shadow-sm backdrop-blur-md">
+          {/* Center: Industrial Navigation Tabs */}
+          <nav className="hidden xl:flex items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-sm">
             {navTabs.map((tab) => {
               const active = isTabActive(tab.to)
               return (
                 <Link
                   key={tab.to}
                   to={tab.to}
-                  className={`rounded-full px-4 py-1.5 text-xs font-mono uppercase tracking-wider transition-all ${
+                  className={`rounded-lg px-3.5 py-1.5 text-xs font-mono font-semibold uppercase tracking-wider transition-all ${
                     active
-                      ? 'bg-ink text-deep font-bold shadow-sm'
-                      : 'text-muted hover:text-ink hover:bg-raised/70'
+                      ? 'bg-[#282D2A] text-white shadow-sm'
+                      : 'text-muted hover:text-ink hover:bg-base'
                   }`}
                 >
                   {tab.label}
@@ -110,15 +110,15 @@ export default function PortalLayout({ children, role }) {
           </nav>
 
           {/* Right: Actions, Utilities & Profile */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             {/* Quick Action: Report Defect (+) */}
             <button
               type="button"
               onClick={() => setIsComplaintModalOpen(true)}
-              className="flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider text-red-500 transition-all shadow-sm active:scale-95"
+              className="flex items-center gap-1.5 rounded-lg bg-[#DC3030] hover:bg-[#b92525] text-white px-3.5 py-2 text-xs font-sans font-semibold tracking-wide shadow-sm transition-all active:scale-95"
               title="Report New Railway Defect"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-[#d71920] inline-block animate-ping" />
+              <Plus size={14} />
               <span>Report Defect</span>
             </button>
 
@@ -126,18 +126,18 @@ export default function PortalLayout({ children, role }) {
             <button
               type="button"
               onClick={() => setIsAssistantOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:bg-raised transition-colors shadow-sm"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted hover:text-ink hover:bg-base transition-colors shadow-sm"
               title="RailOpt AI Assistant"
             >
-              <MessageSquare size={16} />
+              <MessageSquare size={15} />
             </button>
 
             <NotificationBell />
             <ThemeToggle />
 
             {/* User Profile Pill */}
-            <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 shadow-sm">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 text-[10px] font-bold">
+            <div className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 shadow-sm">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#282D2A] text-[#D99A2B] text-[10px] font-mono font-bold">
                 {currentUser?.id ? currentUser.id.slice(0, 2).toUpperCase() : 'OP'}
               </span>
               <span className="hidden sm:inline text-xs font-semibold text-ink font-mono uppercase">
@@ -149,10 +149,10 @@ export default function PortalLayout({ children, role }) {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-danger hover:border-danger/30 hover:bg-danger/5 transition-colors shadow-sm"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted hover:text-[#DC3030] hover:border-[#DC3030]/30 hover:bg-[#FCE8E8] transition-colors shadow-sm"
               title="Log out"
             >
-              <LogOut size={15} />
+              <LogOut size={14} />
             </button>
           </div>
 

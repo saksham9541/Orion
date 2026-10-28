@@ -16,10 +16,10 @@ export default function IssueAlertModal() {
   const isHigh = severity === 'HIGH'
 
   const severityBg = isEmergency
-    ? 'bg-red-500/10 border-red-500/40 text-red-500'
+    ? 'bg-[#FCE8E8] border-[#DC3030]/40 text-[#DC3030]'
     : isHigh
-    ? 'bg-amber-500/10 border-amber-500/40 text-amber-500'
-    : 'bg-blue-500/10 border-blue-500/40 text-blue-500'
+    ? 'bg-[#FFF3D9] border-[#D99019]/40 text-[#D99019]'
+    : 'bg-[#F4F4F1] border-[#E1E3DE] text-[#252A27]'
 
   const handleViewIssue = () => {
     markAsRead(activePopup.id)
@@ -74,11 +74,11 @@ export default function IssueAlertModal() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 14 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="relative w-full max-w-lg rounded-[28px] border border-line/90 bg-surface p-7 shadow-[0_30px_70px_rgba(0,0,0,0.45)] z-10 my-8"
+            className="relative w-full max-w-lg rounded-2xl border border-[#E1E3DE] bg-white p-6 shadow-[0_24px_50px_rgba(40,45,42,0.18)] z-10 my-8"
           >
             {/* Pulsing indicator for Emergency */}
             {isEmergency && (
-              <div className="absolute -top-3 left-6 flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-white shadow-lg animate-pulse">
+              <div className="absolute -top-3 left-6 flex items-center gap-1.5 rounded-full bg-[#DC3030] px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-white shadow-lg animate-pulse">
                 <AlertCircle size={13} />
                 IMMEDIATE SAFETY INTERLOCK
               </div>
@@ -86,22 +86,22 @@ export default function IssueAlertModal() {
 
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${severityBg}`}>
-                  {isEmergency ? <AlertCircle size={24} /> : <AlertTriangle size={24} />}
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${severityBg}`}>
+                  {isEmergency ? <AlertCircle size={22} /> : <AlertTriangle size={22} />}
                 </span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider border ${severityBg}`}>
+                    <span className={`inline-block rounded px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider border ${severityBg}`}>
                       {severity}
                     </span>
                     {activePopup.department_designated && (
-                      <span className="rounded-md bg-raised border border-line px-2 py-0.5 text-[10px] font-mono font-bold text-muted uppercase">
+                      <span className="rounded bg-[#F4F4F1] border border-[#E1E3DE] px-2 py-0.5 text-[10px] font-mono font-bold text-[#656A66] uppercase">
                         DEPT: {activePopup.department_designated}
                       </span>
                     )}
-                    <span className="text-[11px] font-mono text-faint">{formattedTime}</span>
+                    <span className="text-[11px] font-mono text-[#656A66]">{formattedTime}</span>
                   </div>
-                  <h2 id="issue-alert-title" className="mt-1.5 text-xl font-bold tracking-tight text-gradient-brand">
+                  <h2 id="issue-alert-title" className="mt-1 text-lg font-bold tracking-tight text-[#252A27]">
                     {formattedTitle}
                   </h2>
                 </div>
@@ -111,18 +111,18 @@ export default function IssueAlertModal() {
                 type="button"
                 onClick={dismissPopup}
                 aria-label="Close alert"
-                className="rounded-full p-2 text-faint hover:bg-raised hover:text-ink transition-colors border border-transparent hover:border-line"
+                className="rounded-lg p-2 text-[#656A66] hover:bg-[#F4F4F1] hover:text-[#252A27] transition-colors border border-transparent hover:border-[#E1E3DE]"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-line/70 bg-raised/70 p-4 text-[13px] leading-relaxed text-ink/90 font-sans">
+            <div className="mt-4 rounded-xl border border-[#E1E3DE] bg-[#F4F4F1]/60 p-4 text-[13px] leading-relaxed text-[#252A27] font-sans">
               <p>{activePopup.message}</p>
               {activePopup.issue_id && (
-                <p className="mt-2.5 font-mono text-[11px] text-muted font-medium flex items-center gap-2">
-                  <span className="text-faint">REF:</span>
-                  <span className="text-ink font-bold bg-surface border border-line px-2 py-0.5 rounded-md">{activePopup.issue_id}</span>
+                <p className="mt-2.5 font-mono text-[11px] text-[#656A66] font-medium flex items-center gap-2">
+                  <span className="text-[#656A66]">REF:</span>
+                  <span className="text-[#252A27] font-bold bg-white border border-[#E1E3DE] px-2 py-0.5 rounded">{activePopup.issue_id}</span>
                 </p>
               )}
             </div>
@@ -131,7 +131,7 @@ export default function IssueAlertModal() {
               <button
                 type="button"
                 onClick={dismissPopup}
-                className="rounded-full border border-line bg-raised px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider text-muted hover:text-ink hover:bg-raised/90 transition-all"
+                className="rounded-lg border border-[#E1E3DE] bg-[#F4F4F1] px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider text-[#656A66] hover:text-[#252A27] hover:bg-[#E1E3DE]/40 transition-all"
               >
                 Dismiss
               </button>
@@ -139,7 +139,7 @@ export default function IssueAlertModal() {
               <button
                 type="button"
                 onClick={handleViewIssue}
-                className="rounded-full border border-line bg-surface px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider text-ink hover:border-ink/50 transition-all flex items-center gap-1.5"
+                className="rounded-lg border border-[#E1E3DE] bg-white px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider text-[#252A27] hover:border-[#252A27] transition-all flex items-center gap-1.5"
               >
                 <ExternalLink size={13} />
                 View Issue
@@ -148,7 +148,9 @@ export default function IssueAlertModal() {
               <button
                 type="button"
                 onClick={handleAcknowledge}
-                className="rounded-full bg-red-600 hover:bg-red-700 text-white px-5 py-2 text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md shadow-red-900/20 active:scale-[0.98]"
+                className={`rounded-lg px-5 py-2 text-xs font-mono font-bold uppercase tracking-wider text-white transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.98] ${
+                  isEmergency ? 'bg-[#DC3030] hover:bg-[#B92424]' : 'bg-[#282D2A] hover:bg-[#3A403B]'
+                }`}
               >
                 <CheckCircle size={14} />
                 Acknowledge
