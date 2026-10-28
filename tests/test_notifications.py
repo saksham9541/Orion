@@ -262,3 +262,49 @@ def test_offline_user_notifications_rest_flow(notif_test_env):
     )
     assert ack_res.status_code == 200
     assert ack_res.json()["acknowledged_at"] is not None
+
+
+def test_admin_reporting_issue_does_not_receive_self_alert(notif_test_env):
+    """
+    When Super Admin submits an issue:
+    - Designated department peer receives the live alert via WebSocket
+    - Super Admin (the creator) does NOT receive self-alert
+    """
+    client = notif_test_env["client"]
+    tokens = notif_test_env["tokens"]
+    admin_token = tokens["admin"]
+    eng_peer_token = tokens["eng_peer"]
+
+    with client.websocket_connect(f"/ws/notifications?token={admin_token}") as ws_admin, \
+         client.websocket_connect(f"/ws/notifications?token={eng_peer_token}") as ws_eng:
+
+        payload = {
+            "description": "Rail surface defect observed by Super Admin inspection.",
+            "corridor_id": "COR-DELHI-MUMBAI",
+            "section_id": "SEC-DELHI-1",
+            "km_location": 78.4,
+            "department_designated": "ENGINEERING",
+            "severity": "HIGH",
+        }
+        res = client.post(
+            "/api/tasks/complaint",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json=payload,
+        )
+        assert res.status_code == 200, res.text
+        task_data = res.json()
+
+        # Engineering peer receives WebSocket alert
+        eng_msg = ws_eng.receive_json()
+        assert eng_msg["type"] == "ISSUE_RAISED"
+        assert eng_msg["notification"]["issue_id"] == task_data["task_id"]
+
+        # Super Admin should NOT have any notifications created for their own submission
+        admin_notifs_res = client.get(
+            "/api/notifications?unread_only=true",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert admin_notifs_res.status_code == 200
+        my_notifs = [n for n in admin_notifs_res.json() if n.get("issue_id") == task_data["task_id"]]
+        assert len(my_notifs) == 0, "Super Admin received self-notification for their own report"
+        assert ws_admin is not None

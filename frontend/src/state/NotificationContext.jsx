@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
-import { getStoredToken, useAppState } from '@/state/AppState'
+import { getStoredToken, getStoredEmail, useAppState } from '@/state/AppState'
 import { API_BASE, getWsNotificationsUrl } from '@/api'
 
 const NotificationContext = createContext(null)
@@ -144,8 +144,16 @@ export function NotificationProvider({ children }) {
             const notif = data.notification
             setNotifications((prev) => [notif, ...prev])
             setUnreadCount((prev) => prev + 1)
-            // Immediately interrupt screen with Real-time Alert Popup!
-            setActivePopup(notif)
+
+            // Only display popup notification to other authorized users, never to the reporter who raised it
+            const currentEmail = (getStoredEmail() || currentUser?.email || '').trim().toLowerCase()
+            const creatorEmail = (notif.created_by || '').trim().toLowerCase()
+            const isReporter = creatorEmail && currentEmail && creatorEmail === currentEmail
+
+            if (!isReporter) {
+              setActivePopup(notif)
+            }
+
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('railopt:task-created', { detail: notif }))
             }

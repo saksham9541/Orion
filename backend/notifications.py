@@ -113,12 +113,12 @@ def resolve_issue_recipients(
         is_super_admin = u_role in ("admin", "super_admin")
         is_designated_dept = bool(dept_norm and (u_dept == dept_norm))
 
-        # Only exclude non-admin creator from self-alert; Super Admin ALWAYS receives every notification
-        if not is_super_admin:
-            if creator_id and str(u.id) == str(creator_id):
-                continue
-            if creator_email and u.email and creator_email.strip().lower() == u.email.strip().lower():
-                continue
+        # The creator of the issue must NEVER receive an alert/notification for their own submission,
+        # regardless of role (including Super Admin).
+        if creator_id and str(u.id) == str(creator_id):
+            continue
+        if creator_email and u.email and creator_email.strip().lower() == u.email.strip().lower():
+            continue
 
         if is_super_admin or is_designated_dept:
             recipients.append(u)
@@ -181,6 +181,7 @@ async def dispatch_issue_alert(
                 "message": notif.message,
                 "severity": notif.severity,
                 "department_designated": department_designated,
+                "created_by": creator_email,
                 "created_at": notif.created_at.isoformat() if notif.created_at else now.isoformat(),
                 "read_at": None,
                 "acknowledged_at": None,
