@@ -820,7 +820,25 @@ def list_tasks(
         department = current_user.department.value
 
     if department:
-        tasks = [t for t in tasks if t.department.value == department or t.department == department]
+        dept_target = department.strip().upper()
+        if dept_target in ("S&T", "SNT", "SIGNALLING", "SIGNALING"):
+            dept_targets = {"SNT", "S&T"}
+        elif dept_target in ("ENG", "ENGINEERING", "CIVIL", "TRACK"):
+            dept_targets = {"ENGINEERING", "ENG"}
+        elif dept_target in ("TRD", "ELECTRICAL", "TRACTION"):
+            dept_targets = {"TRD"}
+        else:
+            dept_targets = {dept_target}
+
+        filtered = []
+        for t in tasks:
+            t_dept = getattr(t, "department", None)
+            t_dept_str = (t_dept.value if hasattr(t_dept, "value") else str(t_dept or "")).upper()
+            t_desig = (getattr(t, "department_designated", "") or "").upper()
+            if t_dept_str in dept_targets or t_desig in dept_targets:
+                filtered.append(t)
+        tasks = filtered
+
     if severity:
         tasks = [t for t in tasks if t.ml_predicted_severity and (t.ml_predicted_severity.value == severity or t.ml_predicted_severity == severity)]
     if status:
@@ -870,13 +888,14 @@ def get_task(task_id: str, current_user: User = Depends(require_viewer_or_above)
 
 
 class TaskStatusUpdate(BaseModel):
-    status: str
+    status: Optional[str] = None
 
 
 @app.put("/api/tasks/{task_id}/status")
-def update_task_status(
+async def update_task_status(
     task_id: str,
-    request: TaskStatusUpdate,
+    request: Optional[TaskStatusUpdate] = None,
+    status: Optional[str] = None,
     current_user: User = Depends(require_dept_or_above),
 ):
     target = None
@@ -904,12 +923,20 @@ def update_task_status(
             raise HTTPException(status_code=403, detail="Cannot update task for different department")
 
         # Normalize status string and support common aliases
-        status_input = request.status.strip().upper()
+        raw_status = (request.status if request and request.status else status)
+        if not raw_status:
+            raise HTTPException(status_code=400, detail="Status must be provided in body or query param")
+
+        status_input = raw_status.strip().upper()
         alias_map = {
             "ACKNOWLEDGED": "ESCALATED",
+            "ACKNOWLEDGE": "ESCALATED",
+            "DEPARTMENT NOTIFIED": "SCHEDULED",
+            "NOTIFIED": "SCHEDULED",
             "ACTION STARTED": "SCHEDULED",
             "START ACTION": "IN_PROGRESS",
             "IN PROGRESS": "IN_PROGRESS",
+            "IN_PROGRESS": "IN_PROGRESS",
             "RESOLVED": "COMPLETED",
             "DONE": "COMPLETED",
             "AUTHORIZED": "SCHEDULED",
@@ -922,9 +949,23 @@ def update_task_status(
         try:
             target.status = TaskStatus(status_val)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid status: {request.status}")
+            raise HTTPException(status_code=400, detail=f"Invalid status: {raw_status}")
 
         save_tasks(session, [target])  # Upsert to DB
+
+        # Broadcast real-time status update to all connected WebSocket clients across departments
+        try:
+            from backend.notifications import manager
+            await manager.broadcast_to_all({
+                "type": "TASK_UPDATED",
+                "task_id": target.task_id,
+                "status": target.status.value,
+                "department": target.department.value if hasattr(target.department, "value") else str(target.department),
+                "updated_by": current_user.email,
+            })
+        except Exception as ws_err:
+            logger.warning("Failed to broadcast task update: %s", ws_err)
+
         return {"status": "ok", "new_status": target.status.value, "task_id": target.task_id}
     finally:
         session.close()

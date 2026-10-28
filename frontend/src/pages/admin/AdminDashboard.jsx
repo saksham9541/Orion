@@ -176,11 +176,21 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadTasks()
 
-    // 1. Listen for global task created events (from ReportComplaintModal)
+    // 1. Listen for global task created and updated events
     const handleTaskCreated = () => {
       loadTasks()
     }
+    const handleTaskUpdated = () => {
+      loadTasks()
+    }
+    const handleStorage = (e) => {
+      if (e.key === 'railopt_task_sync') {
+        loadTasks()
+      }
+    }
     window.addEventListener('railopt:task-created', handleTaskCreated)
+    window.addEventListener('railopt:task-updated', handleTaskUpdated)
+    window.addEventListener('storage', handleStorage)
 
     // 2. Polling interval (every 3.5s) so reported tasks appear live across browser tabs
     const pollTimer = setInterval(() => {
@@ -189,6 +199,8 @@ export default function AdminDashboard() {
 
     return () => {
       window.removeEventListener('railopt:task-created', handleTaskCreated)
+      window.removeEventListener('railopt:task-updated', handleTaskUpdated)
+      window.removeEventListener('storage', handleStorage)
       clearInterval(pollTimer)
     }
   }, [loadTasks])
@@ -245,6 +257,21 @@ export default function AdminDashboard() {
     try {
       const backendStatus = uiToBackendStatus[targetStatus] || targetStatus
       await updateTaskStatus(id, { status: backendStatus })
+
+      // Dispatch local event & cross-tab sync so other tabs update instantly
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('railopt:task-updated', {
+          detail: { task_id: id, status: backendStatus }
+        }))
+        try {
+          localStorage.setItem('railopt_task_sync', JSON.stringify({
+            task_id: id,
+            status: backendStatus,
+            timestamp: Date.now()
+          }))
+        } catch {}
+      }
+
       setToastMessage(`Issue ${id} marked as ${targetStatus}`)
       setTimeout(() => setToastMessage(null), 3000)
     } catch (e) {

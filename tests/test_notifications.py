@@ -308,3 +308,98 @@ def test_admin_reporting_issue_does_not_receive_self_alert(notif_test_env):
         my_notifs = [n for n in admin_notifs_res.json() if n.get("issue_id") == task_data["task_id"]]
         assert len(my_notifs) == 0, "Super Admin received self-notification for their own report"
         assert ws_admin is not None
+
+
+def test_task_status_update_broadcasts_to_websocket_and_syncs(notif_test_env):
+    """
+    When Super Admin updates task status via PUT /api/tasks/{task_id}/status:
+    1. Active WebSocket connections receive a TASK_UPDATED broadcast.
+    2. Department queries like GET /api/tasks?department=ENGINEERING reflect the updated status.
+    """
+    client = notif_test_env["client"]
+    tokens = notif_test_env["tokens"]
+    admin_token = tokens["admin"]
+    eng_peer_token = tokens["eng_peer"]
+
+    # First, raise a complaint task designated for ENGINEERING
+    payload = {
+        "description": "Loose rail fastener detected during track patrol.",
+        "corridor_id": "COR-DELHI-MUMBAI",
+        "section_id": "SEC-DELHI-2",
+        "km_location": 112.5,
+        "department_designated": "ENGINEERING",
+        "severity": "MEDIUM",
+    }
+    create_res = client.post(
+        "/api/tasks/complaint",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json=payload,
+    )
+    assert create_res.status_code == 200
+    task_id = create_res.json()["task_id"]
+
+    # Connect WebSocket as engineering user and admin updates the status
+    with client.websocket_connect(f"/ws/notifications?token={eng_peer_token}") as ws_eng:
+        # Admin changes status to IN_PROGRESS
+        update_res = client.put(
+            f"/api/tasks/{task_id}/status",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"status": "IN_PROGRESS"},
+        )
+        assert update_res.status_code == 200
+        assert update_res.json()["status"] == "ok"
+        assert update_res.json()["new_status"] == "IN_PROGRESS"
+
+        # Department user WebSocket should receive TASK_UPDATED event
+        ws_msg = ws_eng.receive_json()
+        assert ws_msg["type"] == "TASK_UPDATED"
+        assert ws_msg["task_id"] == task_id
+        assert ws_msg["status"] == "IN_PROGRESS"
+
+    # Verify query by lowercase department retrieves the task with new status
+    list_res = client.get(
+        "/api/tasks?department=engineering",
+        headers={"Authorization": f"Bearer {eng_peer_token}"},
+    )
+    assert list_res.status_code == 200
+    tasks = list_res.json()
+    matched = [t for t in tasks if t["task_id"] == task_id]
+    assert len(matched) == 1
+    assert matched[0]["status"] == "IN_PROGRESS"
+
+
+def test_list_tasks_department_aliases_and_case(notif_test_env):
+    """
+    Verifies that GET /api/tasks normalizes department queries:
+    - 'engineering' -> matches ENGINEERING
+    - 's&t' -> matches SNT
+    """
+    client = notif_test_env["client"]
+    tokens = notif_test_env["tokens"]
+    admin_token = tokens["admin"]
+
+    # Create one SNT task
+    snt_payload = {
+        "description": "Signal lamp flickering at interlocking.",
+        "corridor_id": "COR-DELHI-MUMBAI",
+        "section_id": "SEC-DELHI-3",
+        "km_location": 45.2,
+        "department_designated": "SNT",
+        "severity": "HIGH",
+    }
+    res = client.post(
+        "/api/tasks/complaint",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json=snt_payload,
+    )
+    assert res.status_code == 200
+    snt_task_id = res.json()["task_id"]
+
+    # Query with alias 's&t'
+    res_alias = client.get(
+        "/api/tasks?department=s%26t",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res_alias.status_code == 200
+    assert any(t["task_id"] == snt_task_id for t in res_alias.json())
+

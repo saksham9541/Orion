@@ -53,7 +53,17 @@ export default function TechnicianDashboard() {
     setLoading(true)
     fetchTasks()
       .then(res => {
-        setTasks(res.data || [])
+        const raw = res.data || []
+        const mapped = [...raw]
+        mapped.reverse()
+        mapped.sort((a, b) => {
+          const aIsUser = (a.task_id || a.id || '').startsWith('TSK-')
+          const bIsUser = (b.task_id || b.id || '').startsWith('TSK-')
+          if (aIsUser && !bIsUser) return -1
+          if (!aIsUser && bIsUser) return 1
+          return 0
+        })
+        setTasks(mapped)
         setError(null)
       })
       .catch(err => {
@@ -65,6 +75,39 @@ export default function TechnicianDashboard() {
 
   useEffect(() => {
     loadTasks()
+
+    // 1. Listen for task created and updated events (WebSocket & cross-dashboard sync)
+    const handleTaskCreated = () => {
+      loadTasks()
+    }
+    const handleTaskUpdated = (e) => {
+      const { task_id, status } = e.detail || {}
+      if (task_id && status) {
+        setTasks(prev => prev.map(t => (t.task_id === task_id || t.id === task_id ? { ...t, status } : t)))
+      }
+      loadTasks()
+    }
+    const handleStorage = (e) => {
+      if (e.key === 'railopt_task_sync') {
+        loadTasks()
+      }
+    }
+
+    window.addEventListener('railopt:task-created', handleTaskCreated)
+    window.addEventListener('railopt:task-updated', handleTaskUpdated)
+    window.addEventListener('storage', handleStorage)
+
+    // 2. Continuous 3.5s sync poll for instant reflection of Super Admin actions
+    const pollTimer = setInterval(() => {
+      loadTasks()
+    }, 3500)
+
+    return () => {
+      window.removeEventListener('railopt:task-created', handleTaskCreated)
+      window.removeEventListener('railopt:task-updated', handleTaskUpdated)
+      window.removeEventListener('storage', handleStorage)
+      clearInterval(pollTimer)
+    }
   }, [])
 
   const toggleChecklist = (id) => {
@@ -79,6 +122,21 @@ export default function TechnicianDashboard() {
     setActionLoading(taskId)
     try {
       await updateTaskStatus(taskId, { status: newStatus })
+
+      // Dispatch sync events locally and cross-tab
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('railopt:task-updated', {
+          detail: { task_id: taskId, status: newStatus }
+        }))
+        try {
+          localStorage.setItem('railopt_task_sync', JSON.stringify({
+            task_id: taskId,
+            status: newStatus,
+            timestamp: Date.now()
+          }))
+        } catch {}
+      }
+
       await loadTasks()
     } catch (err) {
       console.error('Failed to update status', err)
@@ -116,17 +174,20 @@ export default function TechnicianDashboard() {
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
       const matchSearch =
-        (t.task_id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.defect_category || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.inspector_remarks || '').toLowerCase().includes(searchQuery.toLowerCase())
+        (t.task_id || t.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.defect_category || t.defectType || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.inspector_remarks || t.what || '').toLowerCase().includes(searchQuery.toLowerCase())
       
       if (!matchSearch) return false
 
+      const s = (t.status || '').toUpperCase()
+      const sev = (t.severity || t.raw_severity || t.ml_predicted_severity || '').toUpperCase()
+
       if (filterStatus === 'ALL') return true
-      if (filterStatus === 'ACTIVE') return ['IN_PROGRESS', 'SCHEDULED'].includes(t.status)
-      if (filterStatus === 'PENDING') return t.status === 'PENDING'
-      if (filterStatus === 'COMPLETED') return t.status === 'COMPLETED'
-      if (filterStatus === 'CRITICAL') return ['EMERGENCY', 'CRITICAL', 'HIGH'].includes(t.severity)
+      if (filterStatus === 'ACTIVE') return ['IN_PROGRESS', 'IN PROGRESS', 'SCHEDULED', 'DEPARTMENT NOTIFIED', 'AUTHORIZED'].includes(s)
+      if (filterStatus === 'PENDING') return ['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED', 'REPORTED', 'ACKNOWLEDGED'].includes(s)
+      if (filterStatus === 'COMPLETED') return ['COMPLETED', 'RESOLVED', 'DONE'].includes(s)
+      if (filterStatus === 'CRITICAL') return ['EMERGENCY', 'CRITICAL', 'HIGH'].includes(sev)
       return true
     })
   }, [tasks, searchQuery, filterStatus])

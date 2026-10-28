@@ -157,6 +157,10 @@ export function NotificationProvider({ children }) {
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('railopt:task-created', { detail: notif }))
             }
+          } else if (data.type === 'TASK_UPDATED') {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('railopt:task-updated', { detail: data }))
+            }
           }
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err)

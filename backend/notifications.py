@@ -83,6 +83,11 @@ class ConnectionManager:
             if uid in self.active_connections:
                 await self.send_personal_message(message, uid)
 
+    async def broadcast_to_all(self, message: dict):
+        """Broadcasts a payload to every active WebSocket connection."""
+        for uid in list(self.active_connections.keys()):
+            await self.send_personal_message(message, uid)
+
     def is_user_online(self, user_id: str) -> bool:
         return bool(self.active_connections.get(user_id))
 

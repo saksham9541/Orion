@@ -423,10 +423,23 @@ function mapBackendTask(t, deptId) {
   }
 }
 
-export default function DepartmentDashboard({ deptId, title, department = 'SNT' }) {
+export default function DepartmentDashboard({ deptId, title, department }) {
   const { currentUser } = useAppState()
   const [searchParams, setSearchParams] = useSearchParams()
   const targetIssueId = searchParams.get('issue') || searchParams.get('search')
+
+  // Robust department code resolution
+  const resolvedDept = useMemo(() => {
+    if (department) {
+      const d = department.toUpperCase().trim()
+      if (d === 'S&T') return 'SNT'
+      return d
+    }
+    if (deptId === 'engineering') return 'ENGINEERING'
+    if (deptId === 'snt') return 'SNT'
+    if (deptId === 'trd') return 'TRD'
+    return 'ENGINEERING'
+  }, [department, deptId])
 
   const [tasks, setTasks] = useState([])
   const [selectedTaskId, setSelectedTaskId] = useState(null)
@@ -440,6 +453,8 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   // Auth Guard
   if (currentUser?.id !== deptId && currentUser?.id !== 'admin') {
@@ -448,13 +463,21 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
 
   // Load Tasks from API
   const loadTasks = useCallback(async () => {
-    setLoading(true)
     try {
-      const res = await fetchTasks({ department })
+      const res = await fetchTasks({ department: resolvedDept })
       const backendTasks = Array.isArray(res.data) ? res.data : []
 
       if (backendTasks.length > 0) {
         const mapped = backendTasks.map((t) => mapBackendTask(t, deptId))
+        // Put newest tasks at the top, prioritizing user-reported / active complaint tasks
+        mapped.reverse()
+        mapped.sort((a, b) => {
+          const aIsUser = a.id?.startsWith('TSK-')
+          const bIsUser = b.id?.startsWith('TSK-')
+          if (aIsUser && !bIsUser) return -1
+          if (!aIsUser && bIsUser) return 1
+          return 0
+        })
         setTasks(mapped)
         if (targetIssueId) {
           const match = mapped.find((m) => m.id === targetIssueId)
@@ -466,7 +489,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
             setSelectedTaskId(mapped[0]?.id || null)
           }
         } else {
-          setSelectedTaskId(mapped[0]?.id || null)
+          setSelectedTaskId((prev) => (mapped.some((m) => m.id === prev) ? prev : mapped[0]?.id || null))
         }
       } else {
         // Fallback to curated default tasks so the dashboard is immediately interactive
@@ -493,15 +516,54 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
     } finally {
       setLoading(false)
     }
-  }, [department, deptId, targetIssueId])
+  }, [resolvedDept, deptId, targetIssueId])
 
   useEffect(() => {
     loadTasks()
+
+    // 1. Listen for global task creation & updates from WebSockets or local events
+    const handleTaskCreated = () => {
+      loadTasks()
+    }
+    const handleTaskUpdated = (e) => {
+      const { task_id, status } = e.detail || {}
+      if (task_id && status) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === task_id ? { ...t, status } : t))
+        )
+      }
+      loadTasks()
+    }
+    const handleStorage = (e) => {
+      if (e.key === 'railopt_task_sync') {
+        loadTasks()
+      }
+    }
+
+    window.addEventListener('railopt:task-created', handleTaskCreated)
+    window.addEventListener('railopt:task-updated', handleTaskUpdated)
+    window.addEventListener('storage', handleStorage)
+
+    // 2. Real-time polling interval (every 3.5s) to guarantee instant cross-dashboard sync
+    const pollTimer = setInterval(() => {
+      loadTasks()
+    }, 3500)
+
+    return () => {
+      window.removeEventListener('railopt:task-created', handleTaskCreated)
+      window.removeEventListener('railopt:task-updated', handleTaskUpdated)
+      window.removeEventListener('storage', handleStorage)
+      clearInterval(pollTimer)
+    }
   }, [loadTasks])
 
   useEffect(() => {
     fetchLiveTrains().then((res) => setLiveTrains(res.data)).catch(console.error)
   }, [])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [statusFilter, searchQuery])
 
   // Status Change Handler (works from both the table, dashboard buttons, and pop-up modal!)
   const handleStatusChange = async (taskId, targetStatus) => {
@@ -518,6 +580,20 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
       // 2. Persist to Backend API
       await updateTaskStatus(taskId, { status: targetStatus })
 
+      // 3. Broadcast sync event locally & cross-tab
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('railopt:task-updated', {
+          detail: { task_id: taskId, status: targetStatus }
+        }))
+        try {
+          localStorage.setItem('railopt_task_sync', JSON.stringify({
+            task_id: taskId,
+            status: targetStatus,
+            timestamp: Date.now()
+          }))
+        } catch {}
+      }
+
       setToastMessage(`Task ${taskId} marked as ${targetStatus}`)
       setTimeout(() => setToastMessage(null), 3500)
     } catch (err) {
@@ -527,6 +603,15 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
     } finally {
       setActionInProgress(null)
     }
+  }
+
+  // Quick Action Handler for Journey Board cards
+  const handleQuickAction = async (taskId, actionType, note) => {
+    let targetStatus = 'SCHEDULED'
+    if (actionType === 'START_ACTION') targetStatus = 'IN_PROGRESS'
+    if (actionType === 'RESOLVE' || actionType === 'DONE') targetStatus = 'COMPLETED'
+    if (actionType === 'AUTHORIZE') targetStatus = 'SCHEDULED'
+    await handleStatusChange(taskId, targetStatus)
   }
 
   // Active Selected Task
@@ -539,13 +624,18 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
     return tasks.filter((t) => {
       // Status filter
       if (statusFilter !== 'ALL') {
-        if (statusFilter === 'PENDING' && !['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED'].includes(t.status)) {
-          return false
+        const s = (t.status || '').toUpperCase()
+        if (statusFilter === 'PENDING') {
+          if (!['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED', 'REPORTED', 'ACKNOWLEDGED'].includes(s)) return false
+        } else if (statusFilter === 'SCHEDULED') {
+          if (!['SCHEDULED', 'DEPARTMENT NOTIFIED', 'AUTHORIZED'].includes(s)) return false
+        } else if (statusFilter === 'IN_PROGRESS') {
+          if (!['IN_PROGRESS', 'IN PROGRESS', 'ACTION STARTED'].includes(s)) return false
+        } else if (statusFilter === 'COMPLETED') {
+          if (!['COMPLETED', 'RESOLVED', 'DONE'].includes(s)) return false
+        } else if (statusFilter === 'REJECTED') {
+          if (!['REJECTED', 'CANCELLED'].includes(s)) return false
         }
-        if (statusFilter === 'SCHEDULED' && t.status !== 'SCHEDULED') return false
-        if (statusFilter === 'IN_PROGRESS' && t.status !== 'IN_PROGRESS') return false
-        if (statusFilter === 'COMPLETED' && !['COMPLETED', 'RESOLVED'].includes(t.status)) return false
-        if (statusFilter === 'REJECTED' && !['REJECTED', 'CANCELLED'].includes(t.status)) return false
       }
       // Search query
       if (searchQuery.trim()) {
@@ -563,9 +653,9 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
   // Dynamic Statistics
   const stats = useMemo(() => {
     const total = tasks.length
-    const pending = tasks.filter((t) => ['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED'].includes(t.status)).length
-    const inProgress = tasks.filter((t) => ['IN_PROGRESS', 'SCHEDULED'].includes(t.status)).length
-    const resolved = tasks.filter((t) => ['COMPLETED', 'RESOLVED'].includes(t.status)).length
+    const pending = tasks.filter((t) => ['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED', 'REPORTED', 'ACKNOWLEDGED'].includes((t.status || '').toUpperCase())).length
+    const inProgress = tasks.filter((t) => ['IN_PROGRESS', 'IN PROGRESS', 'SCHEDULED', 'DEPARTMENT NOTIFIED', 'AUTHORIZED'].includes((t.status || '').toUpperCase())).length
+    const resolved = tasks.filter((t) => ['COMPLETED', 'RESOLVED', 'DONE'].includes((t.status || '').toUpperCase())).length
     return { total, pending, inProgress, resolved }
   }, [tasks])
 
@@ -586,9 +676,9 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
 
   const getStatusBadge = (status) => {
     const s = (status || '').toUpperCase()
-    if (s === 'COMPLETED' || s === 'RESOLVED') return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-    if (s === 'IN_PROGRESS') return 'bg-amber-500/15 text-amber-600 border-amber-500/30'
-    if (s === 'SCHEDULED' || s === 'ESCALATED') return 'bg-blue-500/15 text-blue-600 border-blue-500/30'
+    if (s === 'COMPLETED' || s === 'RESOLVED' || s === 'DONE') return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+    if (s === 'IN_PROGRESS' || s === 'IN PROGRESS') return 'bg-amber-500/15 text-amber-600 border-amber-500/30'
+    if (s === 'SCHEDULED' || s === 'ESCALATED' || s === 'DEPARTMENT NOTIFIED' || s === 'AUTHORIZED') return 'bg-blue-500/15 text-blue-600 border-blue-500/30'
     if (s === 'REJECTED' || s === 'CANCELLED') return 'bg-red-500/15 text-red-600 border-red-500/30'
     return 'bg-raised text-muted border-line'
   }
@@ -768,14 +858,13 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                 1. Case Allocation
               </h3>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-bold">
-                {filteredTasks.filter(t => t.status === 'PENDING').length}
+                {tasks.filter(t => ['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED', 'REPORTED', 'ACKNOWLEDGED'].includes((t.status || '').toUpperCase())).length}
               </span>
             </div>
 
-            <div className="space-y-3">
-              {filteredTasks
-                .filter(t => t.status === 'PENDING' || t.status === 'REPORTED')
-                .slice(0, 3)
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {tasks
+                .filter(t => ['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED', 'REPORTED', 'ACKNOWLEDGED'].includes((t.status || '').toUpperCase()))
                 .map((task) => (
                   <div
                     key={task.id}
@@ -788,7 +877,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2">
                         <div className="h-7 w-7 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center justify-center text-[10px] font-bold shrink-0">
-                          {task.id.slice(3, 6)}
+                          {task.id.slice(0, 3)}
                         </div>
                         <div>
                           <p className="text-xs font-bold text-ink leading-tight group-hover:text-info transition-colors">
@@ -833,7 +922,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                   </div>
                 ))}
 
-              {filteredTasks.filter(t => t.status === 'PENDING').length === 0 && (
+              {tasks.filter(t => ['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED', 'REPORTED', 'ACKNOWLEDGED'].includes((t.status || '').toUpperCase())).length === 0 && (
                 <div className="rounded-2xl border border-dashed border-line/80 p-4 text-center text-xs text-muted">
                   No pending cases in intake queue
                 </div>
@@ -848,12 +937,12 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                 2. Issue Identification
               </h3>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 text-[10px] font-bold">
-                {filteredTasks.length}
+                {tasks.length}
               </span>
             </div>
 
-            <div className="space-y-3">
-              {filteredTasks.slice(0, 3).map((task) => (
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {tasks.slice(0, 10).map((task) => (
                 <div
                   key={`id-${task.id}`}
                   onClick={() => {
@@ -865,11 +954,11 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2">
                       <div className="h-7 w-7 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[10px] font-bold shrink-0">
-                        {task.corridorId ? task.corridorId.slice(4, 6) : 'ND'}
+                        {task.corridorId ? task.corridorId.slice(0, 3) : 'COR'}
                       </div>
                       <div>
                         <p className="text-xs font-bold text-ink leading-tight group-hover:text-info transition-colors">
-                          Identify {task.defectType.replace('_', ' ')}
+                          Identify {task.defectType.replace(/_/g, ' ')}
                         </p>
                         <span className="text-[10px] text-muted">Telemetry & ML Scored</span>
                       </div>
@@ -908,14 +997,13 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                 3. Technical Resolution
               </h3>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 text-[10px] font-bold">
-                {filteredTasks.filter(t => t.status === 'SCHEDULED' || t.status === 'IN_PROGRESS').length}
+                {tasks.filter(t => ['SCHEDULED', 'DEPARTMENT NOTIFIED', 'AUTHORIZED', 'IN_PROGRESS', 'IN PROGRESS', 'ACTION STARTED'].includes((t.status || '').toUpperCase())).length}
               </span>
             </div>
 
-            <div className="space-y-3">
-              {filteredTasks
-                .filter(t => t.status === 'SCHEDULED' || t.status === 'IN_PROGRESS' || t.status === 'PENDING')
-                .slice(0, 3)
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {tasks
+                .filter(t => ['SCHEDULED', 'DEPARTMENT NOTIFIED', 'AUTHORIZED', 'IN_PROGRESS', 'IN PROGRESS', 'ACTION STARTED'].includes((t.status || '').toUpperCase()))
                 .map((task) => (
                   <div
                     key={`res-${task.id}`}
@@ -971,25 +1059,31 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
                     </div>
                   </div>
                 ))}
+
+              {tasks.filter(t => ['SCHEDULED', 'DEPARTMENT NOTIFIED', 'AUTHORIZED', 'IN_PROGRESS', 'IN PROGRESS', 'ACTION STARTED'].includes((t.status || '').toUpperCase())).length === 0 && (
+                <div className="rounded-2xl border border-dashed border-line/80 p-4 text-center text-xs text-muted">
+                  No active authorized blocks in progress
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Column 4: Problem Resolution & Active Execution (with the Black Card from reference screenshot!) */}
+          {/* Column 4: Problem Resolution & Active Execution */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between px-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
                 4. Problem Resolution
               </h3>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-bold">
-                {filteredTasks.filter(t => t.status === 'COMPLETED').length}
+                {tasks.filter(t => ['COMPLETED', 'RESOLVED', 'DONE'].includes((t.status || '').toUpperCase())).length}
               </span>
             </div>
 
-            <div className="space-y-3">
-              {/* THE SLEEK BLACK CARD (Nothing OS Hardware Module) */}
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {/* THE SLEEK BLACK CARD */}
               <div
                 onClick={() => {
-                  const activeTask = tasks.find(t => t.status === 'IN_PROGRESS') || tasks[0]
+                  const activeTask = tasks.find(t => ['IN_PROGRESS', 'IN PROGRESS'].includes((t.status || '').toUpperCase())) || tasks[0]
                   if (activeTask) {
                     setSelectedTaskId(activeTask.id)
                     openTaskModal(activeTask)
@@ -1015,9 +1109,8 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
               </div>
 
               {/* Resolved / Closed Cards */}
-              {filteredTasks
-                .filter(t => t.status === 'COMPLETED' || t.status === 'IN_PROGRESS')
-                .slice(0, 2)
+              {tasks
+                .filter(t => ['COMPLETED', 'RESOLVED', 'DONE'].includes((t.status || '').toUpperCase()))
                 .map((task) => (
                   <div
                     key={`comp-${task.id}`}
@@ -1054,7 +1147,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
         </div>
       </motion.div>
 
-      {/* FULL-WIDTH SUGGESTED KNOWLEDGE & DEFECT REGISTRY TABLE (NO HORIZONTAL SCROLLING/SLIDING NEEDED) */}
+      {/* FULL-WIDTH SUGGESTED KNOWLEDGE & DEFECT REGISTRY TABLE */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -1093,7 +1186,7 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
               </tr>
             </thead>
             <tbody className="divide-y divide-line/40">
-              {filteredTasks.slice(0, 8).map((task) => {
+              {filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((task) => {
                 const isSelected = selectedTask?.id === task.id
                 return (
                   <tr
@@ -1155,6 +1248,42 @@ export default function DepartmentDashboard({ deptId, title, department = 'SNT' 
               })}
             </tbody>
           </table>
+
+          {filteredTasks.length === 0 && (
+            <div className="p-8 text-center text-muted font-mono text-xs">
+              No matching records found for this filter.
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {filteredTasks.length > pageSize && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-5 mt-2 border-t border-line/60">
+              <span className="text-xs font-mono text-muted">
+                Showing {Math.min((currentPage - 1) * pageSize + 1, filteredTasks.length)} to {Math.min(currentPage * pageSize, filteredTasks.length)} of {filteredTasks.length} work orders
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  className="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-mono font-semibold uppercase text-ink hover:bg-raised transition-colors disabled:opacity-40"
+                >
+                  Prev
+                </button>
+                <span className="px-2 text-xs font-mono font-bold text-ink">
+                  {currentPage} / {Math.ceil(filteredTasks.length / pageSize) || 1}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentPage >= Math.ceil(filteredTasks.length / pageSize)}
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredTasks.length / pageSize), prev + 1))}
+                  className="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-mono font-semibold uppercase text-ink hover:bg-raised transition-colors disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
 
