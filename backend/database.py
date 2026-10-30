@@ -99,6 +99,18 @@ class TaskRecord(Base):
     created_by_department = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=utc_now, nullable=True)
 
+    # Phase 3 Execution columns
+    actual_start = Column(DateTime, nullable=True)
+    actual_end = Column(DateTime, nullable=True)
+    execution_outcome = Column(String(50), nullable=True)
+    execution_notes = Column(Text, nullable=True)
+    abort_reason_code = Column(String(50), nullable=True)
+    suspend_reason_code = Column(String(50), nullable=True)
+    pre_start_check_passed = Column(Boolean, default=False, nullable=True)
+    pre_start_check_by = Column(String(100), nullable=True)
+    pre_start_check_at = Column(DateTime, nullable=True)
+    overrun_detected_at = Column(DateTime, nullable=True)
+
 
 class BlockPlanRecord(Base):
     __tablename__ = 'plans'
@@ -240,6 +252,42 @@ class NotificationRecord(Base):
 
 
 
+class RevalidationResultRecord(Base):
+    __tablename__ = 'revalidation_results'
+    id = Column(String(36), primary_key=True)
+    task_id = Column(String(64), index=True, nullable=False)
+    window_id = Column(String(64), nullable=True)
+    block_section_id = Column(String(64), nullable=True)
+    checked_at = Column(DateTime, default=utc_now, nullable=False)
+    horizon = Column(String(20), nullable=True)
+    is_valid = Column(Boolean, nullable=False)
+    status = Column(String(32), nullable=False)
+    confidence = Column(String(16), nullable=False)
+    stale_status = Column(Boolean, default=False, nullable=True)
+    status_age_hours = Column(Float, default=0.0, nullable=True)
+    has_conflict = Column(Boolean, default=False, nullable=True)
+    affected_trains = Column(JSON_TYPE, nullable=True)
+    bounding_trains = Column(JSON_TYPE, nullable=True)
+    next_best_start = Column(String(16), nullable=True)
+    reasons = Column(JSON_TYPE, nullable=True)
+    triggered_by = Column(String(32), default='USER', nullable=True)
+
+
+class TaskTransitionAuditRecord(Base):
+    __tablename__ = 'task_transition_audits'
+    id = Column(String(36), primary_key=True)
+    task_id = Column(String(64), index=True, nullable=False)
+    from_status = Column(String(32), nullable=False)
+    to_status = Column(String(32), nullable=False)
+    changed_by_user_id = Column(String(64), nullable=True)
+    changed_by_role = Column(String(32), nullable=True)
+    changed_by_department = Column(String(32), nullable=True)
+    reason = Column(Text, nullable=True)
+    reason_code = Column(String(64), nullable=True)
+    timestamp = Column(DateTime, default=utc_now, nullable=False)
+    details = Column(JSON_TYPE, nullable=True)
+
+
 class LoginAttemptRecord(Base):
     __tablename__ = 'login_attempts'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -360,6 +408,16 @@ def init_db(engine):
                 ("plans", "source", "VARCHAR(20) DEFAULT 'synthetic'"),
                 ("login_attempts", "ip_address", "VARCHAR(64)"),
                 ("api_usage", "key_suffix", "VARCHAR(16)"),
+                ("tasks", "actual_start", "TIMESTAMP"),
+                ("tasks", "actual_end", "TIMESTAMP"),
+                ("tasks", "execution_outcome", "VARCHAR(50)"),
+                ("tasks", "execution_notes", "TEXT"),
+                ("tasks", "abort_reason_code", "VARCHAR(50)"),
+                ("tasks", "suspend_reason_code", "VARCHAR(50)"),
+                ("tasks", "pre_start_check_passed", "BOOLEAN DEFAULT 0"),
+                ("tasks", "pre_start_check_by", "VARCHAR(100)"),
+                ("tasks", "pre_start_check_at", "TIMESTAMP"),
+                ("tasks", "overrun_detected_at", "TIMESTAMP"),
             ]:
                 try:
                     res = conn.execute(text(f"PRAGMA table_info({table})"))
@@ -388,15 +446,25 @@ def save_tasks(session: Session, tasks: list[MaintenanceTask]):
     mappings = []
     for t in tasks:
         task_data = t.model_dump(mode='json')
-        # Ensure date fields are proper date objects for SQLAlchemy
-        if hasattr(t, "reported_date") and t.reported_date:
-            task_data["reported_date"] = t.reported_date
-        if hasattr(t, "due_date") and t.due_date:
-            task_data["due_date"] = t.due_date
-        if hasattr(t, "last_maintenance_date") and t.last_maintenance_date:
-            task_data["last_maintenance_date"] = t.last_maintenance_date
-        if hasattr(t, "created_at") and t.created_at:
-            task_data["created_at"] = t.created_at
+        # Ensure date and datetime fields remain native Python objects for SQLAlchemy / SQLite
+        for dt_field in [
+            "reported_date",
+            "due_date",
+            "last_maintenance_date",
+            "created_at",
+            "actual_start",
+            "actual_end",
+            "pre_start_check_at",
+            "overrun_detected_at",
+        ]:
+            val = getattr(t, dt_field, None)
+            if val is not None:
+                if isinstance(val, str):
+                    try:
+                        val = datetime.fromisoformat(val.replace("Z", "+00:00"))
+                    except Exception:
+                        pass
+                task_data[dt_field] = val
         mappings.append(task_data)
     if mappings:
         # Use merge for upsert semantics (bulk_insert would fail on duplicates)
@@ -413,6 +481,10 @@ def load_tasks(session: Session) -> tuple[list[MaintenanceTask], int]:
     for r in records:
         d = r.__dict__.copy()
         d.pop('_sa_instance_state', None)
+        if not d.get("corridor_id"):
+            d["corridor_id"] = ""
+        if not d.get("section_id"):
+            d["section_id"] = ""
         try:
             tasks.append(MaintenanceTask(**d))
         except Exception as e:
@@ -530,6 +602,10 @@ def load_live_status(session: Session) -> list[LiveTrainStatus]:
     for r in records:
         d = r.__dict__.copy()
         d.pop('_sa_instance_state', None)
+        if d.get("corridor_id") is None:
+            d["corridor_id"] = ""
+        if d.get("section_id") is None:
+            d["section_id"] = ""
         try:
             result.append(LiveTrainStatus(**d))
         except Exception as e:

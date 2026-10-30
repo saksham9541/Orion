@@ -943,6 +943,12 @@ def get_task(task_id: str, current_user: User = Depends(require_viewer_or_above)
 
 class TaskStatusUpdate(BaseModel):
     status: Optional[str] = None
+    reason: Optional[str] = None
+    reason_code: Optional[str] = None
+    notes: Optional[str] = None
+    outcome: Optional[str] = None
+    actual_start: Optional[datetime] = None
+    actual_end: Optional[datetime] = None
 
 
 @app.put("/api/tasks/{task_id}/status")
@@ -1000,8 +1006,20 @@ async def update_task_status(
         }
         status_val = alias_map.get(status_input, status_input)
 
+        from railopt.task_transitions import transition_task
         try:
-            target.status = TaskStatus(status_val)
+            target = transition_task(
+                task=target,
+                to_status=status_val,
+                user=current_user,
+                reason=getattr(request, "reason", None) or getattr(request, "notes", None),
+                reason_code=getattr(request, "reason_code", None),
+                notes=getattr(request, "notes", None),
+                outcome=getattr(request, "outcome", None),
+                actual_start=getattr(request, "actual_start", None),
+                actual_end=getattr(request, "actual_end", None),
+                session=session,
+            )
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid status: {raw_status}")
 
@@ -2139,6 +2157,84 @@ def revalidate_maintenance_window(
         "confidence": res.confidence,
         "reasons": res.reasons,
     }
+
+
+class TaskStartRequest(BaseModel):
+    confirm_low_confidence: bool = False
+    actual_start: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
+@app.get("/api/tasks/{task_id}/revalidate")
+def revalidate_task_endpoint(
+    task_id: str,
+    horizon: str = "ON_DEMAND",
+    current_user: User = Depends(require_viewer_or_above),
+):
+    """
+    Phase 3: Task-level window revalidation wrapping traffic/window_reliability.py.
+    Re-checks cancellations, delays, staleness, bounding trains, and next best start.
+    """
+    from traffic.task_revalidation import revalidate_task
+    session = get_session(engine)
+    try:
+        return revalidate_task(
+            task_id=task_id,
+            horizon=horizon,
+            session=session,
+            app_state=app.state,
+        )
+    finally:
+        session.close()
+
+
+@app.post("/api/tasks/{task_id}/start")
+def start_task_endpoint(
+    task_id: str,
+    request: Optional[TaskStartRequest] = None,
+    current_user: User = Depends(require_dept_or_above),
+):
+    """
+    Phase 3: Technician Start action.
+    Validates task is APPROVED/READY, inside approved window tolerance,
+    and requires confirm_low_confidence if confidence is LOW or status is stale.
+    """
+    from traffic.task_revalidation import start_task_execution
+    session = get_session(engine)
+    try:
+        req = request or TaskStartRequest()
+        updated = start_task_execution(
+            task_id=task_id,
+            confirm_low_confidence=req.confirm_low_confidence,
+            actual_start=req.actual_start,
+            notes=req.notes,
+            current_user=current_user,
+            session=session,
+            app_state=app.state,
+        )
+        return updated
+    finally:
+        session.close()
+
+
+@app.post("/api/tasks/revalidate-scheduled")
+def run_scheduled_revalidations_endpoint(
+    horizon: str = "T-1h",
+    current_user: User = Depends(require_dept_or_above),
+):
+    """
+    Phase 3: Automated scheduled revalidation job (T-24h, T-6h, T-1h).
+    """
+    from traffic.task_revalidation import run_scheduled_revalidations
+    session = get_session(engine)
+    try:
+        return run_scheduled_revalidations(
+            horizon=horizon,
+            session=session,
+            app_state=app.state,
+        )
+    finally:
+        session.close()
 
 
 @app.get("/api/tasks/{task_id}/affected-trains")

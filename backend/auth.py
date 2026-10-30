@@ -298,9 +298,19 @@ def require_viewer_or_above(current_user: User = Depends(get_current_user)) -> U
     return current_user
 
 
+def require_technician_or_above(current_user: User = Depends(get_current_user)) -> User:
+    """Requires role TECHNICIAN, DEPT_USER, CONTROLLER, or ADMIN."""
+    if current_user.role not in (UserRole.ADMIN, UserRole.CONTROLLER, UserRole.DEPT_USER, UserRole.TECHNICIAN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Technician, Department user, Controller or Administrator access required",
+        )
+    return current_user
+
+
 def require_dept_or_above(current_user: User = Depends(get_current_user)) -> User:
     """Requires role DEPT_USER, CONTROLLER, or ADMIN."""
-    if current_user.role not in (UserRole.ADMIN, UserRole.CONTROLLER, UserRole.DEPT_USER):
+    if current_user.role not in (UserRole.ADMIN, UserRole.CONTROLLER, UserRole.DEPT_USER, UserRole.TECHNICIAN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Department user, Controller or Administrator access required",
@@ -334,10 +344,10 @@ def can_access_task(user: User, task: Any) -> bool:
     - DEPT_USER: only tasks within their assigned department.
     - CONTROLLER, ADMIN, VIEWER: can view tasks across all departments.
     """
-    if user.role == UserRole.DEPT_USER:
+    if user.role in (UserRole.DEPT_USER, UserRole.TECHNICIAN):
         task_dept = getattr(task, "department", None)
         if hasattr(task_dept, "value"):
             task_dept = task_dept.value
         user_dept = getattr(user.department, "value", user.department) if user.department else None
-        return task_dept == user_dept
+        return str(task_dept).upper() == str(user_dept).upper()
     return True

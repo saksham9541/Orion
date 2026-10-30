@@ -24,6 +24,7 @@ class UserRole(str, Enum):
     ADMIN = "ADMIN"
     CONTROLLER = "CONTROLLER"
     DEPT_USER = "DEPT_USER"
+    TECHNICIAN = "TECHNICIAN"
     VIEWER = "VIEWER"
 
 class Department(str, Enum):
@@ -148,11 +149,15 @@ class TaskStatus(str, Enum):
     WINDOWS_PROPOSED = "WINDOWS_PROPOSED" # Candidate windows computed/ranked
     WINDOW_SELECTED = "WINDOW_SELECTED"   # Department or controller picked a window
     APPROVED = "APPROVED"         # Approved by controller
+    READY = "READY"               # Pre-start checks passed, ready for technician start
     UNVERIFIED = "UNVERIFIED"     # Complaint submitted, waiting for technician verification
     PENDING = "PENDING"           # Verified and awaiting scheduling
     SCHEDULED = "SCHEDULED"       # Assigned to a block
     IN_PROGRESS = "IN_PROGRESS"   # Work underway
+    SUSPENDED = "SUSPENDED"       # Temporarily suspended/paused
+    OVERRUN = "OVERRUN"           # Exceeded planned window duration
     COMPLETED = "COMPLETED"       # Work finished
+    ABORTED = "ABORTED"           # Aborted with reason code, releases block
     DEFERRED = "DEFERRED"         # Postponed to next cycle
     ESCALATED = "ESCALATED"       # Auto-escalated by SLA engine
     CANCELLED = "CANCELLED"       # Cancelled by user/controller
@@ -403,6 +408,17 @@ class MaintenanceTask(BaseModel):
     created_by_department: Optional[str] = None
     created_at: Optional[datetime] = None
 
+    # Phase 3 Execution fields
+    actual_start: Optional[datetime] = None
+    actual_end: Optional[datetime] = None
+    execution_outcome: Optional[str] = None     # "SUCCESS" | "PARTIAL" | "FAILED"
+    execution_notes: Optional[str] = None
+    abort_reason_code: Optional[str] = None    # "TRAIN_APPROACHING" | "SAFETY" | "MATERIAL_MISSING" | "WEATHER" | "CREW_UNAVAILABLE"
+    suspend_reason_code: Optional[str] = None
+    pre_start_check_passed: bool = False
+    pre_start_check_by: Optional[str] = None
+    pre_start_check_at: Optional[datetime] = None
+    overrun_detected_at: Optional[datetime] = None
 
     def model_post_init(self, __context: object) -> None:
         if self.km_end == 0.0:
@@ -439,8 +455,8 @@ class LiveTrainStatus(BaseModel):
     """
     train_number: str
     train_name: str = ""
-    corridor_id: str = ""            # resolved via real_train_registry
-    section_id: str = ""             # best-effort only — not guaranteed accurate
+    corridor_id: Optional[str] = ""   # resolved via real_train_registry
+    section_id: Optional[str] = ""    # best-effort only — not guaranteed accurate
     delay_minutes: float = 0.0
     status: str = "UNKNOWN"          # e.g. RUNNING / DELAYED / TERMINATED
     last_updated: datetime = Field(default_factory=datetime.now)

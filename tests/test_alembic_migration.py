@@ -15,6 +15,8 @@ from backend.database import (
     ApiCacheRecord,
     LiveTrainStatusRecord,
     NotificationRecord,
+    RevalidationResultRecord,
+    TaskTransitionAuditRecord,
     utc_now,
 )
 
@@ -50,6 +52,8 @@ def test_alembic_upgrade_head_on_fresh_sqlite_and_crud(tmp_path, monkeypatch):
         "api_cache",
         "live_train_status",
         "notifications",
+        "revalidation_results",
+        "task_transition_audits",
     }
     for t in expected_tables:
         assert t in tables, f"Expected table '{t}' was not created by alembic migration"
@@ -167,13 +171,40 @@ def test_alembic_upgrade_head_on_fresh_sqlite_and_crud(tmp_path, monkeypatch):
         created_at=now,
     )
 
-    records = [task, plan, corridor, alert, user, login_attempt, usage, cache, train_status, notification]
+    reval = RevalidationResultRecord(
+        id="rev-alembic-1",
+        task_id="TSK-ALEMBIC-1",
+        window_id="WIN-1",
+        block_section_id="BLK-1",
+        checked_at=now,
+        horizon="T-1h",
+        is_valid=True,
+        status="CLEAN",
+        confidence="HIGH",
+        stale_status=False,
+        status_age_hours=0.5,
+        has_conflict=False,
+    )
+    audit = TaskTransitionAuditRecord(
+        id="aud-alembic-1",
+        task_id="TSK-ALEMBIC-1",
+        from_status="APPROVED",
+        to_status="READY",
+        changed_by_user_id="usr_alembic_1",
+        changed_by_role="TECHNICIAN",
+        changed_by_department="ENGINEERING",
+        timestamp=now,
+    )
+
+    records = [task, plan, corridor, alert, user, login_attempt, usage, cache, train_status, notification, reval, audit]
     for r in records:
         session.add(r)
     session.commit()
 
     # Verify query for each row
     assert session.query(TaskRecord).filter_by(task_id="TSK-ALEMBIC-1").first() is not None
+    assert session.query(RevalidationResultRecord).filter_by(id="rev-alembic-1").first().confidence == "HIGH"
+    assert session.query(TaskTransitionAuditRecord).filter_by(id="aud-alembic-1").first().to_status == "READY" 
     assert session.query(BlockPlanRecord).filter_by(plan_id="PLN-ALEMBIC-1").first().source == "user"
     assert session.query(CorridorRecord).filter_by(corridor_id="COR-ALEMBIC-1").first().source == "synthetic"
     assert session.query(AlertRecord).filter_by(warning_id="ALT-ALEMBIC-1").first() is not None
