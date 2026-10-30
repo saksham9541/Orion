@@ -36,6 +36,7 @@ class PilotSectionConfig:
     density_class: str
     has_alternate_route: bool
     alternate_route_penalty_minutes: float
+    corridor_id: str = ""
     stations: List[StationStopConfig] = field(default_factory=list)
 
     @property
@@ -51,6 +52,7 @@ PILOT_SECTIONS: Dict[str, PilotSectionConfig] = {
     "SEC-93135bb9": PilotSectionConfig(
         section_id="SEC-93135bb9",
         name="New Delhi–Ghaziabad",
+        corridor_id="COR-82d9c510",
         corridor_name="Delhi–Howrah Main",
         from_code="NDLS",
         to_code="GZB",
@@ -71,6 +73,7 @@ PILOT_SECTIONS: Dict[str, PilotSectionConfig] = {
     "SEC-d4d8b85c": PilotSectionConfig(
         section_id="SEC-d4d8b85c",
         name="New Delhi–Mathura Jn",
+        corridor_id="COR-7f657483",
         corridor_name="Delhi–Mumbai Rajdhani Route",
         from_code="NDLS",
         to_code="MTJ",

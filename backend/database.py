@@ -154,6 +154,19 @@ class LiveTrainStatusRecord(Base):
     source = Column(String)
 
 
+class LiveDelaySnapshotRecord(Base):
+    __tablename__ = 'live_delay_snapshots'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    train_number = Column(String, index=True, nullable=False)
+    train_name = Column(String, nullable=True)
+    corridor_id = Column(String, nullable=True)
+    section_id = Column(String, nullable=True)
+    delay_minutes = Column(Float, default=0.0)
+    status = Column(String, default="RUNNING")
+    snapshot_timestamp = Column(DateTime, default=utc_now, nullable=False, index=True)
+    source = Column(String, default="LIVE_SYNC")
+
+
 class ApiUsageRecord(Base):
     __tablename__ = 'api_usage'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -467,6 +480,19 @@ def load_live_status(session: Session) -> list[LiveTrainStatus]:
         except Exception as e:
             logger.warning("Failed to reconstruct live status %s: %s", d.get("train_number", "?"), e)
     return result
+
+
+def save_delay_snapshots(session: Session, snapshots: list[dict]):
+    """Persist historical live delay snapshots for honest ML training."""
+    for s in snapshots:
+        record = LiveDelaySnapshotRecord(**s)
+        session.add(record)
+    session.commit()
+
+
+def load_delay_snapshots(session: Session, min_records: int = 100) -> list[LiveDelaySnapshotRecord]:
+    """Retrieve historical delay snapshots from database."""
+    return session.query(LiveDelaySnapshotRecord).all()
 
 
 def record_api_usage(

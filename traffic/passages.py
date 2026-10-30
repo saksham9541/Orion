@@ -157,7 +157,10 @@ def build_passage_from_timetable(
         idx_to = codes.index(to_code)
         direction = "DN" if idx_to > 0 else "UP"
 
-    # Identify preceding halt and succeeding halt around the pilot section
+    # Identify preceding halt and succeeding halt around the pilot section based on direction
+    enter_code = from_code if direction == "DN" else to_code
+    exit_code = to_code if direction == "DN" else from_code
+
     enter_stop = None
     exit_stop = None
     interpolated_enter = True
@@ -166,20 +169,30 @@ def build_passage_from_timetable(
     # Check for direct halts
     for s in route_stops:
         sc = s.get("station_code")
-        if sc == from_code:
+        if sc == enter_code:
             enter_stop = s
             interpolated_enter = False
-        elif sc == to_code:
+        elif sc == exit_code:
             exit_stop = s
             interpolated_exit = False
 
-    # If train halts at both terminals
+    # Physical section transit time based on track length and max speed
+    transit_mins = max(10.0, (sec_cfg.distance_km / sec_cfg.max_speed_kmh) * 60.0 * 1.15)
+
     if enter_stop and exit_stop:
         dep_str = enter_stop.get("departure") or enter_stop.get("arrival")
         arr_str = exit_stop.get("arrival") or exit_stop.get("departure")
         t_enter = parse_time_str(dep_str)
         t_exit = parse_time_str(arr_str)
         if t_enter and t_exit:
+            min_enter = _time_to_minutes(t_enter)
+            min_exit = _time_to_minutes(t_exit)
+            if min_exit < min_enter:
+                min_exit += 1440.0
+            # Sanity check: transit through pilot section should not exceed 2.5x normal transit
+            if (min_exit - min_enter) > transit_mins * 3.0:
+                min_exit = min_enter + transit_mins
+                t_exit = _minutes_to_time(int(min_exit) % 1440)
             return TrainPassage(
                 train_no=train_no,
                 train_name=train_name,
@@ -189,8 +202,44 @@ def build_passage_from_timetable(
                 running_days=running_days,
                 enter_time=t_enter,
                 exit_time=t_exit,
-                interpolated=(interpolated_enter or interpolated_exit),
+                interpolated=False,
             )
+
+    if enter_stop and not exit_stop:
+        dep_str = enter_stop.get("departure") or enter_stop.get("arrival")
+        t_enter = parse_time_str(dep_str) or time(0, 0)
+        min_enter = _time_to_minutes(t_enter)
+        min_exit = (min_enter + transit_mins) % 1440
+        t_exit = _minutes_to_time(int(min_exit))
+        return TrainPassage(
+            train_no=train_no,
+            train_name=train_name,
+            train_type=train_type,
+            section_id=sec_cfg.section_id,
+            direction=direction,
+            running_days=running_days,
+            enter_time=t_enter,
+            exit_time=t_exit,
+            interpolated=True,
+        )
+
+    if exit_stop and not enter_stop:
+        arr_str = exit_stop.get("arrival") or exit_stop.get("departure")
+        t_exit = parse_time_str(arr_str) or time(1, 0)
+        min_exit = _time_to_minutes(t_exit)
+        min_enter = (min_exit - transit_mins) % 1440
+        t_enter = _minutes_to_time(int(min_enter))
+        return TrainPassage(
+            train_no=train_no,
+            train_name=train_name,
+            train_type=train_type,
+            section_id=sec_cfg.section_id,
+            direction=direction,
+            running_days=running_days,
+            enter_time=t_enter,
+            exit_time=t_exit,
+            interpolated=True,
+        )
 
     # Otherwise, interpolate across bounding halts A and B
     # Find two halts bounding the section

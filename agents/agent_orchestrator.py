@@ -111,6 +111,28 @@ class AgentOrchestrator:
 
         for ag in agreements:
             sec_name = sections.get(ag.section_id).name if ag.section_id in sections else ag.section_id
+            from traffic.section_map import is_pilot_section, get_pilot_section_config
+            from traffic.fill import get_all_passages_for_section
+            from traffic.delay_model import calculate_block_delays
+            from traffic.cascade import propagate_cascade
+
+            if is_pilot_section(ag.section_id):
+                sec_cfg = get_pilot_section_config(ag.section_id)
+                passages, _ = get_all_passages_for_section(sec_cfg, ag.target_date)
+                prim = calculate_block_delays(sec_cfg, ag.target_date, ag.start_time, ag.end_time, passages)
+                cas = propagate_cascade(prim, passages)
+                t_aff = cas.trains_hit
+                cum_delay = cas.cascade_total_delay
+            else:
+                sec_obj = sections.get(ag.section_id)
+                density_factor = 1.0
+                if sec_obj and hasattr(sec_obj, "traffic_density_class"):
+                    density_factor = {"A_SPECIAL": 2.2, "A": 1.8, "B": 1.2, "C": 0.6, "D": 0.3}.get(
+                        str(getattr(sec_obj.traffic_density_class, "value", sec_obj.traffic_density_class)), 1.0
+                    )
+                t_aff = max(0, int(ag.duration_hours * 1.1 * density_factor))
+                cum_delay = round(t_aff * 12.5, 1)
+
             blk = ScheduledBlock(
                 block_id=f"BLK-{uuid.uuid4().hex[:8].upper()}",
                 window_id=ag.window_id or f"WIN-{uuid.uuid4().hex[:6].upper()}",
@@ -124,8 +146,8 @@ class AgentOrchestrator:
                 task_ids=ag.task_ids,
                 departments=ag.participating_departments,
                 block_type=ag.block_type,
-                trains_affected=max(0, int(ag.duration_hours * 1.5)),
-                cumulative_delay_minutes=ag.duration_hours * 15.0,
+                trains_affected=t_aff,
+                cumulative_delay_minutes=cum_delay,
                 is_merged=ag.is_merged,
                 merge_savings_hours=ag.merge_savings_hours,
                 justification=ag.rationale,

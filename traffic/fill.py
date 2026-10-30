@@ -69,8 +69,10 @@ def generate_filler_passages(
             TrainType.PASSENGER, TrainType.SUBURBAN, TrainType.MAIL_EXPRESS, TrainType.SUPERFAST
         ])
 
-        # Pick random departure hour/minute
-        hour = rng.randint(0, 23)
+        # Schedule filler trains during operational hours (05:00-23:59 and 00:00-01:00),
+        # preserving the standard Indian Railways corridor maintenance window (01:00-04:30).
+        operational_hours = [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+        hour = rng.choice(operational_hours)
         minute = rng.randint(0, 59)
         t_enter = time(hour, minute)
 

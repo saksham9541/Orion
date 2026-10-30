@@ -12,6 +12,8 @@ from contextlib import asynccontextmanager
 import logging
 import os
 from datetime import date, datetime, timedelta
+import json
+from pathlib import Path
 from typing import List, Optional
 import zoneinfo
 
@@ -716,10 +718,20 @@ def root():
 
 @app.get("/api/health")
 def health_check():
+    meta_path = Path("ml/models/impact_predictor_meta.json")
+    training_source = "transparent_delay_calculator"
+    if meta_path.exists():
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+                training_source = meta.get("training_data_source", training_source)
+        except Exception:
+            pass
     return {
         "status": "ok",
         "models_loaded": bool(getattr(app.state, "models_loaded", False)),
         "database_ok": bool(getattr(app.state, "database_ok", True)),
+        "impact_model_training_source": training_source,
     }
 
 

@@ -519,60 +519,111 @@ def generate_full_dataset(
             train_slots.append(slot)
 
     # ── 4. Generate block windows ────────────────────────────────────
-    # DEMO DATA FIX: window_days now defaults to 30 (was hardcoded 7), so
-    # MONTHLY plan requests actually have more windows to draw from than
-    # WEEKLY ones. See the window_days parameter doc above.
+    # For pilot sections, generate realistic BlockWindows derived from RailRadar timetable passages.
+    # Non-pilot sections maintain synthetic windows labeled source="synthetic".
     block_windows: list[BlockWindow] = []
 
+    from traffic.section_map import is_pilot_section, get_pilot_section_config
+    from traffic.fill import get_all_passages_for_section
+    from traffic.window_finder import find_free_windows
+    from traffic.delay_model import calculate_block_delays
+    from traffic.cascade import propagate_cascade
+
     for section in sections:
-        for day_offset in range(window_days):
-            window_date = today + timedelta(days=day_offset)
-            is_weekend = window_date.weekday() >= 5
+        if is_pilot_section(section.section_id):
+            sec_cfg = get_pilot_section_config(section.section_id)
+            for day_offset in range(window_days):
+                window_date = today + timedelta(days=day_offset)
+                passages, _ = get_all_passages_for_section(sec_cfg, window_date)
+                derived_windows = find_free_windows(sec_cfg, window_date, passages=passages)
 
-            # Night window (standard: 00:00-04:30 or 00:00-05:00)
-            if section.traffic_density_class in (TrafficDensityClass.A_SPECIAL, TrafficDensityClass.A):
-                # Short night window on busy sections
-                end_hour = 4 if not is_weekend else 5
-            else:
-                # Longer window on less busy sections
-                end_hour = 5 if not is_weekend else 6
+                if not derived_windows:
+                    # Robust fallback if no wide gap found: create conservative night window
+                    derived_windows = [
+                        BlockWindow(
+                            corridor_id=section.corridor_id,
+                            section_id=section.section_id,
+                            date=window_date,
+                            start_time=time(1, 30),
+                            end_time=time(4, 0),
+                            block_type=BlockType.TRAFFIC_BLOCK,
+                            max_tasks=4,
+                            source="timetable_derived",
+                            delay_source="computed",
+                        )
+                    ]
 
-            night_window = BlockWindow(
-                corridor_id=section.corridor_id,
-                section_id=section.section_id,
-                date=window_date,
-                start_time=time(0, 30),
-                end_time=time(end_hour, 0),
-                block_type=BlockType.TRAFFIC_BLOCK,
-                max_tasks=4 if section.traffic_density_class == TrafficDensityClass.A_SPECIAL else 6,
-            )
-            block_windows.append(night_window)
+                for win in derived_windows:
+                    win.corridor_id = section.corridor_id
+                    # Evaluate transparent delay & cascade on this derived window
+                    primary_delays = calculate_block_delays(
+                        sec_cfg, window_date, win.start_time, win.end_time, passages, block_id=win.window_id
+                    )
+                    cas = propagate_cascade(primary_delays, passages)
 
-            # Daytime window on low-traffic sections
-            if section.traffic_density_class in (TrafficDensityClass.C, TrafficDensityClass.D):
-                day_window = BlockWindow(
+                    win.ml_trains_affected = cas.trains_hit
+                    win.ml_cumulative_delay_minutes = cas.cascade_total_delay
+                    win.ml_traffic_impact_score = round(
+                        min(100.0, cas.cascade_total_delay * 0.4 + cas.trains_hit * 4.0), 1
+                    )
+                    win.source = "timetable_derived"
+                    win.delay_source = "computed"
+                    block_windows.append(win)
+        else:
+            for day_offset in range(window_days):
+                window_date = today + timedelta(days=day_offset)
+                is_weekend = window_date.weekday() >= 5
+
+                # Night window (standard: 00:00-04:30 or 00:00-05:00)
+                if section.traffic_density_class in (TrafficDensityClass.A_SPECIAL, TrafficDensityClass.A):
+                    # Short night window on busy sections
+                    end_hour = 4 if not is_weekend else 5
+                else:
+                    # Longer window on less busy sections
+                    end_hour = 5 if not is_weekend else 6
+
+                night_window = BlockWindow(
                     corridor_id=section.corridor_id,
                     section_id=section.section_id,
                     date=window_date,
-                    start_time=time(10, 0),
-                    end_time=time(13, 0),
+                    start_time=time(0, 30),
+                    end_time=time(end_hour, 0),
                     block_type=BlockType.TRAFFIC_BLOCK,
-                    max_tasks=5,
+                    max_tasks=4 if section.traffic_density_class == TrafficDensityClass.A_SPECIAL else 6,
+                    source="synthetic",
+                    delay_source="ml_estimate",
                 )
-                block_windows.append(day_window)
+                block_windows.append(night_window)
 
-            # Weekend extra window on medium sections
-            if is_weekend and section.traffic_density_class == TrafficDensityClass.B:
-                weekend_extra = BlockWindow(
-                    corridor_id=section.corridor_id,
-                    section_id=section.section_id,
-                    date=window_date,
-                    start_time=time(9, 0),
-                    end_time=time(12, 0),
-                    block_type=BlockType.TRAFFIC_BLOCK,
-                    max_tasks=5,
-                )
-                block_windows.append(weekend_extra)
+                # Daytime window on low-traffic sections
+                if section.traffic_density_class in (TrafficDensityClass.C, TrafficDensityClass.D):
+                    day_window = BlockWindow(
+                        corridor_id=section.corridor_id,
+                        section_id=section.section_id,
+                        date=window_date,
+                        start_time=time(10, 0),
+                        end_time=time(13, 0),
+                        block_type=BlockType.TRAFFIC_BLOCK,
+                        max_tasks=5,
+                        source="synthetic",
+                        delay_source="ml_estimate",
+                    )
+                    block_windows.append(day_window)
+
+                # Weekend extra window on medium sections
+                if is_weekend and section.traffic_density_class == TrafficDensityClass.B:
+                    weekend_extra = BlockWindow(
+                        corridor_id=section.corridor_id,
+                        section_id=section.section_id,
+                        date=window_date,
+                        start_time=time(9, 0),
+                        end_time=time(12, 0),
+                        block_type=BlockType.TRAFFIC_BLOCK,
+                        max_tasks=5,
+                        source="synthetic",
+                        delay_source="ml_estimate",
+                    )
+                    block_windows.append(weekend_extra)
 
     return {
         "corridors": corridors,

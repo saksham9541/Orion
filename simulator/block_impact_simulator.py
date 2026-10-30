@@ -1,15 +1,15 @@
 """
 RailOpt — Block Impact Simulator.
 
-Evaluates how proposed maintenance blocks affect train operations
-by checking time-overlap between blocks and train slots, with
-delay estimates scaled by train type and block duration.
+Evaluates how proposed maintenance blocks affect train operations.
+Uses real/derived train passages, hold/reroute rules, and headway cascade propagation
+for pilot sections with calendar dates.
+Falls back to train slot time-of-day lookup table for non-pilot sections (clearly flagged).
 """
-
 from __future__ import annotations
 
-from datetime import datetime, time, date as date_cls
-from typing import Any, Dict, List
+from datetime import date as date_cls, datetime, time, timedelta
+from typing import Any, Dict, List, Optional
 
 from railopt.models import (
     BlockPlan,
@@ -20,9 +20,13 @@ from railopt.models import (
     TrainType,
 )
 from railopt.sim_entities import Resource, ResourceType
+from traffic.cascade import propagate_cascade
+from traffic.delay_model import calculate_block_delays
+from traffic.fill import get_all_passages_for_section
+from traffic.section_map import get_pilot_section_config, is_pilot_section
 
 
-# Delay lookup by train type (minutes) — base delay for a 3h block
+# Delay lookup by train type (minutes) — base fallback delay for a 3h block
 _DELAY_BY_TRAIN_TYPE: dict[TrainType, float] = {
     TrainType.RAJDHANI: 25.0,
     TrainType.SHATABDI: 20.0,
@@ -84,25 +88,91 @@ class BlockImpactSimulator:
         report = SimulationReport(plan_id=plan.plan_id)
         total_delay = 0.0
         affected = 0
+        max_delay = 0.0
+        corridor_delay_map: dict[str, float] = {}
 
         for block in plan.scheduled_blocks:
             res = self.simulate_single_block(block)
-            affected += res["trains_affected"]
-            total_delay += res["delay_minutes"]
+            block_affected = res["trains_affected"]
+            block_delay = res["delay_minutes"]
 
-        report.total_trains_simulated = len(self.train_slots)
+            affected += block_affected
+            total_delay += block_delay
+            max_delay = max(max_delay, block_delay)
+
+            c_id = block.corridor_id or "UNKNOWN"
+            corridor_delay_map[c_id] = corridor_delay_map.get(c_id, 0.0) + block_delay
+
+        simulated_train_count = max(len(self.train_slots), affected)
+        report.total_trains_simulated = simulated_train_count
         report.trains_affected = affected
-        report.cumulative_delay_minutes = total_delay
-        report.average_delay_minutes = total_delay / affected if affected > 0 else 0.0
+        report.trains_delayed = affected
+        report.cumulative_delay_minutes = round(total_delay, 1)
+        report.average_delay_minutes = (
+            round(total_delay / affected, 1) if affected > 0 else 0.0
+        )
+        report.max_delay_minutes = round(max_delay, 1)
+
+        # Estimate punctuality impact (trains delayed >= 15 min are considered unpunctual)
+        if simulated_train_count > 0:
+            unpunctual_pct = min(100.0, (affected / simulated_train_count) * 100.0 * 0.7)
+            report.punctuality_after_pct = round(max(0.0, 100.0 - unpunctual_pct), 1)
+
+        # Most affected corridors
+        sorted_corridors = sorted(
+            corridor_delay_map.items(), key=lambda kv: kv[1], reverse=True
+        )
+        report.corridors_most_affected = [c[0] for c in sorted_corridors[:3] if c[1] > 0]
+
+        if total_delay > 120.0:
+            report.recommendations.append(
+                "High cumulative delay detected. Consider shifting peak day blocks into night maintenance windows."
+            )
+        if any(b.trains_affected > 5 for b in plan.scheduled_blocks):
+            report.recommendations.append(
+                "Several blocks conflict with high-density train clusters. Utilize alternate detour routes where available."
+            )
+
         return report
 
     def simulate_single_block(self, block: ScheduledBlock) -> dict[str, Any]:
-        """Simulate a single block's impact on train slots.
-
-        Only counts trains whose time range actually overlaps the block's
-        time range on the same section. Delay is scaled by train type
-        and block duration.
         """
+        Simulate a single block's impact on train operations.
+        Uses real timetable passages, hold & reroute rules, and cascade propagation for pilot sections.
+        Falls back to fixed delay table when no passages exist.
+        """
+        # 1. Pilot section evaluation with date-aware passages and cascade
+        if is_pilot_section(block.section_id):
+            sec_cfg = get_pilot_section_config(block.section_id)
+            if sec_cfg:
+                target_d = block.date or date_cls.today()
+                passages, _ = get_all_passages_for_section(sec_cfg, target_d)
+
+                primary_res = calculate_block_delays(
+                    sec_cfg,
+                    target_d,
+                    block.start_time,
+                    block.end_time,
+                    passages,
+                    block_id=block.block_id,
+                )
+                cas_res = propagate_cascade(primary_res, passages)
+
+                return {
+                    "block_id": block.block_id,
+                    "trains_affected": cas_res.trains_hit,
+                    "delay_minutes": round(cas_res.cascade_total_delay, 1),
+                    "primary_delay_minutes": primary_res.total_delay_minutes,
+                    "cascade_delay_minutes": round(
+                        cas_res.cascade_total_delay - primary_res.total_delay_minutes, 1
+                    ),
+                    "rerouted_trains": primary_res.rerouted_trains,
+                    "held_trains": primary_res.held_trains,
+                    "max_cascade_depth": cas_res.max_depth,
+                    "source": "passages_cascade",
+                }
+
+        # 2. Flagged fallback for non-pilot or unconfigured sections
         affected = 0
         delay = 0.0
 
@@ -124,6 +194,7 @@ class BlockImpactSimulator:
             "block_id": block.block_id,
             "trains_affected": affected,
             "delay_minutes": round(delay, 1),
+            "source": "fallback_lookup",
         }
 
     def compare_plans(
@@ -142,7 +213,3 @@ class BlockImpactSimulator:
                 else "Plan B is better"
             ),
         }
-
-
-if __name__ == "__main__":
-    print("BlockImpactSimulator loaded.")
