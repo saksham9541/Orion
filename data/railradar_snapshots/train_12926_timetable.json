@@ -4,60 +4,63 @@
   "snapshot_timestamp": "2026-10-30T10:50:00Z",
   "illustrative": true,
   "data": {
-    "train": {
-      "number": "12926",
-      "name": "Paschim Express",
-      "type": "SUPERFAST"
-    },
-    "running_days": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6
-    ],
+    "train_number": "12926",
+    "train_name": "Paschim Express",
+    "train_type": "SUPERFAST",
     "route": [
       {
         "station_code": "NDLS",
         "station_name": "New Delhi",
-        "arrival": "16:20",
+        "arrival": "16:35",
         "departure": "16:35",
         "distance": 0.0,
         "day": 1
       },
       {
-        "station_code": "FDB",
-        "station_name": "Faridabad",
-        "arrival": "17:01",
-        "departure": "17:03",
-        "distance": 28.5,
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "16:38",
+        "departure": "16:39",
+        "distance": 1.5,
         "day": 1
       },
       {
-        "station_code": "MTJ",
-        "station_name": "Mathura Junction",
-        "arrival": "19:08",
-        "departure": "19:10",
-        "distance": 141.0,
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "16:43",
+        "departure": "16:44",
+        "distance": 2.7,
         "day": 1
       },
       {
-        "station_code": "KOTA",
-        "station_name": "Kota Junction",
-        "arrival": "00:10",
-        "departure": "00:20",
-        "distance": 465.0,
-        "day": 2
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "16:53",
+        "departure": "16:55",
+        "distance": 12.5,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "16:00",
+        "departure": "16:01",
+        "distance": 15.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "17:05",
+        "departure": "17:05",
+        "distance": 19.0,
+        "day": 1
       }
     ]
   },
   "meta": {
     "source": "snapshot",
     "provenance": "hand_written",
-    "snapshot_timestamp": "2026-10-30T10:50:00Z",
-    "illustrative": true,
-    "note": "Illustrative, not fetched \u2014 calibrated from Indian Railways published timetables"
+    "illustrative": true
   }
 }

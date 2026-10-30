@@ -47,11 +47,12 @@ PILOT_CORRIDOR_GEOMETRY_TRAINS = {
 
 # High-priority default fallback seed trains per pilot section (including 1 all-stops EMU/passenger train)
 DEFAULT_PILOT_TRAINS: Dict[str, List[str]] = {
-    "SEC-93135bb9": [  # NDLS - GZB
-        "64424",  # All-stops EMU (NDLS-CSB-TKJ-ANVR-SBB-GZB)
-        "12302", "12301", "12313", "12004", "12003",
-        "12424", "12423", "12560", "12559", "14037",
-        "12274", "12444", "12878", "12368", "15484"
+    "SEC-93135bb9": [  # NDLS - GZB: 40 pilot corridor trains across 24h
+        "12004", "12002", "64424", "12432", "12034", "64421", "12443", "12033",
+        "22436", "12301", "12877", "14038", "15483", "64414", "BOXN_FREIGHT_01",
+        "12367", "12273", "64413", "14205", "12401", "12424", "12313", "12926",
+        "12302", "12952", "12954", "20818", "12368", "22435", "14206", "12560",
+        "12444", "12581", "22692", "12878", "12001", "12003", "12274", "14037", "15484"
     ],
     "SEC-d4d8b85c": [  # NDLS - MTJ
         "64904",  # All-stops Mathura-New Delhi EMU

@@ -4,43 +4,56 @@
   "snapshot_timestamp": "2026-10-30T10:50:00Z",
   "illustrative": true,
   "data": {
-    "train": {
-      "number": "12001",
-      "name": "Bhopal Shatabdi (Up)",
-      "type": "SHATABDI"
-    },
-    "running_days": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6
-    ],
+    "train_number": "12001",
+    "train_name": "Bhopal Shatabdi (Up)",
+    "train_type": "SHATABDI",
     "route": [
       {
-        "station_code": "AGC",
-        "station_name": "Agra Cantt",
-        "arrival": "20:30",
-        "departure": "20:35",
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "21:20",
+        "departure": "21:20",
         "distance": 0.0,
         "day": 1
       },
       {
-        "station_code": "MTJ",
-        "station_name": "Mathura Junction",
-        "arrival": "21:20",
-        "departure": "21:25",
-        "distance": 54.0,
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "21:25",
+        "departure": "21:26",
+        "distance": 4.0,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "21:32",
+        "departure": "21:34",
+        "distance": 6.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "21:42",
+        "departure": "21:43",
+        "distance": 16.3,
+        "day": 1
+      },
+      {
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "21:47",
+        "departure": "21:48",
+        "distance": 17.5,
         "day": 1
       },
       {
         "station_code": "NDLS",
         "station_name": "New Delhi",
-        "arrival": "23:50",
-        "departure": "23:50",
-        "distance": 195.0,
+        "arrival": "21:55",
+        "departure": "21:55",
+        "distance": 19.0,
         "day": 1
       }
     ]
@@ -48,8 +61,6 @@
   "meta": {
     "source": "snapshot",
     "provenance": "hand_written",
-    "snapshot_timestamp": "2026-10-30T10:50:00Z",
-    "illustrative": true,
-    "note": "Illustrative, not fetched \u2014 calibrated from Indian Railways published timetables"
+    "illustrative": true
   }
 }

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { Bell, Check, CheckCheck, AlertTriangle, AlertCircle, ExternalLink } from 'lucide-react'
+import { Bell, Check, CheckCheck, AlertTriangle, AlertCircle, ExternalLink, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '@/state/NotificationContext'
 import { useAppState } from '@/state/AppState'
+import { useLiveSync } from '@/state/LiveSyncStore'
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
@@ -10,6 +11,7 @@ export default function NotificationBell() {
   const navigate = useNavigate()
   const { currentUser } = useAppState()
   const { notifications, unreadCount, markAsRead, acknowledge, isConnected } = useNotifications()
+  const { acknowledge: liveAcknowledge, decline: liveDecline } = useLiveSync()
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -36,6 +38,34 @@ export default function NotificationBell() {
       navigate(issueId ? `/admin?issue=${issueId}` : '/admin')
     } else {
       navigate(issueId ? `/tasks?search=${issueId}` : '/tasks')
+    }
+  }
+
+  const handleAcknowledge = async (e, notif) => {
+    e.stopPropagation()
+    const targetTaskId = notif.issue_id || notif.task_id
+    if (targetTaskId) {
+      const res = await liveAcknowledge(targetTaskId)
+      if (!res.success) {
+        alert(res.error || 'Acknowledgement rejected')
+      }
+    } else {
+      acknowledge(notif.id)
+    }
+  }
+
+  const handleDecline = async (e, notif) => {
+    e.stopPropagation()
+    const targetTaskId = notif.issue_id || notif.task_id
+    if (!targetTaskId) return
+    const reason = window.prompt(
+      'Enter decline reason for this defect report:',
+      'Invalid or duplicate defect report'
+    )
+    if (!reason || !reason.trim()) return
+    const res = await liveDecline(targetTaskId, reason.trim())
+    if (!res.success) {
+      alert(res.error || 'Decline rejected')
     }
   }
 
@@ -149,17 +179,28 @@ export default function NotificationBell() {
                         </span>
 
                         {!notif.acknowledged_at && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              acknowledge(notif.id)
-                            }}
-                            className="rounded bg-surface px-2 py-0.5 text-[11px] font-medium border border-line text-muted hover:text-ink hover:border-line-hover flex items-center gap-1 transition-colors"
-                          >
-                            <Check size={12} />
-                            Ack
-                          </button>
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => handleAcknowledge(e, notif)}
+                              className="rounded bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1 transition-colors shadow-sm"
+                              title="Acknowledge defect report"
+                            >
+                              <Check size={12} />
+                              Ack
+                            </button>
+                            {(notif.issue_id || notif.task_id) && (
+                              <button
+                                type="button"
+                                onClick={(e) => handleDecline(e, notif)}
+                                className="rounded bg-surface px-2 py-0.5 text-[11px] font-medium border border-line text-muted hover:text-red-600 hover:border-red-300 flex items-center gap-0.5 transition-colors"
+                                title="Decline defect report"
+                              >
+                                <X size={12} />
+                                Decline
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

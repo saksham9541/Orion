@@ -78,8 +78,14 @@ class RailRadarClient:
         db_engine: Any = None,
     ):
         if keys is None:
-            raw_keys = os.environ.get("RAILRADAR_API_KEYS", "")
-            self.keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
+            raw_keys = os.environ.get("RAILRADAR_API_KEYS") or os.environ.get("RAILRADAR_API_KEY", "")
+            collected_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
+            if not collected_keys:
+                for idx in range(1, 10):
+                    k_env = os.environ.get(f"RAILRADAR_API_KEY_{idx}")
+                    if k_env and k_env.strip():
+                        collected_keys.append(k_env.strip())
+            self.keys = collected_keys
         else:
             self.keys = [k.strip() for k in keys if k.strip()]
 

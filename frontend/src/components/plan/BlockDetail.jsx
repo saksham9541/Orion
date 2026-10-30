@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Check, Minus, PencilLine, Users } from 'lucide-react'
 import { useRetainedValue } from '@/hooks/useRetainedValue'
 import Drawer from '@/components/common/Drawer'
@@ -16,7 +17,8 @@ const toneStyles = {
   neutral: 'border-line bg-raised/60 text-muted',
 }
 
-export default function BlockDetail({ block, onClose, onApprove }) {
+export default function BlockDetail({ block, onClose, onApprove, onAdjust }) {
+  const [adjustNotice, setAdjustNotice] = useState(false)
   // Kept so the panel can finish sliding out after the selection clears.
   const shown = useRetainedValue(block)
   if (!shown) return null
@@ -238,11 +240,29 @@ export default function BlockDetail({ block, onClose, onApprove }) {
           <Check size={15} />
           {shown.status === 'approved' ? 'Approved' : 'Approve block'}
         </Button>
-        <Button variant="ghost">
+        <Button
+          variant="ghost"
+          onClick={() => {
+            if (onAdjust) {
+              onAdjust(shown)
+            } else {
+              setAdjustNotice((prev) => !prev)
+            }
+          }}
+        >
           <PencilLine size={15} />
           Adjust window
         </Button>
       </div>
+
+      {adjustNotice && (
+        <div className="mt-4 rounded-lg border border-info/30 bg-info/10 p-3 text-[12.5px] text-info">
+          <p className="font-semibold">Corridor Timetable Slot Locked</p>
+          <p className="mt-1 text-muted leading-relaxed">
+            Possession window on {shown.section} ({DAYS[shown.day]} {clock(shown.start)}–{clock(shown.end)}) is bounded by section timetable slots. Custom schedule shifts can be simulated under Scenario Simulator.
+          </p>
+        </div>
+      )}
     </Drawer>
   )
 }

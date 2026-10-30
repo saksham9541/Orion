@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "provenance": "hand_written",
+  "snapshot_timestamp": "2026-10-30T10:50:00Z",
+  "illustrative": true,
+  "data": {
+    "train_number": "12581",
+    "train_name": "New Delhi-Banaras SF",
+    "train_type": "SUPERFAST",
+    "route": [
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "20:40",
+        "departure": "20:40",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "20:43",
+        "departure": "20:44",
+        "distance": 1.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "20:48",
+        "departure": "20:49",
+        "distance": 2.7,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "20:58",
+        "departure": "20:00",
+        "distance": 12.5,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "20:05",
+        "departure": "20:06",
+        "distance": 15.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "21:10",
+        "departure": "21:10",
+        "distance": 19.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot",
+    "provenance": "hand_written",
+    "illustrative": true
+  }
+}

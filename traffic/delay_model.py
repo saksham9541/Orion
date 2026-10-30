@@ -79,6 +79,10 @@ def compute_live_decay(
     """
     now_dt = now or datetime.now()
     passage_dt = datetime.combine(target_date, enter_t)
+    if now_dt.tzinfo is not None and passage_dt.tzinfo is None:
+        passage_dt = passage_dt.replace(tzinfo=now_dt.tzinfo)
+    elif now_dt.tzinfo is None and passage_dt.tzinfo is not None:
+        now_dt = now_dt.replace(tzinfo=passage_dt.tzinfo)
 
     # If passage date crosses midnight
     delta_hours = (passage_dt - now_dt).total_seconds() / 3600.0
@@ -89,6 +93,26 @@ def compute_live_decay(
         return 0.0  # Too far in the future for current live snapshot to remain valid
 
     return max(0.0, 1.0 - (delta_hours / horizon_hours))
+
+
+def compute_train_hold_delay(
+    block_end_minutes: int,
+    enter_minutes: int,
+    clearance_margin_minutes: float = 0.0,
+    queue_index: int = 0,
+    headway_buffer_minutes: float = 0.0,
+    has_alternate_route: bool = False,
+    alternate_route_penalty_minutes: float = float("inf"),
+) -> float:
+    """
+    Canonical single-train hold delay formula used across candidate window ranking
+    and emergency impact calculation.
+    """
+    dispatch_min = block_end_minutes + clearance_margin_minutes + (queue_index * headway_buffer_minutes)
+    hold = max(0.0, dispatch_min - enter_minutes)
+    if has_alternate_route:
+        hold = min(hold, alternate_route_penalty_minutes)
+    return hold
 
 
 def calculate_block_delays(
@@ -166,8 +190,15 @@ def calculate_block_delays(
     for idx, (p, eff_s, eff_e, live_delay) in enumerate(conflicting):
         transit_duration = eff_e - eff_s
         # Hold rule: Train waits until the block ends, plus headway spacing for queued trains
-        hold_entry_min = current_dispatch_min + (idx * cfg.headway_buffer_minutes)
-        hold_delay = max(0.0, hold_entry_min - eff_s)
+        hold_delay = compute_train_hold_delay(
+            block_end_minutes=current_dispatch_min,
+            enter_minutes=eff_s,
+            clearance_margin_minutes=0.0,
+            queue_index=idx,
+            headway_buffer_minutes=cfg.headway_buffer_minutes,
+            has_alternate_route=False,
+        )
+        hold_entry_min = eff_s + int(hold_delay)
 
         # Check if alternate route is available and more optimal than holding
         if sec_cfg.has_alternate_route and hold_delay > reroute_penalty:

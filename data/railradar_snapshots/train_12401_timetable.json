@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "provenance": "hand_written",
+  "snapshot_timestamp": "2026-10-30T10:50:00Z",
+  "illustrative": true,
+  "data": {
+    "train_number": "12401",
+    "train_name": "Magadh Express (Up)",
+    "train_type": "SUPERFAST",
+    "route": [
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "14:50",
+        "departure": "14:50",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "14:55",
+        "departure": "14:56",
+        "distance": 4.0,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "14:02",
+        "departure": "14:04",
+        "distance": 6.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "14:12",
+        "departure": "14:13",
+        "distance": 16.3,
+        "day": 1
+      },
+      {
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "14:17",
+        "departure": "14:18",
+        "distance": 17.5,
+        "day": 1
+      },
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "15:25",
+        "departure": "15:25",
+        "distance": 19.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot",
+    "provenance": "hand_written",
+    "illustrative": true
+  }
+}

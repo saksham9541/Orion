@@ -162,6 +162,8 @@ class TaskStatus(str, Enum):
     ESCALATED = "ESCALATED"       # Auto-escalated by SLA engine
     CANCELLED = "CANCELLED"       # Cancelled by user/controller
     REJECTED = "REJECTED"         # Found to be fake/invalid by technician
+    AWAITING_ACK = "AWAITING_ACK" # Reported, awaiting acknowledgement before enlistment
+    DECLINED = "DECLINED"         # Declined during acknowledgement review (invalid/duplicate)
 
 
 class BlockType(str, Enum):
@@ -370,6 +372,15 @@ class MaintenanceTask(BaseModel):
     reported_by: str = "DEPT_USER"             # "DEPT_USER" | "CONTROLLER" | "SYSTEM"
     history: list[dict] = Field(default_factory=list) # Audit logs [{status, timestamp, user, note}]
 
+    @field_validator("history", mode="before")
+    @classmethod
+    def _coerce_history_list(cls, v: object) -> list:
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return v
+        return []
+
     # Timing
     reported_date: date
     due_date: Optional[date] = None
@@ -419,6 +430,20 @@ class MaintenanceTask(BaseModel):
     pre_start_check_by: Optional[str] = None
     pre_start_check_at: Optional[datetime] = None
     overrun_detected_at: Optional[datetime] = None
+    awaiting_acknowledgement: bool = False
+    acknowledged_by: Optional[str] = None
+    acknowledged_at: Optional[datetime] = None
+    declined_by: Optional[str] = None
+    declined_at: Optional[datetime] = None
+    decline_reason: Optional[str] = None
+    start_allowed_from: Optional[datetime] = None
+    start_allowed_until: Optional[datetime] = None
+    planned_end: Optional[datetime] = None
+    early_tolerance_minutes: int = 0
+    start_allowed_from_clock: Optional[str] = None
+    start_allowed_until_clock: Optional[str] = None
+    planned_end_clock: Optional[str] = None
+    designated_period_clock: Optional[str] = None
 
     def model_post_init(self, __context: object) -> None:
         if self.km_end == 0.0:
@@ -429,6 +454,17 @@ class MaintenanceTask(BaseModel):
             self.is_safety_critical = True
         if self.department == Department.TRD:
             self.requires_power_block = True
+        if self.start_allowed_from and self.start_allowed_until and not self.designated_period_clock:
+            try:
+                from traffic.task_revalidation import format_clock_ist
+                self.start_allowed_from_clock = format_clock_ist(self.start_allowed_from)
+                self.start_allowed_until_clock = format_clock_ist(self.start_allowed_until)
+                if self.planned_end:
+                    self.planned_end_clock = format_clock_ist(self.planned_end)
+                finish_str = f', finish by {self.planned_end_clock}' if self.planned_end_clock else ''
+                self.designated_period_clock = f'{self.start_allowed_from_clock} - {self.start_allowed_until_clock}{finish_str}'
+            except Exception:
+                pass
 
 
 class TrainSlot(BaseModel):

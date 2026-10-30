@@ -110,6 +110,16 @@ class TaskRecord(Base):
     pre_start_check_by = Column(String(100), nullable=True)
     pre_start_check_at = Column(DateTime, nullable=True)
     overrun_detected_at = Column(DateTime, nullable=True)
+    acknowledged_by = Column(String(100), nullable=True)
+    acknowledged_at = Column(DateTime, nullable=True)
+    declined_by = Column(String(100), nullable=True)
+    declined_at = Column(DateTime, nullable=True)
+    decline_reason = Column(Text, nullable=True)
+    awaiting_acknowledgement = Column(Boolean, default=False, nullable=True)
+    start_allowed_from = Column(DateTime, nullable=True)
+    start_allowed_until = Column(DateTime, nullable=True)
+    planned_end = Column(DateTime, nullable=True)
+    early_tolerance_minutes = Column(Integer, default=0, nullable=True)
 
 
 class BlockPlanRecord(Base):
@@ -249,6 +259,9 @@ class NotificationRecord(Base):
     created_at = Column(DateTime, default=utc_now, nullable=False)
     read_at = Column(DateTime, nullable=True)
     acknowledged_at = Column(DateTime, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+    resolved_by = Column(String(100), nullable=True)
+    action_taken = Column(String(50), nullable=True)
 
 
 
@@ -381,6 +394,7 @@ def seed_default_users(session: Session):
                     is_active=True,
                 )
             )
+
     session.commit()
 
 
@@ -418,6 +432,10 @@ def init_db(engine):
                 ("tasks", "pre_start_check_by", "VARCHAR(100)"),
                 ("tasks", "pre_start_check_at", "TIMESTAMP"),
                 ("tasks", "overrun_detected_at", "TIMESTAMP"),
+                ("tasks", "start_allowed_from", "TIMESTAMP"),
+                ("tasks", "start_allowed_until", "TIMESTAMP"),
+                ("tasks", "planned_end", "TIMESTAMP"),
+                ("tasks", "early_tolerance_minutes", "INTEGER DEFAULT 0"),
             ]:
                 try:
                     res = conn.execute(text(f"PRAGMA table_info({table})"))
@@ -456,6 +474,11 @@ def save_tasks(session: Session, tasks: list[MaintenanceTask]):
             "actual_end",
             "pre_start_check_at",
             "overrun_detected_at",
+            "start_allowed_from",
+            "start_allowed_until",
+            "planned_end",
+            "scheduled_start_time",
+            "scheduled_end_time",
         ]:
             val = getattr(t, dt_field, None)
             if val is not None:
@@ -469,7 +492,8 @@ def save_tasks(session: Session, tasks: list[MaintenanceTask]):
     if mappings:
         # Use merge for upsert semantics (bulk_insert would fail on duplicates)
         for m in mappings:
-            session.merge(TaskRecord(**m))
+            valid_cols = {c.name for c in TaskRecord.__table__.columns}
+            session.merge(TaskRecord(**{k: v for k, v in m.items() if k in valid_cols}))
         session.commit()
         logger.info("Saved %d tasks to database", len(mappings))
 
@@ -481,6 +505,8 @@ def load_tasks(session: Session) -> tuple[list[MaintenanceTask], int]:
     for r in records:
         d = r.__dict__.copy()
         d.pop('_sa_instance_state', None)
+        if d.get('history') is None:
+            d['history'] = []
         if not d.get("corridor_id"):
             d["corridor_id"] = ""
         if not d.get("section_id"):
@@ -817,7 +843,8 @@ def get_user_notifications(
     offset: int = 0,
 ) -> list[NotificationRecord]:
     query = session.query(NotificationRecord).filter(
-        NotificationRecord.recipient_user_id == user_id
+        NotificationRecord.recipient_user_id == user_id,
+        NotificationRecord.resolved_at.is_(None)
     )
     if unread_only:
         query = query.filter(NotificationRecord.read_at.is_(None))
@@ -832,6 +859,7 @@ def get_user_notifications(
 def get_unread_notification_count(session: Session, user_id: str) -> int:
     count = session.query(func.count(NotificationRecord.id)).filter(
         NotificationRecord.recipient_user_id == user_id,
+        NotificationRecord.resolved_at.is_(None),
         NotificationRecord.read_at.is_(None),
     ).scalar()
     return count or 0
@@ -841,6 +869,7 @@ def mark_notification_read(session: Session, notification_id: str, user_id: str)
     notif = session.query(NotificationRecord).filter(
         NotificationRecord.id == notification_id,
         NotificationRecord.recipient_user_id == user_id,
+        NotificationRecord.resolved_at.is_(None),
     ).first()
     if notif:
         if notif.read_at is None:
@@ -854,6 +883,7 @@ def acknowledge_notification(session: Session, notification_id: str, user_id: st
     notif = session.query(NotificationRecord).filter(
         NotificationRecord.id == notification_id,
         NotificationRecord.recipient_user_id == user_id,
+        NotificationRecord.resolved_at.is_(None),
     ).first()
     if notif:
         now = utc_now()

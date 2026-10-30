@@ -35,17 +35,34 @@ export async function loginApi(email, password = 'password123') {
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
+  timeout: 10000,
 });
 
 // Token management: use stored token from login, with lazy refresh
 let tokenPromise = null;
 
-async function ensureToken() {
-  // First try the token saved during login
-  const stored = getStoredToken();
-  if (stored) return stored;
+export async function ensureToken(forceRefresh = false) {
+  // First check if stored token exists and is NOT expired
+  if (!forceRefresh) {
+    const stored = getStoredToken();
+    if (stored) {
+      try {
+        const parts = stored.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          const nowSec = Math.floor(Date.now() / 1000);
+          // If valid for at least another 45 seconds, reuse it
+          if (payload.exp && payload.exp > nowSec + 45) {
+            return stored;
+          }
+        }
+      } catch (e) {
+        // Fall through to refresh if token cannot be parsed
+      }
+    }
+  }
 
-  // Fallback: fetch a new token (handles case where user refreshed but token expired)
+  // Fallback / Refresh: fetch a new valid token
   if (tokenPromise) return tokenPromise;
 
   const email = getStoredEmail() || 'admin@railopt.gov.in';
@@ -55,10 +72,12 @@ async function ensureToken() {
       setStoredToken(token);
       return token;
     })
-    .catch(() => {
-      // Clear so next call retries instead of returning null forever
-      tokenPromise = null;
+    .catch((err) => {
+      console.warn('Auto-refresh token failed:', err);
       return null;
+    })
+    .finally(() => {
+      tokenPromise = null;
     });
 
   return tokenPromise;
@@ -85,7 +104,11 @@ api.interceptors.response.use(
       tokenPromise = null;
       const token = await ensureToken();
       if (token) {
-        original.headers['Authorization'] = `Bearer ${token}`;
+        if (original.headers?.set) {
+          original.headers.set('Authorization', `Bearer ${token}`);
+        } else if (original.headers) {
+          original.headers['Authorization'] = `Bearer ${token}`;
+        }
         return api(original);
       }
     }
@@ -97,6 +120,8 @@ export const fetchTasks = (filters) => api.get('/tasks', { params: filters });
 export const fetchTask = (id) => api.get(`/tasks/${id}`);
 export const importTasks = (data) => api.post('/tasks/import', data);
 export const updateTaskStatus = (id, data) => api.put(`/tasks/${id}/status`, data);
+export const overrideTaskWindow = (taskId, data) => api.post(`/tasks/${taskId}/controller-override`, data);
+export const fetchTaskWindowStatus = (taskId) => api.get(`/tasks/${taskId}/window-status`);
 
 export const generatePlan = (config) => api.post('/plans/generate', config);
 export const fetchPlans = () => api.get('/plans');
@@ -110,6 +135,7 @@ export const replan = (planId, newTask) => api.post(`/plans/${planId}/replan`, {
 export const fetchCorridors = () => api.get('/corridors');
 export const fetchAlerts = () => api.get('/alerts');
 export const fetchDashboardStats = () => api.get('/dashboard/stats');
+export const fetchDashboardCounts = (department) => api.get('/dashboard/counts', { params: { department } });
 export const setupDemo = () => api.post('/demo/setup');
 
 export const approvePlan = (planId, data) => api.post(`/plans/${planId}/approve`, data);
@@ -141,5 +167,11 @@ export const fetchPlanDelayReport = (planId) => api.get(`/plans/${planId}/delay-
 export const fetchSectionWindows = (sectionId, date) => api.get(`/sections/${sectionId}/windows`, { params: { date } });
 export const fetchTaskAffectedTrains = (taskId, windowId) => api.get(`/tasks/${taskId}/affected-trains`, { params: { window_id: windowId } });
 export const fetchSourcesSnapshots = () => api.get('/sources/snapshots');
+
+// Task Acknowledgement & Governance
+export const acknowledgeTask = (taskId) => api.post(`/tasks/${taskId}/acknowledge`);
+export const declineTask = (taskId, reason) => api.post(`/tasks/${taskId}/decline`, { reason });
+export const fetchPendingAckTasks = () => api.get('/tasks/pending-acknowledgement');
+export const getEventsStreamUrl = (token) => `${API_BASE}/api/events${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
 export default api;

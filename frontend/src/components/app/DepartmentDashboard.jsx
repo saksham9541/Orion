@@ -29,38 +29,14 @@ import {
 } from 'lucide-react'
 import PortalLayout from '@/components/app/PortalLayout'
 import { useAppState } from '@/state/AppState'
+import { useLiveSync } from '@/state/LiveSyncStore'
 import IndiaRailwayMap from '@/components/network/IndiaRailwayMap'
 import DepartmentTaskModal from '@/components/app/DepartmentTaskModal'
 import DepartmentBlockReview from '@/components/plan/DepartmentBlockReview'
-import { fetchLiveTrains, fetchPlans, fetchTasks, updateTaskStatus } from '@/api'
-
-const TEAM_MEMBERS_BY_DEPT = {
-  snt: [
-    { initials: 'RK', name: 'Rajesh Kumar', role: 'SSE / Signaling', badgeColor: 'bg-blue-500', count: 2 },
-    { initials: 'VS', name: 'Vikram Singh', role: 'JE / Telemetry', badgeColor: 'bg-indigo-500', count: 3 },
-    { initials: 'AM', name: 'Ananya Mishra', role: 'Signal Maintainer', badgeColor: 'bg-rose-500', count: 1 },
-    { initials: 'PR', name: 'Priya Roy', role: 'Axle Counter Spec.', badgeColor: 'bg-amber-500', count: 2 },
-    { initials: 'DN', name: 'Deepak Nair', role: 'Point Machine Tech', badgeColor: 'bg-emerald-500', count: 1 },
-  ],
-  engineering: [
-    { initials: 'AK', name: 'Amit Kaul', role: 'SSE / P-Way', badgeColor: 'bg-amber-600', count: 3 },
-    { initials: 'ST', name: 'Sanjay Tiwari', role: 'Track Inspector', badgeColor: 'bg-blue-600', count: 2 },
-    { initials: 'RP', name: 'Rohan Patil', role: 'USFD Specialist', badgeColor: 'bg-emerald-600', count: 1 },
-    { initials: 'MS', name: 'Meera Sharma', role: 'Bridge Engineer', badgeColor: 'bg-rose-600', count: 2 },
-    { initials: 'HK', name: 'Harish Kumar', role: 'Gang Mate', badgeColor: 'bg-purple-600', count: 1 },
-  ],
-  trd: [
-    { initials: 'NK', name: 'Naveen Kumar', role: 'SSE / OHE', badgeColor: 'bg-indigo-600', count: 2 },
-    { initials: 'VB', name: 'Vipin Bansal', role: 'Power Supply Lead', badgeColor: 'bg-amber-600', count: 3 },
-    { initials: 'SG', name: 'Sunita Ghosh', role: 'Catenary Inspector', badgeColor: 'bg-emerald-600', count: 1 },
-    { initials: 'RD', name: 'Ravi Das', role: 'Substation Tech', badgeColor: 'bg-rose-600', count: 2 },
-  ],
-  technician: [
-    { initials: 'RK', name: 'Rakesh Kumar', role: 'Field Tech Lead', badgeColor: 'bg-blue-500', count: 4 },
-    { initials: 'MD', name: 'Manish Dayal', role: 'Site Mechanic', badgeColor: 'bg-emerald-500', count: 2 },
-    { initials: 'AJ', name: 'Arun Joshi', role: 'Safety Mate', badgeColor: 'bg-amber-500', count: 1 },
-  ]
-}
+import AwaitingAckInbox from '@/components/tasks/AwaitingAckInbox'
+import CannotStartModal from '@/components/tasks/CannotStartModal'
+import EmergencyImpactModal from '@/components/tasks/EmergencyImpactModal'
+import { fetchDashboardCounts, fetchLiveTrains, fetchPlans, fetchTasks, updateTaskStatus } from '@/api'
 
 const DEFAULT_TASKS_BY_DEPT = {
   snt: [
@@ -390,7 +366,7 @@ function mapBackendTask(t, deptId) {
     what: t.inspector_remarks || `${defectCategory} detected in sector requiring maintenance inspection.`,
     causes: [
       { level: 'CONFIRMED', text: 'Telemetry alert threshold exceeded.' },
-      { level: 'LIKELY', text: `Automated ML criticality score: ${(t.ml_criticality_score ?? 0.8).toFixed(2)}.` },
+      { level: 'LIKELY', text: `Defect priority: ${t.severity || 'HIGH'} (verified telemetry).` },
       { level: 'POSSIBLE', text: 'Historical degradation pattern.' }
     ],
     timeline: [
@@ -417,7 +393,7 @@ function mapBackendTask(t, deptId) {
     ],
     priorityReasons: [
       t.is_safety_critical ? 'High safety risk flag' : 'Operational reliability concern',
-      `Criticality index: ${(t.ml_criticality_score ?? 0.75).toFixed(2)}`
+      `Severity grade: ${t.severity || 'HIGH'}`
     ],
     daysOverdue: t.days_overdue ?? 0,
     estDuration: t.ml_predicted_duration_hours ?? t.estimated_duration_hours ?? 2
@@ -447,11 +423,14 @@ export default function DepartmentDashboard({ deptId, title, department }) {
   const [modalTask, setModalTask] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [counts, setCounts] = useState({ total: 0, pending: 0, active_scheduled: 0, resolved: 0, pipeline_stages: { intake: 0, planning: 0, execution: 0, resolution: 0 } })
   const [actionInProgress, setActionInProgress] = useState(null)
   const [toastMessage, setToastMessage] = useState(null)
   const [liveTrains, setLiveTrains] = useState([])
   const [activeView, setActiveView] = useState('board')
   const [activePlanId, setActivePlanId] = useState(null)
+  const [cannotStartError, setCannotStartError] = useState(null)
+  const [emergencyModalTaskId, setEmergencyModalTaskId] = useState(null)
 
   useEffect(() => {
     fetchPlans()
@@ -471,10 +450,16 @@ export default function DepartmentDashboard({ deptId, title, department }) {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
 
-  // Load Tasks from API
+  // Load Tasks and Counts from API
   const loadTasks = useCallback(async () => {
     try {
-      const res = await fetchTasks({ department: resolvedDept })
+      const [res, countsRes] = await Promise.all([
+        fetchTasks({ department: resolvedDept }),
+        fetchDashboardCounts(resolvedDept).catch(() => ({ data: null }))
+      ])
+      if (countsRes?.data) {
+        setCounts(countsRes.data)
+      }
       const backendTasks = Array.isArray(res.data) ? res.data : []
 
       if (backendTasks.length > 0) {
@@ -523,6 +508,18 @@ export default function DepartmentDashboard({ deptId, title, department }) {
       const defaults = (DEFAULT_TASKS_BY_DEPT[deptId] || []).map((t) => mapBackendTask(t, deptId))
       setTasks(defaults)
       setSelectedTaskId(defaults[0]?.id || null)
+      setCounts({
+        total: defaults.length,
+        pending: defaults.filter(t => ['DRAFT', 'SUBMITTED', 'REPORTED', 'UNVERIFIED', 'PENDING', 'SCORED', 'ESCALATED', 'DEFERRED'].includes((t.status || '').toUpperCase())).length,
+        active_scheduled: defaults.filter(t => ['APPROVED', 'READY', 'SCHEDULED', 'IN_PROGRESS', 'SUSPENDED', 'OVERRUN', 'WINDOWS_PROPOSED', 'WINDOW_SELECTED'].includes((t.status || '').toUpperCase())).length,
+        resolved: defaults.filter(t => ['COMPLETED', 'ABORTED', 'CANCELLED', 'REJECTED'].includes((t.status || '').toUpperCase())).length,
+        pipeline_stages: {
+          intake: defaults.filter(t => ['DRAFT', 'SUBMITTED', 'REPORTED', 'UNVERIFIED', 'DEFERRED', 'ESCALATED'].includes((t.status || '').toUpperCase())).length,
+          planning: defaults.filter(t => ['PENDING', 'SCORED', 'WINDOWS_PROPOSED', 'WINDOW_SELECTED'].includes((t.status || '').toUpperCase())).length,
+          execution: defaults.filter(t => ['APPROVED', 'READY', 'SCHEDULED', 'IN_PROGRESS', 'SUSPENDED', 'OVERRUN'].includes((t.status || '').toUpperCase())).length,
+          resolution: defaults.filter(t => ['COMPLETED', 'ABORTED', 'CANCELLED', 'REJECTED'].includes((t.status || '').toUpperCase())).length,
+        }
+      })
     } finally {
       setLoading(false)
     }
@@ -579,12 +576,14 @@ export default function DepartmentDashboard({ deptId, title, department }) {
   const handleStatusChange = async (taskId, targetStatus) => {
     setActionInProgress(targetStatus)
     try {
-      // 1. Optimistic update
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, status: targetStatus } : t))
-      )
-      if (modalTask && modalTask.id === taskId) {
-        setModalTask((prev) => ({ ...prev, status: targetStatus }))
+      // 1. Optimistic update (skip for IN_PROGRESS to enforce start gate check)
+      if (targetStatus !== 'IN_PROGRESS') {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, status: targetStatus } : t))
+        )
+        if (modalTask && modalTask.id === taskId) {
+          setModalTask((prev) => ({ ...prev, status: targetStatus }))
+        }
       }
 
       // 2. Persist to Backend API
@@ -607,9 +606,14 @@ export default function DepartmentDashboard({ deptId, title, department }) {
       setToastMessage(`Task ${taskId} marked as ${targetStatus}`)
       setTimeout(() => setToastMessage(null), 3500)
     } catch (err) {
-      console.warn('Status update fallback applied locally:', err)
-      setToastMessage(`Task updated locally to ${targetStatus}`)
+      if (err.response?.status === 409 && err.response?.data?.detail) {
+        setCannotStartError(err.response.data.detail)
+        throw err
+      }
+      console.warn('Status update failed:', err)
+      setToastMessage(`Failed to update task ${taskId}`)
       setTimeout(() => setToastMessage(null), 3500)
+      throw err
     } finally {
       setActionInProgress(null)
     }
@@ -706,6 +710,25 @@ export default function DepartmentDashboard({ deptId, title, department }) {
         onClose={() => setIsModalOpen(false)}
         task={modalTask}
         onStatusChange={handleStatusChange}
+        onOpenEmergencyImpact={(tid) => setEmergencyModalTaskId(tid)}
+      />
+
+      {/* Start Gate Blocked Modal */}
+      <CannotStartModal
+        isOpen={!!cannotStartError}
+        errorData={cannotStartError}
+        onClose={() => setCannotStartError(null)}
+        onRequestNewWindow={() => {
+          setCannotStartError(null)
+          alert('Window request submitted to Controller.')
+        }}
+      />
+
+      {/* Emergency Delay Impact Modal */}
+      <EmergencyImpactModal
+        isOpen={!!emergencyModalTaskId}
+        onClose={() => setEmergencyModalTaskId(null)}
+        taskId={emergencyModalTaskId}
       />
 
       {/* Toast Alert */}
@@ -735,25 +758,6 @@ export default function DepartmentDashboard({ deptId, title, department }) {
 
         {/* Team Avatars Cluster & Utility Buttons */}
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center -space-x-2">
-            {(TEAM_MEMBERS_BY_DEPT[deptId] || TEAM_MEMBERS_BY_DEPT.snt).map((member, idx) => (
-              <div
-                key={idx}
-                className="relative group cursor-pointer transition-transform hover:-translate-y-1"
-                title={`${member.name} — ${member.role}`}
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-surface bg-raised text-ink text-xs font-mono font-bold shadow-sm">
-                  {member.initials}
-                </div>
-                <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-mono font-bold text-white bg-[#d71920] ring-2 ring-surface">
-                  {member.count}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="h-6 w-px bg-line/80 hidden sm:block" />
-
           <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -791,22 +795,22 @@ export default function DepartmentDashboard({ deptId, title, department }) {
       >
         <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-blue-500/40 transition-all space-y-2">
           <p className="text-xs font-mono font-bold text-muted uppercase tracking-[0.18em]">[ 01 // TOTAL TASKS ]</p>
-          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-ink">{stats.total}</p>
+          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-ink">{counts.total}</p>
           <span className="text-xs font-mono text-muted uppercase tracking-wider block">NETWORK WIDE DEMAND</span>
         </div>
         <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-amber-500/40 transition-all space-y-2">
           <p className="text-xs font-mono font-bold text-amber-500 uppercase tracking-[0.18em]">[ 02 // PENDING ALLOCATION ]</p>
-          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-amber-500">{stats.pending}</p>
+          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-amber-500">{counts.pending}</p>
           <span className="text-xs font-mono text-amber-500/80 uppercase tracking-wider block">AWAITING SIGN-OFF</span>
         </div>
         <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-blue-500/40 transition-all space-y-2">
           <p className="text-xs font-mono font-bold text-info uppercase tracking-[0.18em]">[ 03 // ACTIVE / SCHEDULED ]</p>
-          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-info">{stats.inProgress}</p>
+          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-info">{counts.active_scheduled}</p>
           <span className="text-xs font-mono text-info/80 uppercase tracking-wider block">SLOTS RESERVED</span>
         </div>
         <div className="bg-surface/80 backdrop-blur-md p-6 sm:p-7 border border-line/80 rounded-[28px] shadow-sm hover:border-emerald-500/40 transition-all space-y-2">
           <p className="text-xs font-mono font-bold text-emerald-500 uppercase tracking-[0.18em]">[ 04 // RESOLVED & VERIFIED ]</p>
-          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-emerald-500">{stats.resolved}</p>
+          <p className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-emerald-500">{counts.resolved}</p>
           <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider block">SAFETY VERIFIED</span>
         </div>
       </motion.div>
@@ -889,6 +893,9 @@ export default function DepartmentDashboard({ deptId, title, department }) {
           </div>
         </div>
 
+        {/* Part B2: Reports Awaiting Supervisor Acknowledgement Inbox */}
+        <AwaitingAckInbox departmentFilter={resolvedDept} />
+
         {activeView === 'review' ? (
           <DepartmentBlockReview
             planId={activePlanId || 'active'}
@@ -905,13 +912,13 @@ export default function DepartmentDashboard({ deptId, title, department }) {
                 1. Case Allocation
               </h3>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-bold">
-                {tasks.filter(t => ['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED', 'REPORTED', 'ACKNOWLEDGED'].includes((t.status || '').toUpperCase())).length}
+                {counts.pipeline_stages?.intake ?? 0}
               </span>
             </div>
 
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
               {tasks
-                .filter(t => ['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED', 'REPORTED', 'ACKNOWLEDGED'].includes((t.status || '').toUpperCase()))
+                .filter(t => ['DRAFT', 'SUBMITTED', 'REPORTED', 'UNVERIFIED', 'DEFERRED', 'ESCALATED'].includes((t.status || '').toUpperCase()))
                 .map((task) => (
                   <div
                     key={task.id}
@@ -984,12 +991,12 @@ export default function DepartmentDashboard({ deptId, title, department }) {
                 2. Issue Identification
               </h3>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 text-[10px] font-bold">
-                {tasks.length}
+                {counts.pipeline_stages?.planning ?? 0}
               </span>
             </div>
 
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-              {tasks.slice(0, 10).map((task) => (
+              {tasks.filter(t => ['PENDING', 'SCORED', 'WINDOWS_PROPOSED', 'WINDOW_SELECTED'].includes((t.status || '').toUpperCase())).map((task) => (
                 <div
                   key={`id-${task.id}`}
                   onClick={() => {
@@ -1007,7 +1014,7 @@ export default function DepartmentDashboard({ deptId, title, department }) {
                         <p className="text-xs font-bold text-ink leading-tight group-hover:text-info transition-colors">
                           Identify {task.defectType.replace(/_/g, ' ')}
                         </p>
-                        <span className="text-[10px] text-muted">Telemetry & ML Scored</span>
+                        <span className="text-[10px] text-muted">Telemetry Verified</span>
                       </div>
                     </div>
 
@@ -1044,13 +1051,13 @@ export default function DepartmentDashboard({ deptId, title, department }) {
                 3. Technical Resolution
               </h3>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 text-[10px] font-bold">
-                {tasks.filter(t => ['SCHEDULED', 'DEPARTMENT NOTIFIED', 'AUTHORIZED', 'IN_PROGRESS', 'IN PROGRESS', 'ACTION STARTED'].includes((t.status || '').toUpperCase())).length}
+                {counts.pipeline_stages?.execution ?? 0}
               </span>
             </div>
 
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
               {tasks
-                .filter(t => ['SCHEDULED', 'DEPARTMENT NOTIFIED', 'AUTHORIZED', 'IN_PROGRESS', 'IN PROGRESS', 'ACTION STARTED'].includes((t.status || '').toUpperCase()))
+                .filter(t => ['APPROVED', 'READY', 'SCHEDULED', 'IN_PROGRESS', 'IN PROGRESS', 'SUSPENDED', 'OVERRUN'].includes((t.status || '').toUpperCase()))
                 .map((task) => (
                   <div
                     key={`res-${task.id}`}
@@ -1122,7 +1129,7 @@ export default function DepartmentDashboard({ deptId, title, department }) {
                 4. Problem Resolution
               </h3>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-bold">
-                {tasks.filter(t => ['COMPLETED', 'RESOLVED', 'DONE'].includes((t.status || '').toUpperCase())).length}
+                {counts.pipeline_stages?.resolution ?? 0}
               </span>
             </div>
 
@@ -1574,15 +1581,15 @@ export default function DepartmentDashboard({ deptId, title, department }) {
               {/* Start Action */}
               <button
                 type="button"
-                disabled={actionInProgress !== null || selectedTask.status === 'SCHEDULED'}
-                onClick={() => handleStatusChange(selectedTask.id, 'SCHEDULED')}
+                disabled={actionInProgress !== null || selectedTask.status === 'IN_PROGRESS' || selectedTask.status === 'COMPLETED'}
+                onClick={() => handleStatusChange(selectedTask.id, 'IN_PROGRESS')}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border shadow-sm ${
-                  selectedTask.status === 'SCHEDULED'
+                  selectedTask.status === 'IN_PROGRESS'
                     ? 'bg-merge text-deep border-merge'
                     : 'bg-surface border-line text-ink hover:border-merge hover:text-merge'
                 } disabled:opacity-50`}
               >
-                {actionInProgress === 'SCHEDULED' ? <Loader2 size={13} className="animate-spin" /> : <PlayCircle size={13} />}
+                {actionInProgress === 'IN_PROGRESS' ? <Loader2 size={13} className="animate-spin" /> : <PlayCircle size={13} />}
                 START ACTION
               </button>
 

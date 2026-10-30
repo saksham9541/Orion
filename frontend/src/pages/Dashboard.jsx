@@ -64,8 +64,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     document.title = 'Overview — RailOpt'
-    fetchDashboardStats().then(res => res.data && setLiveStats(res.data)).catch(() => {})
-    fetchPlans().then(res => res.data && res.data.length > 0 && setActivePlan(res.data[0])).catch(() => {})
+    const reload = () => {
+      fetchDashboardStats().then(res => res.data && setLiveStats(res.data)).catch(() => {})
+      fetchPlans().then(res => res.data && res.data.length > 0 && setActivePlan(res.data[0])).catch(() => {})
+    }
+    reload()
+
+    window.addEventListener('railopt:task-created', reload)
+    window.addEventListener('railopt:task-updated', reload)
+    window.addEventListener('railopt:live-event', reload)
+    return () => {
+      window.removeEventListener('railopt:task-created', reload)
+      window.removeEventListener('railopt:task-updated', reload)
+      window.removeEventListener('railopt:live-event', reload)
+    }
   }, [])
 
   useEffect(() => {
@@ -99,7 +111,7 @@ export default function Dashboard() {
             label="DEMO DASHBOARD"
             tooltip="Overview metrics reflect pre-calculated weekly benchmarks. Live plan and task data sync with backend when plans are generated."
           />
-          <Button as={Link} to="/app/plan" size="sm">
+          <Button as={Link} to="/plan" size="sm">
             Open plan
             <ArrowRight size={14} />
           </Button>
@@ -231,7 +243,7 @@ function TwinPreview() {
           </div>
           <DataTag kind="simulation" />
           <Link
-            to="/app/network"
+            to="/network"
             className="flex items-center gap-1.5 rounded-panel border border-line px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-merge/50 hover:text-ink"
           >
             Play the week
@@ -266,7 +278,7 @@ function ActiveBlocks() {
     <section className="panel overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-hair px-5 py-4 sm:px-6">
         <h2 className="text-[15px] font-semibold">Next blocks</h2>
-        <Link to="/app/plan" className="text-[13px] text-muted transition-colors hover:text-ink">
+        <Link to="/plan" className="text-[13px] text-muted transition-colors hover:text-ink">
           All {weeklyBlocks.length} blocks
         </Link>
       </div>
@@ -310,7 +322,7 @@ function UrgentWork() {
     <section className="panel overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-hair px-5 py-4 sm:px-6">
         <h2 className="text-[15px] font-semibold">Highest urgency right now</h2>
-        <Link to="/app/tasks" className="text-[13px] text-muted transition-colors hover:text-ink">
+        <Link to="/tasks" className="text-[13px] text-muted transition-colors hover:text-ink">
           All {tasks.length} tasks
         </Link>
       </div>
@@ -438,7 +450,7 @@ function RecommendationBanner() {
         <span className="tnum font-mono text-[12px] text-faint">
           {approvedCount}/{total} blocks signed
         </span>
-        <Button as={Link} to="/app/plan" size="sm">
+        <Button as={Link} to="/plan" size="sm">
           Review the plan
           <ArrowRight size={14} />
         </Button>

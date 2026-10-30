@@ -4,35 +4,56 @@
   "snapshot_timestamp": "2026-10-30T10:50:00Z",
   "illustrative": true,
   "data": {
-    "train": {
-      "number": "22692",
-      "name": "Bengaluru Rajdhani",
-      "type": "RAJDHANI"
-    },
-    "running_days": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6
-    ],
+    "train_number": "22692",
+    "train_name": "Bengaluru Rajdhani",
+    "train_type": "RAJDHANI",
     "route": [
       {
-        "station_code": "NZM",
-        "station_name": "Hazrat Nizamuddin",
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
         "arrival": "20:45",
         "departure": "20:45",
         "distance": 0.0,
         "day": 1
       },
       {
-        "station_code": "AGC",
-        "station_name": "Agra Cantt",
-        "arrival": "22:50",
-        "departure": "22:55",
-        "distance": 188.0,
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "20:48",
+        "departure": "20:49",
+        "distance": 1.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "20:53",
+        "departure": "20:54",
+        "distance": 2.7,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "20:03",
+        "departure": "20:05",
+        "distance": 12.5,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "20:10",
+        "departure": "20:11",
+        "distance": 15.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "21:12",
+        "departure": "21:12",
+        "distance": 19.0,
         "day": 1
       }
     ]
@@ -40,8 +61,6 @@
   "meta": {
     "source": "snapshot",
     "provenance": "hand_written",
-    "snapshot_timestamp": "2026-10-30T10:50:00Z",
-    "illustrative": true,
-    "note": "Illustrative, not fetched \u2014 calibrated from Indian Railways published timetables"
+    "illustrative": true
   }
 }

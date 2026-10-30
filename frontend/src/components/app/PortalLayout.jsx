@@ -10,9 +10,11 @@ import {
 import AssistantPanel from './AssistantPanel'
 import ThemeToggle from '@/components/common/ThemeToggle'
 import NotificationBell from '@/components/common/NotificationBell'
+import LiveIndicator from '@/components/common/LiveIndicator'
 import IssueAlertModal from '@/components/common/IssueAlertModal'
 import ReportComplaintModal from './ReportComplaintModal'
 import { useAppState } from '@/state/AppState'
+import { getPermittedNavTabs, isTabActive } from './navConfig'
 
 export default function PortalLayout({ children, role }) {
   const navigate = useNavigate()
@@ -28,21 +30,8 @@ export default function PortalLayout({ children, role }) {
     navigate('/login')
   }
 
-  // Top navigation items with generous spacing & clean Nothing OS aesthetic
-  const navTabs = [
-    { label: 'Overview', to: '/dashboard' },
-    { label: 'Super Admin', to: '/admin' },
-    { label: 'S&T Dept', to: '/snt' },
-    { label: 'Engineering', to: '/engineering' },
-    { label: 'TRD', to: '/trd' },
-    { label: 'Technician', to: '/technician' },
-    { label: 'Schedule', to: '/plan' },
-  ]
-
-  const isTabActive = (tabTo) => {
-    if (tabTo === '/dashboard') return location.pathname === '/dashboard'
-    return location.pathname.startsWith(tabTo)
-  }
+  // Role-permitted navigation tabs
+  const navTabs = getPermittedNavTabs(currentUser, role)
 
   return (
     <div className="min-h-screen bg-base font-sans text-ink transition-colors duration-300 flex flex-col">
@@ -90,9 +79,9 @@ export default function PortalLayout({ children, role }) {
           </div>
 
           {/* Center: Industrial Navigation Tabs */}
-          <nav className="hidden xl:flex items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-sm">
+          <nav className="hidden md:flex items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-sm">
             {navTabs.map((tab) => {
-              const active = isTabActive(tab.to)
+              const active = isTabActive(tab.to, location.pathname)
               return (
                 <Link
                   key={tab.to}
@@ -132,6 +121,7 @@ export default function PortalLayout({ children, role }) {
               <MessageSquare size={15} />
             </button>
 
+            <LiveIndicator />
             <NotificationBell />
             <ThemeToggle />
 

@@ -197,6 +197,40 @@ export function NotificationProvider({ children }) {
     }
   }, [currentUser, fetchUnreadCount, fetchNotifications])
 
+  // Listen for live SSE resolution events to clear notifications in real-time
+  useEffect(() => {
+    const handleResolved = (e) => {
+      const issueId = e.detail?.issue_id || e.detail?.task_id
+      if (issueId) {
+        setNotifications((prev) => prev.filter((n) => n.issue_id !== issueId && n.id !== issueId))
+        fetchUnreadCount()
+      }
+    }
+
+    const handleLiveEvent = (e) => {
+      const evt = e.detail
+      if (!evt) return
+      const evtType = evt.type || evt.event_type
+      if (['NOTIFICATION_RESOLVED', 'TASK_ACKNOWLEDGED', 'TASK_DECLINED'].includes(evtType)) {
+        const targetId = evt.task_id || evt.payload?.task_id || evt.issue_id
+        if (targetId) {
+          setNotifications((prev) => prev.filter((n) => n.issue_id !== targetId && n.id !== targetId))
+          fetchUnreadCount()
+        }
+      } else if (evtType === 'TASK_AWAITING_ACK' || evtType === 'TASK_CREATED') {
+        fetchNotifications()
+        fetchUnreadCount()
+      }
+    }
+
+    window.addEventListener('railopt:notification-resolved', handleResolved)
+    window.addEventListener('railopt:live-event', handleLiveEvent)
+    return () => {
+      window.removeEventListener('railopt:notification-resolved', handleResolved)
+      window.removeEventListener('railopt:live-event', handleLiveEvent)
+    }
+  }, [fetchNotifications, fetchUnreadCount])
+
   return (
     <NotificationContext.Provider
       value={{

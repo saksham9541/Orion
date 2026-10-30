@@ -22,47 +22,47 @@ export const DEMO_STEPS = [
   {
     title: '1 · Problem',
     body: `${tasks.length} open jobs across three departments, each raised in its own system, each asking for track time on its own terms. Nobody holds all three request books at once.`,
-    to: '/app/tasks',
+    to: '/tasks',
   },
   {
     title: '2 · Conflict',
     body: `${conflicts.length} sections have two or more departments asking for the same track on the same night. On ${headlineConflict.section} ${headlineConflict.requests.length} requests overlap by ${headlineConflict.overlapMinutes} minutes — no control office can grant them as they stand.`,
-    to: '/app/dashboard',
+    to: '/dashboard',
   },
   {
     title: '3 · Optimisation',
     body: 'Press Run RailOpt optimisation. The pipeline reports real counts as it passes: requests in, conflicts found, constraints checked, windows priced, combinations found, impact simulated.',
-    to: '/app/dashboard',
+    to: '/dashboard',
   },
   {
     title: '4 · Coordination',
     body: `${optimised.mergedBlocks} blocks now carry work from more than one department. Open B-101 to see why: two jobs, one section, one possession instead of two.`,
-    to: '/app/plan',
+    to: '/plan',
   },
   {
     title: '5 · Impact',
     body: 'Play the week through on the twin. Sections change state because the plan says a possession starts — a replay of the schedule, not telemetry.',
-    to: '/app/network',
+    to: '/network',
   },
   {
     title: '6 · Explainability',
     body: 'Open any job and ask why. Request, conflict, constraint, decision, impact — five beats, each read out of the data rather than narrated.',
-    to: '/app/tasks',
+    to: '/tasks',
   },
   {
     title: '7 · Scenario',
     body: `Festival traffic, a restricted night window, merging switched off. Every preset re-plans the week; switch merging off and the simulator returns the ${baseline.blocks}-block baseline on its own.`,
-    to: '/app/simulator',
+    to: '/simulate',
   },
   {
     title: '8 · Emergency',
     body: `A cracked OHE mast foundation is raised mid-week. Re-plan and the week grows by a block, with the displaced feeder work flagged as running late.`,
-    to: '/app/simulator',
+    to: '/simulate',
   },
   {
     title: '9 · Approval',
     body: 'The plan ends as a recommendation. A section controller approves it or sends it back with a note. RailOpt never grants a possession.',
-    to: '/app/plan',
+    to: '/plan',
   },
 ]
 

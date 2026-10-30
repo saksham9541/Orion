@@ -56,6 +56,32 @@ def get_sync_reserved_budget() -> int:
         return 30
 
 
+def get_corridor_train_limit(section_id: str = "SEC-93135bb9") -> int:
+    """Configurable max trains to consider: pilot corridor gets PILOT_MAX_TIMETABLE_TRAINS (default 40), others get DEFAULT_MAX_TIMETABLE_TRAINS (default 16)."""
+    if section_id in ("SEC-93135bb9", "COR-82d9c510"):
+        try:
+            return int(os.environ.get("PILOT_MAX_TIMETABLE_TRAINS", "40"))
+        except ValueError:
+            return 40
+    try:
+        return int(os.environ.get("DEFAULT_MAX_TIMETABLE_TRAINS", "16"))
+    except ValueError:
+        return 16
+
+
+def get_sync_horizon_hours(is_emergency: bool = False) -> float:
+    """Configurable sync horizon in hours: general sync defaults to 3.0h, emergency defaults to 2.0h."""
+    if is_emergency:
+        try:
+            return float(os.environ.get("RAILRADAR_EMERGENCY_SYNC_HORIZON_HOURS", "2.0"))
+        except ValueError:
+            return 2.0
+    try:
+        return float(os.environ.get("RAILRADAR_SYNC_HORIZON_HOURS", "3.0"))
+    except ValueError:
+        return 3.0
+
+
 def get_last_sync_time(session: Optional[Session] = None) -> Optional[datetime]:
     """Returns the most recent sync timestamp from memory or database."""
     global _LAST_SYNC_TIME
@@ -98,26 +124,55 @@ def reset_last_sync_time() -> None:
 def get_pilot_timetable_trains(
     section_id: str = "SEC-93135bb9",
     snapshot_dir: Optional[Path] = None,
+    horizon_hours: Optional[float] = None,
+    emergency_block_id: Optional[str] = None,
+    target_time: Optional[datetime] = None,
 ) -> List[str]:
     """
     Returns only trains that have a timetable snapshot on disk AND run on the pilot corridor.
-    Inspects data/railradar_snapshots/train_*_timetable.json.
+    Applies corridor train limit (PILOT_MAX_TIMETABLE_TRAINS=40 vs 16 for non-pilot).
+    When horizon_hours is set (>0), filters to trains due to pass through the pilot corridor
+    (or emergency block section) in the next N hours.
     """
     s_dir = snapshot_dir or DEFAULT_SNAPSHOT_DIR
     if not s_dir.exists():
         return []
 
-    sec_cfg = PILOT_SECTIONS.get(section_id, PILOT_SECTIONS["SEC-93135bb9"])
-    pilot_station_codes = set(sec_cfg.station_codes)
+    sec_cfg = PILOT_SECTIONS.get(section_id, PILOT_SECTIONS.get("SEC-93135bb9"))
+    pilot_station_codes = set(sec_cfg.station_codes if sec_cfg else ["NDLS", "GZB"])
     # Include alias codes like ANVR/ANVT
     if "ANVT" in pilot_station_codes:
         pilot_station_codes.add("ANVR")
     if "ANVR" in pilot_station_codes:
         pilot_station_codes.add("ANVT")
 
+    target_stations = pilot_station_codes
+    if emergency_block_id:
+        try:
+            from traffic.block_sections import build_block_sections
+            b_secs = build_block_sections(section_id, snapshot_dir=s_dir)
+            target_b = next((b for b in b_secs if b.id == emergency_block_id), None)
+            if target_b:
+                target_stations = {target_b.from_station, target_b.to_station}
+        except Exception:
+            pass
+
+    max_limit = get_corridor_train_limit(section_id)
+
     # High-priority default trains known to run on this corridor
     from scripts.snapshot_railradar import DEFAULT_PILOT_TRAINS
     known_corridor_trains = set(DEFAULT_PILOT_TRAINS.get(section_id, []))
+
+    # Determine horizon window in minutes from midnight (Asia/Kolkata)
+    eff_horizon = horizon_hours
+    if eff_horizon is None:
+        eff_horizon = get_sync_horizon_hours(is_emergency=bool(emergency_block_id))
+
+    ref = target_time or datetime.now(KOLKATA_TZ)
+    if ref.tzinfo is None:
+        ref = ref.replace(tzinfo=KOLKATA_TZ)
+    ref_min = ref.hour * 60 + ref.minute
+    horizon_end_min = (ref_min + int(eff_horizon * 60)) if (eff_horizon and eff_horizon > 0) else None
 
     covered_trains: List[str] = []
 
@@ -126,25 +181,61 @@ def get_pilot_timetable_trains(
         if not t_num:
             continue
 
-        # Check if train belongs to pilot corridor
-        if t_num in known_corridor_trains:
-            covered_trains.append(t_num)
-            continue
-
         try:
             with open(f, "r", encoding="utf-8") as fp:
                 data = json.load(fp)
             route = (data.get("data") or {}).get("route") or []
-            codes = set(r.get("station_code") for r in route if r.get("station_code"))
-            # If route contains from_code and to_code or overlaps corridor stops
-            if sec_cfg.from_code in codes and sec_cfg.to_code in codes:
-                covered_trains.append(t_num)
-            elif len(codes.intersection(pilot_station_codes)) >= 2:
-                covered_trains.append(t_num)
+            if not route:
+                continue
+
+            station_matches = []
+            for r in route:
+                code = r.get("station_code")
+                if code in target_stations:
+                    station_matches.append(r)
+
+            # If corridor check without target_stations
+            if not station_matches:
+                codes = set(r.get("station_code") for r in route if r.get("station_code"))
+                if sec_cfg and (sec_cfg.from_code in codes and sec_cfg.to_code in codes):
+                    station_matches = [r for r in route if r.get("station_code") in codes.intersection(pilot_station_codes)]
+                elif len(codes.intersection(pilot_station_codes)) >= 2:
+                    station_matches = [r for r in route if r.get("station_code") in codes.intersection(pilot_station_codes)]
+                elif t_num in known_corridor_trains:
+                    station_matches = route
+
+            if not station_matches:
+                continue
+
+            # Horizon filter check
+            if horizon_end_min is not None:
+                in_horizon = False
+                for s in station_matches:
+                    dep = s.get("departure") or s.get("arrival") or s.get("departure_time") or s.get("arrival_time") or ""
+                    if ":" in dep:
+                        try:
+                            hh, mm = map(int, dep.strip().split(":")[:2])
+                            stop_min = hh * 60 + mm
+                            if ref_min <= stop_min <= horizon_end_min:
+                                in_horizon = True
+                                break
+                            elif horizon_end_min > 1440 and ref_min <= (stop_min + 1440) <= horizon_end_min:
+                                in_horizon = True
+                                break
+                        except Exception:
+                            continue
+                if not in_horizon:
+                    continue
+
+            covered_trains.append(t_num)
         except Exception:
             continue
 
-    return sorted(list(dict.fromkeys(covered_trains)))
+    unique_trains = sorted(list(dict.fromkeys(covered_trains)))
+    if not unique_trains and horizon_end_min is not None:
+        # Fallback: if narrow horizon has no train at this hour, return all corridor timetable trains
+        return get_pilot_timetable_trains(section_id=section_id, snapshot_dir=snapshot_dir, horizon_hours=-1, emergency_block_id=emergency_block_id)[:max_limit]
+    return unique_trains[:max_limit]
 
 
 def get_api_budget_breakdown(
@@ -188,20 +279,94 @@ def get_api_budget_breakdown(
     }
 
 
+def print_sync_summary(
+    section_id: str,
+    total_found: int,
+    with_timetables: int,
+    covered_trains: List[str],
+    keys_status: List[dict],
+    calls_used: int,
+    snapshot_dir: Optional[Path] = None,
+) -> str:
+    """
+    Prints and returns a formatted summary after sync:
+    trains found on the corridor, trains with timetables, known versus total
+    trains per block section, and calls used per key.
+    """
+    sec_cfg = PILOT_SECTIONS.get(section_id, PILOT_SECTIONS.get("SEC-93135bb9"))
+    sec_name = sec_cfg.name if sec_cfg else section_id
+    s_dir = snapshot_dir or DEFAULT_SNAPSHOT_DIR
+
+    block_lines = []
+    try:
+        from traffic.block_sections import build_block_sections
+        from traffic.passages import load_pilot_block_passages
+        b_secs = build_block_sections(section_id, snapshot_dir=s_dir)
+        all_passages = load_pilot_block_passages(section_id, snapshot_dir=s_dir)
+        covered_set = set(covered_trains)
+        for b in b_secs:
+            b_pass = [p for p in all_passages if getattr(p, "block_section_id", "") == b.id or getattr(p, "line", "") == b.line]
+            total_b = len(set(p.train_no for p in b_pass))
+            known_b = len(set(p.train_no for p in b_pass if p.train_no in covered_set))
+            block_lines.append(f"  - {b.id} ({b.name}): {known_b} known in horizon / {total_b} total timetable trains")
+    except Exception as e:
+        block_lines.append(f"  (Block section details unavailable: {e})")
+
+    key_lines = []
+    for k in keys_status:
+        key_lines.append(f"  - Key {k.get('key_suffix', '***')}: {k.get('used', 0)} used, {k.get('remaining', 0)} remaining (limit {k.get('limit', 90)})")
+
+    summary = (
+        f"\n================================================================================\n"
+        f"RAILRADAR LIVE SYNC SUMMARY\n"
+        f"================================================================================\n"
+        f"Corridor: {sec_name} ({section_id})\n"
+        f"Trains found on the corridor: {total_found}\n"
+        f"Trains with timetables on disk: {with_timetables}\n"
+        f"Trains selected for live delay sync: {len(covered_trains)} trains: {', '.join(covered_trains)}\n"
+        f"Known versus total trains per block section:\n" + "\n".join(block_lines) + "\n"
+        f"Calls used per key:\n" + "\n".join(key_lines) + "\n"
+        f"Total calls executed in this sync: {calls_used}\n"
+        f"================================================================================\n"
+    )
+    print(summary, flush=True)
+    logger.info("RailRadar live sync completed: %d trains, %d calls", len(covered_trains), calls_used)
+    return summary
+
+
+EMERGENCY_SYNC_COOLDOWN_MINUTES_DEFAULT = 30.0
+
+def get_emergency_sync_cooldown_minutes() -> float:
+    try:
+        return float(os.getenv("EMERGENCY_SYNC_COOLDOWN_MINUTES", str(EMERGENCY_SYNC_COOLDOWN_MINUTES_DEFAULT)))
+    except ValueError:
+        return EMERGENCY_SYNC_COOLDOWN_MINUTES_DEFAULT
+
+_LAST_EMERGENCY_SYNC_BY_TASK: Dict[str, datetime] = {}
+
+
 def get_sync_preview(
     session: Session,
     client: RailRadarClient,
     section_id: str = "SEC-93135bb9",
     snapshot_dir: Optional[Path] = None,
+    horizon_hours: Optional[float] = None,
+    emergency_block_id: Optional[str] = None,
+    emergency_task_id: Optional[str] = None,
 ) -> dict:
     """
     Computes preview confirmation data for live sync:
     - calls_needed
-    - covered_trains (only trains with timetable snapshots on the pilot corridor)
+    - covered_trains (filtered by corridor limit & time horizon or emergency block)
     - per-key remaining budget
     - interval cooldown status and remaining time
     """
-    covered = get_pilot_timetable_trains(section_id=section_id, snapshot_dir=snapshot_dir)
+    covered = get_pilot_timetable_trains(
+        section_id=section_id,
+        snapshot_dir=snapshot_dir,
+        horizon_hours=horizon_hours,
+        emergency_block_id=emergency_block_id,
+    )
     calls_needed = len(covered)
 
     budget = get_api_budget_breakdown(session, client)
@@ -211,8 +376,18 @@ def get_sync_preview(
     now_utc = datetime.now(timezone.utc)
     cooldown_active = False
     cooldown_seconds_remaining = 0
+    em_id = emergency_task_id or emergency_block_id
 
-    if last_synced is not None:
+    # Item 4: Emergency targeted sync limited to one per task per 30 minutes (configurable)
+    if em_id:
+        last_em = _LAST_EMERGENCY_SYNC_BY_TASK.get(em_id)
+        if last_em is not None:
+            elapsed_sec = (now_utc - last_em).total_seconds()
+            em_cd_sec = get_emergency_sync_cooldown_minutes() * 60
+            if 0 <= elapsed_sec < em_cd_sec:
+                cooldown_active = True
+                cooldown_seconds_remaining = max(0, int(em_cd_sec - elapsed_sec))
+    elif last_synced is not None:
         elapsed_sec = (now_utc - last_synced).total_seconds()
         min_sec = min_interval * 60
         if 0 <= elapsed_sec < min_sec:
@@ -225,9 +400,10 @@ def get_sync_preview(
     can_sync = has_keys and (not cooldown_active) and budget_ok
     blocked_reason = None
     if not has_keys:
-        blocked_reason = "NO_API_KEYS_CONFIGURED"
+        # Item 5: Explicit reason when no keys loaded
+        blocked_reason = "NO_API_KEYS_LOADED"
     elif cooldown_active:
-        blocked_reason = "COOLDOWN_ACTIVE"
+        blocked_reason = "EMERGENCY_COOLDOWN_ACTIVE" if em_id else "COOLDOWN_ACTIVE"
     elif not budget_ok:
         blocked_reason = "INSUFFICIENT_RESERVED_BUDGET"
 
@@ -235,15 +411,17 @@ def get_sync_preview(
     if last_synced is not None:
         last_synced_ist = last_synced.astimezone(KOLKATA_TZ).strftime("%d %b %Y, %H:%M:%S IST")
 
-    sec_cfg = PILOT_SECTIONS.get(section_id, PILOT_SECTIONS["SEC-93135bb9"])
+    sec_cfg = PILOT_SECTIONS.get(section_id, PILOT_SECTIONS.get("SEC-93135bb9"))
+    sec_name = sec_cfg.name if sec_cfg else section_id
+    corridor_name = sec_cfg.corridor_name if sec_cfg else "Delhi–Howrah Main"
 
     return {
         "calls_needed": calls_needed,
         "covered_trains": covered,
         "train_count": len(covered),
         "section_id": section_id,
-        "section_name": sec_cfg.name,
-        "corridor_name": sec_cfg.corridor_name,
+        "section_name": sec_name,
+        "corridor_name": corridor_name,
         "keys_budget": budget["keys"],
         "total_remaining_budget": budget["total_remaining"],
         "reserved_budget": budget["reserved_budget"],
@@ -256,6 +434,8 @@ def get_sync_preview(
         "last_synced_at": last_synced.isoformat() if last_synced else None,
         "last_synced_ist": last_synced_ist,
         "blocked_reason": blocked_reason,
+        "is_emergency": bool(emergency_block_id),
+        "emergency_block_id": emergency_block_id,
     }
 
 
@@ -265,11 +445,15 @@ def execute_live_train_sync(
     section_id: str = "SEC-93135bb9",
     snapshot_dir: Optional[Path] = None,
     force: bool = False,
+    horizon_hours: Optional[float] = None,
+    emergency_block_id: Optional[str] = None,
+    emergency_task_id: Optional[str] = None,
 ) -> dict:
     """
     Executes live delay sync for pilot corridor timetable trains.
-    Enforces minimum interval (default 60m) and reserved budget (default 30 calls).
-    Returns trains updated, calls used, last synced time (IST), and any failures.
+    Enforces minimum interval (default 60m, bypassed for emergency tasks)
+    and reserved budget (default 30 calls, always enforced).
+    Returns trains updated, calls used, last synced time (IST), summary, and any failures.
     """
     if not client.keys and not client.offline:
         raise HTTPException(
@@ -277,24 +461,43 @@ def execute_live_train_sync(
             detail="RailRadar not configured — set RAILRADAR_API_KEYS in .env",
         )
 
-    preview = get_sync_preview(session, client, section_id=section_id, snapshot_dir=snapshot_dir)
+    preview = get_sync_preview(
+        session,
+        client,
+        section_id=section_id,
+        snapshot_dir=snapshot_dir,
+        horizon_hours=horizon_hours,
+        emergency_block_id=emergency_block_id,
+        emergency_task_id=emergency_task_id,
+    )
     calls_needed = preview["calls_needed"]
     covered_trains = preview["covered_trains"]
 
     if not force:
-        # 1. Minimum interval check (429)
+        # 1. Minimum interval check (429) - 30 min per-task limit for emergency tasks, 60m normal
+        em_id = emergency_task_id or emergency_block_id
         if preview["cooldown_active"]:
             mins_left = preview["cooldown_minutes_remaining"]
-            min_interval = preview["min_interval_minutes"]
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"Sync cooldown active. Minimum interval between live syncs is {min_interval} minutes. "
-                    f"Please wait {mins_left} more minute(s) before syncing again."
-                ),
-            )
+            if em_id:
+                em_cd = get_emergency_sync_cooldown_minutes()
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=(
+                        f"Emergency targeted sync cooldown active for task {em_id}. Limit is one sync per task per {em_cd:.0f} minutes. "
+                        f"Please wait {mins_left} more minute(s) before syncing again."
+                    ),
+                )
+            else:
+                min_interval = preview["min_interval_minutes"]
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=(
+                        f"Sync cooldown active. Minimum interval between live syncs is {min_interval} minutes. "
+                        f"Please wait {mins_left} more minute(s) before syncing again."
+                    ),
+                )
 
-        # 2. Reserved budget check (429)
+        # 2. Reserved budget check (429) - strictly enforced even for emergency tasks
         if preview["available_for_sync"] < calls_needed:
             avail = preview["available_for_sync"]
             res = preview["reserved_budget"]
@@ -308,8 +511,8 @@ def execute_live_train_sync(
                 ),
             )
 
-    sec_cfg = PILOT_SECTIONS.get(section_id, PILOT_SECTIONS["SEC-93135bb9"])
-    corridor_id = sec_cfg.corridor_id or "COR-82d9c510"
+    sec_cfg = PILOT_SECTIONS.get(section_id, PILOT_SECTIONS.get("SEC-93135bb9"))
+    corridor_id = (sec_cfg.corridor_id if sec_cfg else None) or "COR-82d9c510"
 
     statuses: List[LiveTrainStatus] = []
     failures: List[dict] = []
@@ -340,6 +543,33 @@ def execute_live_train_sync(
     # Fetch updated budget status post-sync
     updated_budget = get_api_budget_breakdown(session, client)
 
+    # Compute corridor counts for summary
+    s_dir = snapshot_dir or DEFAULT_SNAPSHOT_DIR
+    trains_file = s_dir / "train_between_NDLS_GZB.json"
+    total_found = 40
+    if trains_file.exists():
+        try:
+            with open(trains_file, "r", encoding="utf-8") as f:
+                t_data = json.load(f)
+            total_found = len((t_data.get("data") or {}).get("trains") or [])
+        except Exception:
+            pass
+    with_timetables = len(list(s_dir.glob("train_*_timetable.json")))
+
+    em_id = emergency_task_id or emergency_block_id
+    if em_id:
+        _LAST_EMERGENCY_SYNC_BY_TASK[em_id] = datetime.now(timezone.utc)
+
+    summary_text = print_sync_summary(
+        section_id=section_id,
+        total_found=total_found,
+        with_timetables=with_timetables,
+        covered_trains=covered_trains,
+        keys_status=updated_budget["keys"],
+        calls_used=calls_made,
+        snapshot_dir=s_dir,
+    )
+
     return {
         "status": "ok",
         "trains_updated": len(statuses),
@@ -352,4 +582,5 @@ def execute_live_train_sync(
         "keys_usage": updated_budget["keys"],
         "total_remaining_budget": updated_budget["total_remaining"],
         "reserved_budget": updated_budget["reserved_budget"],
+        "summary": summary_text,
     }

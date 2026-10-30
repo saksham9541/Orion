@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "provenance": "hand_written",
+  "snapshot_timestamp": "2026-10-30T10:50:00Z",
+  "illustrative": true,
+  "data": {
+    "train_number": "64424",
+    "train_name": "NDLS-GZB EMU Local",
+    "train_type": "SUBURBAN",
+    "route": [
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "06:30",
+        "departure": "06:30",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "06:33",
+        "departure": "06:34",
+        "distance": 1.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "06:38",
+        "departure": "06:39",
+        "distance": 2.7,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "06:48",
+        "departure": "06:50",
+        "distance": 12.5,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "06:55",
+        "departure": "06:56",
+        "distance": 15.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "07:15",
+        "departure": "07:15",
+        "distance": 19.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot",
+    "provenance": "hand_written",
+    "illustrative": true
+  }
+}

@@ -14,14 +14,20 @@ load_dotenv()
 from contextlib import asynccontextmanager
 import logging
 import os
-from datetime import date, datetime, timedelta
+import uuid
+from datetime import date, datetime, time as dt_time, timedelta, timezone
 import json
 from pathlib import Path
 from typing import List, Optional
 import zoneinfo
 
-from fastapi import FastAPI, HTTPException, Depends, Request, WebSocket, WebSocketDisconnect, Query, status
+KOLKATA_TZ = zoneinfo.ZoneInfo("Asia/Kolkata")
+
+from fastapi import FastAPI, HTTPException, Depends, Request, WebSocket, WebSocketDisconnect, Query, Header, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from backend.events import event_bus
+from traffic.task_revalidation import format_clock_ist
 
 from backend.database import (
     get_engine,
@@ -49,6 +55,9 @@ from backend.database import (
     BlockPlanRecord,
     CorridorRecord,
     NotificationRecord,
+    TaskTransitionAuditRecord,
+    UserRecord,
+    utc_now,
 )
 # Data
 from railopt.synthetic_data import generate_full_dataset
@@ -859,6 +868,7 @@ def list_tasks(
     severity: Optional[str] = None,
     status: Optional[str] = None,
     corridor: Optional[str] = None,
+    include_pending_ack: bool = False,
     current_user: User = Depends(require_viewer_or_above),
 ):
     tasks = getattr(app.state, "tasks", [])
@@ -902,7 +912,90 @@ def list_tasks(
         tasks = [t for t in tasks if t.status.value == status or t.status == status]
     if corridor:
         tasks = [t for t in tasks if t.corridor_id == corridor]
+
+    # Filter out tasks awaiting acknowledgement unless specifically requested (Item B2)
+    if not include_pending_ack and (not status or status.strip().upper() != TaskStatus.AWAITING_ACK.value):
+        tasks = [
+            t for t in tasks
+            if getattr(t, "status", None) != TaskStatus.AWAITING_ACK
+            and not getattr(t, "awaiting_acknowledgement", False)
+        ]
+    try:
+        from traffic.task_revalidation import evaluate_task_window_status, format_clock_ist, KOLKATA_TZ
+        ref_time = None
+        if x_test_server_time:
+            try:
+                ref_time = datetime.fromisoformat(x_test_server_time)
+                if ref_time.tzinfo is None:
+                    ref_time = ref_time.replace(tzinfo=KOLKATA_TZ)
+            except Exception:
+                ref_time = None
+
+        session = get_session(engine)
+        try:
+            ref_date = (ref_time or datetime.now(KOLKATA_TZ)).date()
+            for t in tasks:
+                ws = evaluate_task_window_status(t, now_ist=ref_time, session=session, app_state=app.state)
+                t.window_status = ws["window_status"]
+                if t.start_allowed_from and not t.start_allowed_from_clock:
+                    t.start_allowed_from_clock = format_clock_ist(t.start_allowed_from, include_date=True, ref_date=ref_date)
+                if t.start_allowed_until and not t.start_allowed_until_clock:
+                    t.start_allowed_until_clock = format_clock_ist(t.start_allowed_until, include_date=True, ref_date=ref_date)
+                if t.planned_end and not t.planned_end_clock:
+                    t.planned_end_clock = format_clock_ist(t.planned_end, include_date=True, ref_date=ref_date)
+                if t.start_allowed_from_clock and t.start_allowed_until_clock and not t.designated_period_clock:
+                    finish_str = f', finish by {t.planned_end_clock}' if t.planned_end_clock else ''
+                    t.designated_period_clock = f'{t.start_allowed_from_clock} - {t.start_allowed_until_clock}{finish_str}'
+        finally:
+            session.close()
+    except Exception as eval_err:
+        logger.warning("Error evaluating task window statuses: %s", eval_err)
     return tasks
+
+
+@app.get("/api/tasks/pending-acknowledgement", response_model=List[MaintenanceTask])
+@app.get("/api/tasks/awaiting-acknowledgement", response_model=List[MaintenanceTask])
+def list_pending_acknowledgement_tasks(current_user: User = Depends(require_viewer_or_above)):
+    """
+    Returns reports currently awaiting supervisor/dept or admin acknowledgement.
+    Excluded from main counts and lists per Item B2.
+    """
+    tasks = getattr(app.state, "tasks", [])
+    if not tasks:
+        session = get_session(engine)
+        try:
+            db_tasks, _ = load_tasks(session)
+            if db_tasks:
+                app.state.tasks = db_tasks
+                tasks = db_tasks
+        finally:
+            session.close()
+
+    pending = [
+        t for t in tasks
+        if getattr(t, "status", None) == TaskStatus.AWAITING_ACK or getattr(t, "awaiting_acknowledgement", False)
+    ]
+
+    # Role & Department Scoping:
+    # 1. Super Admin & Controller have global oversight of all pending reports
+    if current_user.role in (UserRole.ADMIN, UserRole.CONTROLLER):
+        return pending
+
+    # 2. Department users see reports addressed to their department + ones they created
+    if current_user.role == UserRole.DEPT_USER and current_user.department:
+        u_dept = current_user.department.value.upper()
+        return [
+            t for t in pending
+            if (getattr(t, "department_designated", "") or "").upper() == u_dept
+            or (getattr(t.department, "value", str(t.department))).upper() == u_dept
+            or (getattr(t, "created_by", "") or "").lower() == current_user.email.lower()
+        ]
+
+    # 3. Technicians and reporters see reports they personally submitted
+    return [
+        t for t in pending
+        if (getattr(t, "created_by", "") or "").lower() == current_user.email.lower()
+    ]
 
 
 @app.get("/api/tasks/{task_id}")
@@ -912,6 +1005,11 @@ def get_task(task_id: str, current_user: User = Depends(require_viewer_or_above)
             if not can_access_task(current_user, t):
                 raise HTTPException(status_code=403, detail="Cannot view task for a different department")
             resp = t.model_dump()
+            if t.start_allowed_from and t.start_allowed_until:
+                resp["start_allowed_from_clock"] = format_clock_ist(t.start_allowed_from)
+                resp["start_allowed_until_clock"] = format_clock_ist(t.start_allowed_until)
+                resp["planned_end_clock"] = format_clock_ist(t.planned_end)
+                resp["designated_period_clock"] = f"{resp['start_allowed_from_clock']} - {resp['start_allowed_until_clock']}, finish by {resp['planned_end_clock']}"
             resp["duration_estimate"] = {
                 "point_estimate": t.ml_predicted_duration_hours if t.ml_predicted_duration_hours else t.estimated_duration_hours,
                 "confidence_lower": t.ml_duration_confidence_lower,
@@ -931,6 +1029,11 @@ def get_task(task_id: str, current_user: User = Depends(require_viewer_or_above)
                 if not can_access_task(current_user, t):
                     raise HTTPException(status_code=403, detail="Cannot view task for a different department")
                 resp = t.model_dump()
+                if t.start_allowed_from and t.start_allowed_until:
+                    resp["start_allowed_from_clock"] = format_clock_ist(t.start_allowed_from)
+                    resp["start_allowed_until_clock"] = format_clock_ist(t.start_allowed_until)
+                    resp["planned_end_clock"] = format_clock_ist(t.planned_end)
+                    resp["designated_period_clock"] = f"{resp['start_allowed_from_clock']} - {resp['start_allowed_until_clock']}, finish by {resp['planned_end_clock']}"
                 resp["duration_estimate"] = {
                     "point_estimate": t.ml_predicted_duration_hours if t.ml_predicted_duration_hours else t.estimated_duration_hours,
                     "confidence_lower": t.ml_duration_confidence_lower,
@@ -960,6 +1063,7 @@ async def update_task_status(
     request: Optional[TaskStatusUpdate] = None,
     status: Optional[str] = None,
     current_user: User = Depends(require_dept_or_above),
+    x_test_server_time: Optional[str] = Header(None, alias="X-Test-Server-Time"),
 ):
     target = None
     for t in getattr(app.state, "tasks", []):
@@ -1009,6 +1113,39 @@ async def update_task_status(
         }
         status_val = alias_map.get(status_input, status_input)
 
+        # C1 Enforcement: Department "Start Action" must go through the exact same start gate check
+        is_admin = False
+        if current_user and getattr(current_user, "role", None):
+            r = current_user.role
+            is_admin = (r == UserRole.ADMIN or str(r).upper() == "ADMIN")
+
+        if status_val == "IN_PROGRESS" and not is_admin:
+            from traffic.task_revalidation import start_task_execution
+            override_time = None
+            if x_test_server_time:
+                try:
+                    override_time = datetime.fromisoformat(x_test_server_time)
+                except Exception:
+                    pass
+            target = start_task_execution(
+                task_id=task_id,
+                confirm_low_confidence=getattr(request, "confirm_low_confidence", False),
+                notes=getattr(request, "notes", None),
+                current_user=current_user,
+                session=session,
+                app_state=app.state,
+                server_time_override=override_time,
+            )
+            save_tasks(session, [target])
+            event_bus.publish_sync(
+                event_type="EXECUTION_STARTED",
+                task_id=task_id,
+                new_status="IN_PROGRESS",
+                department=getattr(target.department, "value", str(target.department)),
+                actor=current_user.email,
+            )
+            return {"status": "ok", "task_status": target.status.value, "task": target}
+
         from railopt.task_transitions import transition_task
         try:
             target = transition_task(
@@ -1041,7 +1178,283 @@ async def update_task_status(
         except Exception as ws_err:
             logger.warning("Failed to broadcast task update: %s", ws_err)
 
+        event_bus.publish_sync(
+            event_type="TASK_UPDATED",
+            task_id=target.task_id,
+            new_status=target.status.value,
+            department=target.department.value if hasattr(target.department, "value") else str(target.department),
+            block_section=target.section_id,
+            actor=current_user.email,
+        )
+
         return {"status": "ok", "new_status": target.status.value, "task_id": target.task_id}
+    finally:
+        session.close()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Task Acknowledgement & Review Workflow (Item B2)
+# ──────────────────────────────────────────────────────────────────────
+
+class DeclineTaskRequest(BaseModel):
+    reason: Optional[str] = "Invalid or duplicate report"
+
+
+@app.post("/api/tasks/{task_id}/acknowledge")
+def acknowledge_task(
+    task_id: str,
+    current_user: User = Depends(require_dept_or_above),
+):
+    """
+    Acknowledge a reported defect and enlist it into the active operational pipeline.
+    Atomic first-acknowledgement-wins semantic; enforces department scoping.
+    """
+    session = get_session(engine)
+    try:
+        task_rec = session.query(TaskRecord).filter(TaskRecord.task_id == task_id).first()
+        if not task_rec:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        # Scoping: another department cannot acknowledge
+        if current_user.role == UserRole.DEPT_USER and current_user.department:
+            task_dept = (task_rec.department_designated or task_rec.department or "").strip().upper()
+            user_dept = current_user.department.value.upper()
+            if task_dept != user_dept:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Cannot acknowledge task for department {task_dept}; user belongs to {user_dept}",
+                )
+
+        now = utc_now()
+        # Atomic conditional update
+        updated_rows = (
+            session.query(TaskRecord)
+            .filter(
+                TaskRecord.task_id == task_id,
+                TaskRecord.status == TaskStatus.AWAITING_ACK.value,
+            )
+            .update({
+                TaskRecord.status: TaskStatus.REPORTED.value,
+                TaskRecord.awaiting_acknowledgement: False,
+                TaskRecord.acknowledged_by: current_user.email,
+                TaskRecord.acknowledged_at: now,
+            })
+        )
+
+        if updated_rows == 0:
+            session.refresh(task_rec)
+            if task_rec.status == TaskStatus.DECLINED.value:
+                raise HTTPException(status_code=409, detail=f"Task already declined by {task_rec.declined_by}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Already acknowledged by {task_rec.acknowledged_by or 'another operator'}",
+            )
+
+        # Audit trail
+        audit = TaskTransitionAuditRecord(
+            id=str(uuid.uuid4()),
+            task_id=task_id,
+            from_status=TaskStatus.AWAITING_ACK.value,
+            to_status=TaskStatus.REPORTED.value,
+            changed_by_user_id=str(current_user.id) if hasattr(current_user, 'id') else current_user.email,
+            changed_by_role=getattr(current_user.role, 'value', str(current_user.role)),
+            changed_by_department=current_user.department.value if current_user.department else None,
+            reason="Report acknowledged and enlisted into operational pipeline",
+            timestamp=now,
+        )
+        session.add(audit)
+
+        # Mark notifications resolved for all recipients
+        notifs = session.query(NotificationRecord).filter(
+            NotificationRecord.issue_id == task_id,
+            NotificationRecord.resolved_at.is_(None),
+        ).all()
+        for n in notifs:
+            n.resolved_at = now
+            n.resolved_by = current_user.email
+            n.action_taken = "ACKNOWLEDGED"
+            n.read_at = now
+
+        session.commit()
+
+        # Update in-memory state
+        for t in getattr(app.state, "tasks", []):
+            if t.task_id == task_id:
+                t.status = TaskStatus.REPORTED
+                t.awaiting_acknowledgement = False
+                t.acknowledged_by = current_user.email
+                t.acknowledged_at = now
+                break
+
+        # C2: When an emergency task is enlisted or reported, notify controller and super admin with affected train count
+        is_emergency = (
+            getattr(task_rec, "raw_severity", "") == "EMERGENCY"
+            or getattr(task_rec, "severity", "") == "EMERGENCY"
+        )
+        if is_emergency:
+            t_obj = next((t for t in getattr(app.state, "tasks", []) if t.task_id == task_id), None)
+            if not t_obj:
+                db_ts, _ = load_tasks(session)
+                t_obj = next((t for t in db_ts if t.task_id == task_id), None)
+            if t_obj:
+                dispatch_emergency_task_notification(t_obj, session, current_user.email)
+
+        # Broadcast events through SSE
+        event_bus.publish_sync(
+            event_type="TASK_ACKNOWLEDGED",
+            task_id=task_id,
+            new_status="REPORTED",
+            department=task_rec.department,
+            block_section=task_rec.section_id,
+            actor=current_user.email,
+            details={"acknowledged_by": current_user.email, "acknowledged_at": now.isoformat()},
+        )
+        event_bus.publish_sync(
+            event_type="NOTIFICATION_RESOLVED",
+            task_id=task_id,
+            details={"action": "ACKNOWLEDGED", "resolved_by": current_user.email},
+        )
+
+        return {
+            "status": "ok",
+            "task_id": task_id,
+            "new_status": TaskStatus.REPORTED.value,
+            "acknowledged_by": current_user.email,
+            "acknowledged_at": now.isoformat(),
+        }
+    finally:
+        session.close()
+
+
+@app.post("/api/tasks/{task_id}/decline")
+def decline_task(
+    task_id: str,
+    request: DeclineTaskRequest = DeclineTaskRequest(),
+    current_user: User = Depends(require_dept_or_above),
+):
+    """
+    Decline an unverified defect report (invalid or duplicate).
+    Moves task to DECLINED state and resolves the notification for all users.
+    """
+    session = get_session(engine)
+    try:
+        task_rec = session.query(TaskRecord).filter(TaskRecord.task_id == task_id).first()
+        if not task_rec:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        # Department scoping
+        if current_user.role == UserRole.DEPT_USER and current_user.department:
+            task_dept = (task_rec.department_designated or task_rec.department or "").strip().upper()
+            user_dept = current_user.department.value.upper()
+            if task_dept != user_dept:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Cannot decline task for department {task_dept}; user belongs to {user_dept}",
+                )
+
+        now = utc_now()
+        reason = (request.reason or "Invalid or duplicate report").strip()
+        updated_rows = (
+            session.query(TaskRecord)
+            .filter(
+                TaskRecord.task_id == task_id,
+                TaskRecord.status == TaskStatus.AWAITING_ACK.value,
+            )
+            .update({
+                TaskRecord.status: TaskStatus.DECLINED.value,
+                TaskRecord.awaiting_acknowledgement: False,
+                TaskRecord.declined_by: current_user.email,
+                TaskRecord.declined_at: now,
+                TaskRecord.decline_reason: reason,
+            })
+        )
+
+        if updated_rows == 0:
+            session.refresh(task_rec)
+            raise HTTPException(
+                status_code=409,
+                detail=f"Task is not awaiting acknowledgement or was already reviewed by {task_rec.acknowledged_by or task_rec.declined_by}",
+            )
+
+        # Audit trail
+        audit = TaskTransitionAuditRecord(
+            id=str(uuid.uuid4()),
+            task_id=task_id,
+            from_status=TaskStatus.AWAITING_ACK.value,
+            to_status=TaskStatus.DECLINED.value,
+            changed_by_user_id=str(current_user.id) if hasattr(current_user, 'id') else current_user.email,
+            changed_by_role=getattr(current_user.role, 'value', str(current_user.role)),
+            changed_by_department=current_user.department.value if current_user.department else None,
+            reason=f"Declined: {reason}",
+            timestamp=now,
+        )
+        session.add(audit)
+
+        # Resolve notifications
+        notifs = session.query(NotificationRecord).filter(
+            NotificationRecord.issue_id == task_id,
+            NotificationRecord.resolved_at.is_(None),
+        ).all()
+        for n in notifs:
+            n.resolved_at = now
+            n.resolved_by = current_user.email
+            n.action_taken = "DECLINED"
+            n.read_at = now
+
+        # Notify reporter
+        if task_rec.created_by:
+            reporter_user = session.query(UserRecord).filter(UserRecord.email == task_rec.created_by).first()
+            if reporter_user:
+                reporter_notif = NotificationRecord(
+                    id=str(uuid.uuid4()),
+                    issue_id=task_id,
+                    recipient_user_id=reporter_user.id,
+                    type="REPORT_DECLINED",
+                    title="Defect Report Declined",
+                    message=f"Your defect report for {task_rec.defect_category} at KM {task_rec.km_location} was declined by {current_user.email}. Reason: {reason}",
+                    severity="LOW",
+                    created_at=now,
+                    read_at=None,
+                    acknowledged_at=None,
+                    resolved_at=None,
+                )
+                session.add(reporter_notif)
+
+        session.commit()
+
+        # Update in-memory state
+        for t in getattr(app.state, "tasks", []):
+            if t.task_id == task_id:
+                t.status = TaskStatus.DECLINED
+                t.awaiting_acknowledgement = False
+                t.declined_by = current_user.email
+                t.declined_at = now
+                t.decline_reason = reason
+                break
+
+        # Broadcast SSE events
+        event_bus.publish_sync(
+            event_type="TASK_DECLINED",
+            task_id=task_id,
+            new_status="DECLINED",
+            department=task_rec.department,
+            block_section=task_rec.section_id,
+            actor=current_user.email,
+            details={"declined_by": current_user.email, "reason": reason},
+        )
+        event_bus.publish_sync(
+            event_type="NOTIFICATION_RESOLVED",
+            task_id=task_id,
+            details={"action": "DECLINED", "resolved_by": current_user.email},
+        )
+
+        return {
+            "status": "ok",
+            "task_id": task_id,
+            "new_status": TaskStatus.DECLINED.value,
+            "declined_by": current_user.email,
+            "reason": reason,
+        }
     finally:
         session.close()
 
@@ -1131,7 +1544,8 @@ async def submit_complaint(
         km_location=request.km_location,
         estimated_duration_hours=2.0,
         inspector_remarks=request.description,
-        status=TaskStatus.UNVERIFIED,
+        status=TaskStatus.REPORTED if current_user.role in (UserRole.ADMIN, UserRole.CONTROLLER) else TaskStatus.AWAITING_ACK,
+        awaiting_acknowledgement=(current_user.role not in (UserRole.ADMIN, UserRole.CONTROLLER)),
         reported_date=datetime.now().date(),
         ml_predicted_severity=None,
         ml_predicted_duration_hours=0.0,
@@ -1152,13 +1566,29 @@ async def submit_complaint(
         await dispatch_issue_alert(
             session=session,
             issue_id=task.task_id,
-            title=f"New Issue Raised: {category.value}",
+            title=f"New Defect Enlisted: {category.value}" if not task.awaiting_acknowledgement else f"Defect Awaiting Acknowledgement: {category.value}",
             message=f"Defect reported on {task.corridor_id} ({task.section_id}) at KM {task.km_location:.1f}. Severity: {severity.value}.",
-            severity=severity.value,
+            severity="EMERGENCY" if getattr(severity, "value", str(severity)).upper() in ("EMERGENCY", "CRITICAL") else severity.value,
             department_designated=department.value,
             creator_id=str(current_user.id) if hasattr(current_user, 'id') else None,
             creator_email=current_user.email,
         )
+        event_bus.publish_sync(
+            event_type="TASK_CREATED" if not task.awaiting_acknowledgement else "TASK_AWAITING_ACK",
+            task_id=task.task_id,
+            new_status=task.status.value,
+            department=task.department.value,
+            block_section=task.section_id,
+            actor=current_user.email,
+            details={"awaiting_acknowledgement": task.awaiting_acknowledgement, "severity": severity.value},
+        )
+        # C2: If emergency task is immediately enlisted, notify controller & admin with affected train count
+        is_emerg = (
+            getattr(severity, "value", str(severity)).upper() in ("EMERGENCY", "CRITICAL")
+            or getattr(task, "raw_severity", "") == "EMERGENCY"
+        )
+        if not task.awaiting_acknowledgement and is_emerg:
+            dispatch_emergency_task_notification(task, session, current_user.email)
     finally:
         session.close()
     return task
@@ -1170,12 +1600,15 @@ async def submit_complaint(
 @app.get("/api/trains/live/sync-preview")
 def get_live_sync_preview(
     section_id: str = "SEC-93135bb9",
+    horizon_hours: Optional[float] = Query(None),
+    emergency_block_id: Optional[str] = Query(None),
+    emergency_task_id: Optional[str] = Query(None),
     current_user: User = Depends(require_controller),
 ):
     """
     Pre-flight confirmation preview for live RailRadar train delay sync:
     - How many calls this sync will make
-    - Which trains it covers (only trains with a timetable snapshot on the pilot corridor)
+    - Which trains it covers (filtered by corridor limit, time horizon, or emergency block section)
     - Remaining monthly budget per key
     - Server-side minimum interval & cooldown status
     """
@@ -1188,7 +1621,14 @@ def get_live_sync_preview(
 
     session = get_session(engine)
     try:
-        return get_sync_preview(session, client, section_id=section_id)
+        return get_sync_preview(
+            session,
+            client,
+            section_id=section_id,
+            horizon_hours=horizon_hours,
+            emergency_block_id=emergency_block_id,
+            emergency_task_id=emergency_task_id,
+        )
     finally:
         session.close()
 
@@ -1216,12 +1656,16 @@ def get_live_trains_budget(
 def sync_live_trains(
     section_id: str = "SEC-93135bb9",
     force: bool = False,
+    horizon_hours: Optional[float] = Query(None),
+    emergency_block_id: Optional[str] = Query(None),
+    emergency_task_id: Optional[str] = Query(None),
     current_user: User = Depends(require_controller),
 ):
     """
     Syncs live delays into LiveTrainStatus for pilot corridor timetable trains.
-    Enforces minimum interval (default 60m) and reserved budget (default 30 calls) returning 429 when blocked.
-    Returns trains updated, calls used, last synced time (IST), and any failures.
+    Enforces minimum interval (default 60m, 30m limit per emergency task)
+    and reserved budget (default 30 calls) returning 429 when blocked.
+    Returns trains updated, calls used, last synced time (IST), summary, and any failures.
     """
     from backend.sync_service import execute_live_train_sync
     from integrations.railradar_client import RailRadarClient
@@ -1232,7 +1676,21 @@ def sync_live_trains(
 
     session = get_session(engine)
     try:
-        return execute_live_train_sync(session, client, section_id=section_id, force=force)
+        result = execute_live_train_sync(
+            session,
+            client,
+            section_id=section_id,
+            force=force,
+            horizon_hours=horizon_hours,
+            emergency_block_id=emergency_block_id,
+            emergency_task_id=emergency_task_id,
+        )
+        event_bus.publish_sync(
+            event_type="SYNC_COMPLETED",
+            actor=current_user.email,
+            details={"section_id": section_id, "trains_updated": result.get("trains_updated", 0)},
+        )
+        return result
     finally:
         session.close()
 
@@ -1461,10 +1919,55 @@ def approve_plan(
     plan = app.state.plans[plan_id]
     plan.status = PlanStatus.APPROVED
     plan.approved_by = current_user.email
+    event_bus.publish_sync(
+        event_type="WINDOW_APPROVED",
+        task_id=None,
+        new_status="APPROVED",
+        department=None,
+        actor=current_user.email,
+        details={"plan_id": plan_id, "comments": request.comments},
+    )
     app.state.feedback_logger.log_plan_status(plan_id, "APPROVED", current_user.email, request.comments)
     session = get_session(engine)
-    save_plan(session, plan)
-    session.close()
+    try:
+        updated_tasks = []
+        for block in getattr(plan, "scheduled_blocks", []):
+            b_date = getattr(block, "date", None) or getattr(plan, "start_date", None) or date.today()
+            if isinstance(b_date, str):
+                b_date = date.fromisoformat(b_date)
+            s_time = getattr(block, "start_time", None) or dt_time(1, 30)
+            if isinstance(s_time, str):
+                s_time = dt_time.fromisoformat(s_time)
+            e_time = getattr(block, "end_time", None) or dt_time(3, 30)
+            if isinstance(e_time, str):
+                e_time = dt_time.fromisoformat(e_time)
+
+            s_from = datetime.combine(b_date, s_time).replace(tzinfo=KOLKATA_TZ)
+            w_end = datetime.combine(b_date, e_time).replace(tzinfo=KOLKATA_TZ)
+
+            for tid in getattr(block, "task_ids", []):
+                t = next((task for task in getattr(app.state, "tasks", []) if task.task_id == tid), None)
+                if not t:
+                    db_t, _ = load_tasks(session)
+                    t = next((task for task in db_t if task.task_id == tid), None)
+                if t:
+                    t.status = TaskStatus.APPROVED
+                    t.assigned_block_id = getattr(block, "block_id", "")
+                    dur_h = t.estimated_duration_hours or 1.25
+                    w_dur_m = max(15, int((w_end - s_from).total_seconds() / 60))
+                    slack_m = max(0, w_dur_m - int(dur_h * 60))
+                    latest_m = min(30, slack_m) if slack_m > 0 else 0
+                    t.start_allowed_from = s_from
+                    t.start_allowed_until = s_from + timedelta(minutes=latest_m)
+                    t.planned_end = t.start_allowed_until + timedelta(minutes=int(dur_h * 60))
+                    t.early_tolerance_minutes = 0
+                    updated_tasks.append(t)
+
+        if updated_tasks:
+            save_tasks(session, updated_tasks)
+        save_plan(session, plan)
+    finally:
+        session.close()
     return {"status": "ok", "plan_status": plan.status.value}
 
 
@@ -1899,6 +2402,8 @@ def get_section_windows(
         task_map = {t.task_id: t for t in app.state.tasks}
         task = task_map.get(task_id)
         if task:
+            if getattr(task, "status", None) in (TaskStatus.AWAITING_ACK, "AWAITING_ACK") or getattr(task, "awaiting_acknowledgement", False):
+                raise HTTPException(status_code=400, detail="Tasks awaiting acknowledgement cannot be scheduled or searched for windows")
             min_dur = task.estimated_duration_hours
 
     from traffic.section_map import is_pilot_section, get_pilot_section_config
@@ -2068,6 +2573,10 @@ def get_block_section_windows(
             "latest_start": c.latest_start.strftime("%H:%M"),
             "recommended_start": c.recommended_start.strftime("%H:%M"),
             "recommended_end": c.recommended_end.strftime("%H:%M"),
+            "earliest_start_clock": format_clock_ist(c.earliest_start),
+            "latest_start_clock": format_clock_ist(c.latest_start),
+            "planned_end_clock": format_clock_ist(c.recommended_end),
+            "designated_period_clock": f"{format_clock_ist(c.earliest_start)} - {format_clock_ist(c.latest_start)}, finish by {format_clock_ist(c.recommended_end)}",
             "duration_hours": c.duration_hours,
             "task_duration_minutes": c.task_duration_minutes,
             "margin_before_min": c.margin_before_min,
@@ -2222,29 +2731,44 @@ def revalidate_task_endpoint(
         session.close()
 
 
+@app.post("/api/technician/work-orders/{task_id}/start")
 @app.post("/api/tasks/{task_id}/start")
 def start_task_endpoint(
     task_id: str,
     request: Optional[TaskStartRequest] = None,
     current_user: User = Depends(require_dept_or_above),
+    x_test_server_time: Optional[str] = Header(None, alias="X-Test-Server-Time"),
 ):
     """
-    Phase 3: Technician Start action.
-    Validates task is APPROVED/READY, inside approved window tolerance,
+    Phase 3 & Part C1: Technician Start action.
+    Validates task is APPROVED/READY, inside approved start window in IST server time,
     and requires confirm_low_confidence if confidence is LOW or status is stale.
     """
     from traffic.task_revalidation import start_task_execution
     session = get_session(engine)
     try:
         req = request or TaskStartRequest()
+        override_time = None
+        if x_test_server_time:
+            try:
+                override_time = datetime.fromisoformat(x_test_server_time)
+            except Exception:
+                pass
         updated = start_task_execution(
             task_id=task_id,
             confirm_low_confidence=req.confirm_low_confidence,
-            actual_start=req.actual_start,
             notes=req.notes,
             current_user=current_user,
             session=session,
             app_state=app.state,
+            server_time_override=override_time,
+        )
+        event_bus.publish_sync(
+            event_type="EXECUTION_STARTED",
+            task_id=task_id,
+            new_status="IN_PROGRESS",
+            department=getattr(updated, "department", None),
+            actor=current_user.email,
         )
         return updated
     finally:
@@ -2396,6 +2920,263 @@ def get_task_affected_trains(
             ],
             "cascade_chains": [],
         }
+
+
+# ──────────────────────────────────────────────────────────────────────
+# C2 (Item 8): Emergency Task Impact Analysis & Enlisting
+# ──────────────────────────────────────────────────────────────────────
+
+def compute_emergency_impact_for_task(
+    task: MaintenanceTask,
+    session: Session,
+    planned_duration_hours: Optional[float] = None,
+    now: Optional[datetime] = None,
+) -> dict:
+    """
+    Computes emergency block impact:
+    - Fixed immediate start at now (IST)
+    - Block section and line (both lines if required or line='BOTH')
+    - Reuses calculate_block_delays and propagate_cascade
+    - Returns per-train: train_number, train_name, train_type, scheduled_entry_time,
+      wait_station, hold_minutes, expected_destination_delay, weighted_delay, data_provenance
+    - Summary totals: trains_affected, total_delay_minutes, passenger_delay_minutes,
+      freight_delay_minutes, weighted_delay_minutes, confidence_score, provenance_label
+    """
+    from traffic.delay_model import calculate_block_delays
+    from traffic.cascade import propagate_cascade
+    from traffic.passages import load_pilot_block_passages
+    from traffic.train_weights import get_train_type_weight
+    from traffic.section_map import is_pilot_section, get_pilot_section_config, PILOT_SECTIONS
+    from traffic.block_sections import build_block_sections
+    from railopt.models import TrainType
+
+    dur_h = float(planned_duration_hours) if planned_duration_hours is not None else float(task.estimated_duration_hours or 1.5)
+    dur_h = max(0.25, dur_h)
+
+    server_now = now or datetime.now(KOLKATA_TZ)
+    if server_now.tzinfo is None:
+        server_now = server_now.replace(tzinfo=KOLKATA_TZ)
+    planned_end = server_now + timedelta(hours=dur_h)
+
+    sec_id = task.section_id or "SEC-93135bb9"
+    sec_cfg = get_pilot_section_config(sec_id) if is_pilot_section(sec_id) else PILOT_SECTIONS.get("SEC-93135bb9")
+
+    # Line requirements: both lines or single line
+    task_line = (task.line or "DN").upper()
+    req_both = getattr(task, "requires_both_lines", False) or task_line in ("BOTH", "UP+DN", "DN+UP")
+    if task.block_section_id and "BOTH" in task.block_section_id.upper():
+        req_both = True
+
+    # Find target block section
+    b_secs = build_block_sections(sec_id)
+    target_block = next((b for b in b_secs if b.id == task.block_section_id), None)
+    if not target_block and b_secs:
+        if req_both:
+            target_block = b_secs[0]
+        else:
+            target_block = next((b for b in b_secs if b.line == task_line), b_secs[0])
+
+    # Load timetable passages for the date
+    all_passages = load_pilot_block_passages(sec_id, target_date=server_now.date())
+
+    # Filter passages for line direction
+    if req_both:
+        passages_to_evaluate = all_passages
+    else:
+        passages_to_evaluate = [p for p in all_passages if getattr(p, "line", "") == task_line or getattr(p, "direction", "") == task_line]
+
+    # Stored live telemetry
+    live_list = load_live_status(session)
+    live_map = {s.train_number: s for s in live_list}
+
+    # Primary block delays
+    primary_res = calculate_block_delays(
+        sec_cfg=sec_cfg or sec_id,
+        target_date=server_now.date(),
+        block_start=server_now.time(),
+        block_end=planned_end.time(),
+        passages=passages_to_evaluate,
+        live_statuses=live_map,
+        block_id=task.block_section_id or (target_block.id if target_block else ""),
+        now=server_now,
+    )
+
+    # Cascade propagation
+    cas_res = propagate_cascade(primary_res, passages_to_evaluate)
+    passage_by_train = {p.train_no: p for p in passages_to_evaluate}
+
+    affected_trains = []
+    # Identify affected trains (from cascade breakdown or primary delays)
+    all_delayed_train_ids = set(cas_res.train_delay_breakdown.keys()).union(set(primary_res.per_train_delays.keys()))
+    for train_no in all_delayed_train_ids:
+        dest_delay = cas_res.train_delay_breakdown.get(train_no, primary_res.per_train_delays.get(train_no, 0.0))
+        if dest_delay <= 0.0:
+            continue
+        p = passage_by_train.get(train_no)
+        if not p:
+            continue
+
+        p_type = getattr(p, "train_type", TrainType.MAIL_EXPRESS)
+        type_str = p_type.value if hasattr(p_type, "value") else str(p_type)
+        hold_min = primary_res.per_train_delays.get(train_no, 0.0)
+        wt = get_train_type_weight(p_type)
+        weighted_delay = round(dest_delay * wt, 1)
+        provenance = "live" if train_no in live_map else "estimated"
+
+        wait_stn = "GZB"
+        if target_block:
+            wait_stn = target_block.from_station
+        elif getattr(p, "direction", "DN") == "UP":
+            wait_stn = "GZB"
+        else:
+            wait_stn = "NDLS"
+
+        sched_entry_str = format_clock_ist(p.enter_time) if hasattr(p, "enter_time") else "Immediate"
+
+        affected_trains.append({
+            "train_number": p.train_no,
+            "train_name": p.train_name,
+            "train_type": type_str,
+            "scheduled_entry_time": sched_entry_str,
+            "wait_station": wait_stn,
+            "hold_minutes": round(hold_min, 1),
+            "expected_destination_delay": round(dest_delay, 1),
+            "weighted_delay": weighted_delay,
+            "data_provenance": provenance,
+            "direction": getattr(p, "direction", "DN"),
+        })
+
+    affected_trains.sort(key=lambda t: t["expected_destination_delay"], reverse=True)
+
+    num_affected = len(affected_trains)
+    pass_delay = round(sum(t["expected_destination_delay"] for t in affected_trains if t["train_type"] != "FREIGHT"), 1)
+    freight_delay = round(sum(t["expected_destination_delay"] for t in affected_trains if t["train_type"] == "FREIGHT"), 1)
+    total_delay = round(pass_delay + freight_delay, 1)
+    total_weighted = round(sum(t["weighted_delay"] for t in affected_trains), 1)
+
+    type_counts = {}
+    for t in affected_trains:
+        t_t = t["train_type"]
+        type_counts[t_t] = type_counts.get(t_t, 0) + 1
+    type_summary_parts = [f"{cnt} {t_name.title()}" for t_name, cnt in type_counts.items()]
+    type_summary = ", ".join(type_summary_parts) if type_summary_parts else "0 trains"
+
+    has_live = any(t["data_provenance"] == "live" for t in affected_trains)
+    confidence_score = 0.85 if has_live else 0.70
+
+    return {
+        "task_id": task.task_id,
+        "section_id": sec_id,
+        "block_section_id": task.block_section_id or (target_block.id if target_block else "SEC-93135bb9"),
+        "line": "BOTH" if req_both else task_line,
+        "work_period": f"{format_clock_ist(server_now)} - {format_clock_ist(planned_end)}",
+        "duration_hours": dur_h,
+        "planned_end_clock": format_clock_ist(planned_end),
+        "trains_affected": num_affected,
+        "total_delay_minutes": total_delay,
+        "passenger_delay_minutes": pass_delay,
+        "freight_delay_minutes": freight_delay,
+        "total_weighted_delay": total_weighted,
+        "train_type_summary": type_summary,
+        "confidence_score": confidence_score,
+        "provenance_label": "Estimated impact based on real timetable and live delay telemetry",
+        "affected_trains": affected_trains,
+        "block_timeline": {
+            "start_clock": format_clock_ist(server_now),
+            "end_clock": format_clock_ist(planned_end),
+            "duration_hours": dur_h,
+            "duration_minutes": int(dur_h * 60),
+        },
+    }
+
+
+def dispatch_emergency_task_notification(task: MaintenanceTask, session: Session, actor_email: str) -> Optional[dict]:
+    """Sends notification to controller and super admin with count and types of affected trains."""
+    try:
+        from backend.database import UserRecord, NotificationRecord
+        impact = compute_emergency_impact_for_task(task, session)
+        n_affected = impact.get("trains_affected", 0)
+        t_summary = impact.get("train_type_summary", "trains")
+        loc_desc = f"{task.section_id or task.corridor_id} ({task.line or 'DN'})"
+        msg = f"Emergency: {task.defect_category or 'Defect'} at {loc_desc}. {n_affected} trains affected ({t_summary}). Immediate block requested."
+
+        ctrl_admin_users = session.query(UserRecord).filter(
+            UserRecord.role.in_(["CONTROLLER", "ADMIN", "SUPER_ADMIN"]),
+            UserRecord.is_active == True,
+        ).all()
+        now_dt = datetime.now(timezone.utc)
+        for u in ctrl_admin_users:
+            notif = NotificationRecord(
+                id=str(uuid.uuid4()),
+                recipient_user_id=u.id,
+                title="Emergency Task Enlisted",
+                message=msg,
+                severity="EMERGENCY",
+                type="EMERGENCY_ENLISTED",
+                issue_id=task.task_id,
+                created_at=now_dt,
+            )
+            session.add(notif)
+        session.commit()
+
+        event_bus.publish_sync(
+            event_type="EMERGENCY_IMPACT",
+            task_id=task.task_id,
+            new_status=getattr(task.status, "value", str(task.status)),
+            department=getattr(task.department, "value", str(task.department)),
+            actor=actor_email,
+            details=impact,
+        )
+        return impact
+    except Exception as e:
+        logger.warning("Failed to dispatch emergency notification: %s", e)
+        return None
+
+
+@app.get("/api/tasks/{task_id}/emergency-impact")
+def get_task_emergency_impact(
+    task_id: str,
+    planned_duration_hours: Optional[float] = Query(None),
+    current_user: User = Depends(require_viewer_or_above),
+    x_test_server_time: Optional[str] = Header(None, alias="X-Test-Server-Time"),
+):
+    """
+    C2 (Item 8): Real-time emergency block impact calculation.
+    Assumes immediate block starting at current server time in IST (or X-Test-Server-Time).
+    Evaluates delay and cascade propagation across both lines (if required) or line.
+    Calculates per-train hold station, minutes held, expected destination delay,
+    weighted delay, and data provenance (live telemetry vs timetable estimate).
+    """
+    task = None
+    for t in getattr(app.state, "tasks", []):
+        if t.task_id == task_id:
+            task = t
+            break
+
+    session = get_session(engine)
+    try:
+        if not task:
+            db_tasks, _ = load_tasks(session)
+            task = next((t for t in db_tasks if t.task_id == task_id), None)
+
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        ref_time = None
+        if x_test_server_time:
+            try:
+                ref_time = datetime.fromisoformat(x_test_server_time)
+            except Exception:
+                pass
+
+        return compute_emergency_impact_for_task(
+            task=task,
+            session=session,
+            planned_duration_hours=planned_duration_hours,
+            now=ref_time,
+        )
+    finally:
+        session.close()
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -2669,6 +3450,33 @@ def dashboard_stats(current_user: User = Depends(require_viewer_or_above)):
         active_alerts=len(app.state.alerts),
         corridors_count=len(app.state.corridors),
     )
+
+
+@app.get("/api/dashboard/counts")
+def get_dashboard_counts(
+    department: Optional[str] = Query(None),
+    current_user: User = Depends(require_viewer_or_above),
+):
+    """
+    Single canonical source of truth for task counts and pipeline stages.
+    Enforces strict invariants across all dashboard cards and stages.
+    """
+    from railopt.counts import compute_dashboard_counts
+    tasks = getattr(app.state, "tasks", [])
+    if not tasks:
+        session = get_session(engine)
+        try:
+            tasks_data, _ = load_tasks(session)
+            tasks = tasks_data
+            app.state.tasks = tasks
+        finally:
+            session.close()
+
+    target_dept = department
+    if current_user.role == UserRole.DEPT_USER and current_user.department:
+        target_dept = current_user.department.value
+
+    return compute_dashboard_counts(tasks, department=target_dept)
 
 
 class DemoActionRequest(BaseModel):
@@ -2947,6 +3755,65 @@ def scan_early_warnings(current_user: User = Depends(require_viewer_or_above)):
 # ──────────────────────────────────────────────────────────────────────
 # Real-Time Notifications & WebSocket
 # ──────────────────────────────────────────────────────────────────────
+
+# ──────────────────────────────────────────────────────────────────────
+# Real-Time Server-Sent Events (SSE) — Item B1
+# ──────────────────────────────────────────────────────────────────────
+
+def get_user_for_sse(request: Request, token: Optional[str] = None) -> User:
+    auth_token = token
+    if not auth_token:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            auth_token = auth_header[7:].strip()
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Authentication token required")
+    try:
+        payload = decode_token(auth_token)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    session = get_session(engine)
+    try:
+        user_rec = get_user_by_id(session, user_id)
+        if not user_rec or not user_rec.is_active:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+        return User(
+            id=user_rec.id,
+            email=user_rec.email,
+            name=user_rec.name,
+            role=UserRole(user_rec.role.upper()) if user_rec.role else UserRole.VIEWER,
+            department=Department(user_rec.department.upper()) if user_rec.department else None,
+        )
+    finally:
+        session.close()
+
+
+@app.get("/api/events")
+async def events_endpoint(
+    request: Request,
+    last_event_id: Optional[str] = Header(None, alias="Last-Event-ID"),
+    token: Optional[str] = Query(None),
+):
+    """
+    Unified Server-Sent Events (SSE) feed for all dashboards (Item B1).
+    Carries role- and department-scoped task creations, status updates, window selections,
+    approvals, execution events, and notification resolutions.
+    """
+    user = get_user_for_sse(request, token)
+    return StreamingResponse(
+        event_bus.sse_generator(user=user, last_event_id=last_event_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 
 @app.websocket("/ws/notifications")
 async def websocket_notifications(

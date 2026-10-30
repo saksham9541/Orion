@@ -2,7 +2,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut, User } from 'lucide-react'
 import { useAppState } from '@/state/AppState'
 import NotificationBell from '@/components/common/NotificationBell'
+import LiveIndicator from '@/components/common/LiveIndicator'
 import ThemeToggle from '@/components/common/ThemeToggle'
+import { getPermittedNavTabs, isTabActive } from './navConfig'
 
 export const STAGES = [
   { to: '/dashboard', name: 'OVERVIEW' },
@@ -14,9 +16,10 @@ export const STAGES = [
 ]
 
 export default function StageNav() {
-  const { currentUser, logout } = useAppState()
+  const { currentUser, role, logout } = useAppState()
   const navigate = useNavigate()
   const location = useLocation()
+  const navTabs = getPermittedNavTabs(currentUser, role)
 
   const handleBack = () => {
     const roleId = currentUser?.id
@@ -66,28 +69,29 @@ export default function StageNav() {
           </Link>
         </div>
 
-        {/* Center: Stage Pill Navigation */}
-        <nav className="hidden lg:flex items-center gap-1 rounded-full border border-line bg-surface/80 p-1 shadow-sm backdrop-blur-md">
-          {STAGES.map((s) => {
-            const active = location.pathname.startsWith(s.to)
+        {/* Center: Top Navigation Tabs (consistent across Overview, Departments, Schedule) */}
+        <nav className="hidden md:flex items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-sm">
+          {navTabs.map((tab) => {
+            const active = isTabActive(tab.to, location.pathname)
             return (
               <Link
-                key={s.to}
-                to={s.to}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-all ${
+                key={tab.to}
+                to={tab.to}
+                className={`rounded-lg px-3.5 py-1.5 text-xs font-mono font-semibold uppercase tracking-wider transition-all ${
                   active
-                    ? 'bg-ink text-deep font-bold shadow-sm'
-                    : 'text-muted hover:text-ink hover:bg-raised/70'
+                    ? 'bg-[#282D2A] text-white shadow-sm'
+                    : 'text-muted hover:text-ink hover:bg-base'
                 }`}
               >
-                {s.name}
+                {tab.label}
               </Link>
             )
           })}
         </nav>
 
-        {/* Right: Notification, Theme, Profile, Logout */}
+        {/* Right: Live Sync, Notification, Theme, Profile, Logout */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          <LiveIndicator />
           <NotificationBell />
           <ThemeToggle />
 

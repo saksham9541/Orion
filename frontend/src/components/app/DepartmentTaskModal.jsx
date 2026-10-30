@@ -36,7 +36,7 @@ function getStageIndex(status) {
   return 0
 }
 
-export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusChange }) {
+export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusChange, onOpenEmergencyImpact }) {
   const [updatingStatus, setUpdatingStatus] = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -269,6 +269,47 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
             </div>
           </div>
 
+          {/* Designated Clock Times (Item C1) */}
+          {task.designated_period_clock && (
+            <div className="rounded-xl border border-[#D99A2B]/40 bg-[#FFF3D9]/50 p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Clock size={16} className="text-[#D99A2B]" />
+                <div>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#656A66] block">
+                    Approved Start Window & Planned Finish
+                  </span>
+                  <span className="font-mono text-xs font-bold text-[#252A27]">
+                    {task.designated_period_clock}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Emergency Train Delay Impact (Item C2) */}
+          {severity === 'EMERGENCY' && onOpenEmergencyImpact && (
+            <div className="rounded-xl border border-[#DC3030]/30 bg-[#FCE8E8]/60 p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <ShieldAlert size={16} className="text-[#DC3030]" />
+                <div>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#DC3030] block">
+                    EMERGENCY DEFECT — IMMEDIATE TRAIN DELAY IMPACT
+                  </span>
+                  <span className="text-xs text-[#252A27]">
+                    Calculates real-time timetable delays across affected passenger and freight trains.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenEmergencyImpact(task.id)}
+                className="rounded-lg bg-[#DC3030] hover:bg-[#b82626] text-white px-3 py-1.5 font-mono text-xs font-bold transition-colors shadow-sm"
+              >
+                Inspect Train Delays
+              </button>
+            </div>
+          )}
+
           {/* 3. AI Optimizer Recommendation */}
           <div>
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#656A66] mb-2">3. RailOpt AI Recommendation</h3>
@@ -309,13 +350,22 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
             {/* Start Action / In Progress */}
             <button
               type="button"
-              disabled={updatingStatus !== null || task.status === 'IN_PROGRESS'}
+              disabled={
+                updatingStatus !== null ||
+                task.status === 'IN_PROGRESS' ||
+                !['APPROVED', 'READY', 'SCHEDULED'].includes((task.status || '').toUpperCase())
+              }
               onClick={() => handleAction('IN_PROGRESS', 'In Progress')}
+              title={
+                !['APPROVED', 'READY', 'SCHEDULED'].includes((task.status || '').toUpperCase())
+                  ? 'Task must be approved by controller before start'
+                  : 'Start maintenance execution'
+              }
               className={`flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-sm ${
                 task.status === 'IN_PROGRESS'
                   ? 'bg-[#D99A2B] text-white border-[#D99A2B]'
                   : 'bg-white border-[#E1E3DE] text-[#252A27] hover:border-[#D99A2B] hover:text-[#D99A2B]'
-              } disabled:opacity-50`}
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               {updatingStatus === 'IN_PROGRESS' ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />}
               Start Action

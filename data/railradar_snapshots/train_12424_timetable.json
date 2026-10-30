@@ -4,20 +4,9 @@
   "snapshot_timestamp": "2026-10-30T10:50:00Z",
   "illustrative": true,
   "data": {
-    "train": {
-      "number": "12424",
-      "name": "Dibrugarh Rajdhani",
-      "type": "RAJDHANI"
-    },
-    "running_days": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6
-    ],
+    "train_number": "12424",
+    "train_name": "Dibrugarh Rajdhani",
+    "train_type": "RAJDHANI",
     "route": [
       {
         "station_code": "NDLS",
@@ -28,11 +17,43 @@
         "day": 1
       },
       {
-        "station_code": "CNB",
-        "station_name": "Kanpur Central",
-        "arrival": "21:02",
-        "departure": "21:07",
-        "distance": 440.0,
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "16:23",
+        "departure": "16:24",
+        "distance": 1.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "16:28",
+        "departure": "16:29",
+        "distance": 2.7,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "16:38",
+        "departure": "16:40",
+        "distance": 12.5,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "16:45",
+        "departure": "16:46",
+        "distance": 15.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "16:45",
+        "departure": "16:45",
+        "distance": 19.0,
         "day": 1
       }
     ]
@@ -40,8 +61,6 @@
   "meta": {
     "source": "snapshot",
     "provenance": "hand_written",
-    "snapshot_timestamp": "2026-10-30T10:50:00Z",
-    "illustrative": true,
-    "note": "Illustrative, not fetched \u2014 calibrated from Indian Railways published timetables"
+    "illustrative": true
   }
 }

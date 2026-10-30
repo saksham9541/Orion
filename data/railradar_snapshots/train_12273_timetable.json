@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "provenance": "hand_written",
+  "snapshot_timestamp": "2026-10-30T10:50:00Z",
+  "illustrative": true,
+  "data": {
+    "train_number": "12273",
+    "train_name": "Duronto Express (Up)",
+    "train_type": "DURONTO",
+    "route": [
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "13:10",
+        "departure": "13:10",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "13:15",
+        "departure": "13:16",
+        "distance": 4.0,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "13:22",
+        "departure": "13:24",
+        "distance": 6.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "13:32",
+        "departure": "13:33",
+        "distance": 16.3,
+        "day": 1
+      },
+      {
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "13:37",
+        "departure": "13:38",
+        "distance": 17.5,
+        "day": 1
+      },
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "13:40",
+        "departure": "13:40",
+        "distance": 19.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot",
+    "provenance": "hand_written",
+    "illustrative": true
+  }
+}

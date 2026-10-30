@@ -61,6 +61,14 @@ def test_alembic_upgrade_head_on_fresh_sqlite_and_crud(tmp_path, monkeypatch):
     # Verify specific requested columns
     tasks_cols = {c["name"] for c in inspector.get_columns("tasks")}
     assert "source" in tasks_cols
+    assert "acknowledged_by" in tasks_cols
+    assert "declined_by" in tasks_cols
+    assert "awaiting_acknowledgement" in tasks_cols
+
+    notif_cols = {c["name"] for c in inspector.get_columns("notifications")}
+    assert "resolved_at" in notif_cols
+    assert "resolved_by" in notif_cols
+    assert "action_taken" in notif_cols
 
     plans_cols = {c["name"] for c in inspector.get_columns("plans")}
     assert "source" in plans_cols

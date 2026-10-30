@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import ErrorBoundary from '@/components/common/ErrorBoundary'
 import { AppStateProvider } from '@/state/AppState'
 import { NotificationProvider } from '@/state/NotificationContext'
+import { LiveSyncProvider } from '@/state/LiveSyncStore'
 import Landing from '@/pages/Landing'
 import Login from '@/pages/Login'
 import AdminDashboard from '@/pages/admin/AdminDashboard'
@@ -17,13 +18,15 @@ import BlockPlan from '@/pages/BlockPlan'
 import Tasks from '@/pages/Tasks'
 import Network from '@/pages/Network'
 import Sources from '@/pages/Sources'
+import Assistant from '@/pages/Assistant'
 
 export default function App() {
   return (
     <ErrorBoundary>
       <AppStateProvider>
         <NotificationProvider>
-          <Routes>
+          <LiveSyncProvider>
+            <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/restricted" element={<AccessRestricted />} />
@@ -45,11 +48,24 @@ export default function App() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/network" element={<Network />} />
         <Route path="/sources" element={<Sources />} />
+        <Route path="/assistant" element={<Assistant />} />
+        <Route path="/briefing" element={<Assistant />} />
+        <Route path="/simulator" element={<Simulator />} />
       </Route>
+
+      {/* Legacy /app/* path aliases for demo steps & dashboard links */}
+      <Route path="/app/plan" element={<Navigate to="/plan" replace />} />
+      <Route path="/app/tasks" element={<Navigate to="/tasks" replace />} />
+      <Route path="/app/network" element={<Navigate to="/network" replace />} />
+      <Route path="/app/dashboard" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/app/simulate" element={<Navigate to="/simulate" replace />} />
+      <Route path="/app/simulator" element={<Navigate to="/simulate" replace />} />
+      <Route path="/app/*" element={<Navigate to="/dashboard" replace />} />
       
       <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-        </NotificationProvider>
+          </Routes>
+        </LiveSyncProvider>
+      </NotificationProvider>
       </AppStateProvider>
     </ErrorBoundary>
   )

@@ -147,6 +147,13 @@ class BlockScheduler:
         cfg = self.config
         time_limit = time_limit_seconds if time_limit_seconds is not None else cfg.time_limit_seconds
 
+        # Filter out tasks awaiting acknowledgement or declined (Item B2)
+        tasks = [
+            t for t in tasks
+            if getattr(t, "status", None) not in (TaskStatus.AWAITING_ACK, TaskStatus.DECLINED, "AWAITING_ACK", "DECLINED")
+            and not getattr(t, "awaiting_acknowledgement", False)
+        ]
+
         SCALE = 10  # CP-SAT needs integers: keep 1 decimal
         num_tasks, num_windows = len(tasks), len(windows)
 
@@ -289,20 +296,37 @@ class BlockScheduler:
                         model.Add(sum(x[i, j] for j in compat[i]) == 1)
 
             # ---- objective (minimize) -------------------------------------------
+            def _get_task_priority(task) -> float:
+                # Priority derived functionally from defect severity and safety status
+                raw_score = getattr(task, "ml_criticality_score", None)
+                if raw_score is not None and raw_score > 0.0:
+                    return float(raw_score)
+                if getattr(task, "is_safety_critical", False):
+                    return 100.0
+                sev = getattr(task, "ml_predicted_severity", None) or getattr(task, "raw_severity", "")
+                sev_str = (sev.value if hasattr(sev, "value") else str(sev)).upper()
+                if "EMERGENCY" in sev_str or "CRITICAL" in sev_str:
+                    return 100.0
+                if "HIGH" in sev_str:
+                    return 75.0
+                if "MEDIUM" in sev_str:
+                    return 50.0
+                return 25.0
+
             obj = []
             for (i, j), var in x.items():
                 impact = int(windows[j].ml_traffic_impact_score * SCALE)
-                crit = int(tasks[i].ml_criticality_score * SCALE)
+                crit = int(_get_task_priority(tasks[i]) * SCALE)
                 # + traffic disruption, - reward for scheduling a critical task
                 obj.append(var * (cfg.alpha * impact - (cfg.beta + cfg.delta) * crit))
 
-            avg_crit = sum(int(t.ml_criticality_score * SCALE) for t in tasks) // max(num_tasks, 1)
+            avg_crit = sum(int(_get_task_priority(t) * SCALE) for t in tasks) // max(num_tasks, 1)
             for j in range(num_windows):
                 obj.append(is_merged[j] * (-cfg.gamma * avg_crit))  # merge incentive
 
             if emergency_not_scheduled:
                 total_max_reward = sum(
-                    max(0, (cfg.beta + cfg.delta) * int(getattr(t, "ml_criticality_score", 1.0) * SCALE))
+                    max(0, (cfg.beta + cfg.delta) * int(_get_task_priority(t) * SCALE))
                     for t in tasks
                 ) + cfg.gamma * SCALE * max(num_windows, 1)
                 penalty = max(cfg.emergency_penalty * SCALE, total_max_reward + 10000)
@@ -391,6 +415,29 @@ class BlockScheduler:
                     t.status = TaskStatus.SCHEDULED
                     t.assigned_block_id = block.block_id
                     scheduled_task_ids.add(t.task_id)
+                    try:
+                        from datetime import timezone
+                        kolkata_tz = timezone(timedelta(hours=5, minutes=30))
+                        start_dt = datetime.combine(w.date, w.start_time).replace(tzinfo=kolkata_tz)
+                        end_dt = datetime.combine(w.date, w.end_time).replace(tzinfo=kolkata_tz)
+                        dur_h = t.estimated_duration_hours or w.duration_hours or 1.75
+                        t.start_allowed_from = start_dt
+                        t.start_allowed_until = end_dt
+                        t.planned_end = end_dt
+                        t.scheduled_start_time = start_dt
+                        t.scheduled_end_time = end_dt
+                        t.maintenance_duration_minutes = int(dur_h * 60)
+                        t.assigned_track = block.line or getattr(w, 'line', None) or 'Up Mainline'
+                        t.assigned_team = f"{t.department.value} Field Crew Unit-04"
+                        t.assigned_technician = getattr(t, 'assigned_technician', None) or f"{t.department.value[:3]} Track Tech Lead"
+                        t.window_status = 'UPCOMING'
+                        from traffic.task_revalidation import format_clock_ist
+                        t.start_allowed_from_clock = format_clock_ist(start_dt)
+                        t.start_allowed_until_clock = format_clock_ist(end_dt)
+                        t.planned_end_clock = format_clock_ist(end_dt)
+                        t.designated_period_clock = f"{t.start_allowed_from_clock} - {t.planned_end_clock}"
+                    except Exception as ex:
+                        logger.warning('Failed to attach window enforcement schedule to task %s: %s', t.task_id, ex)
                 scheduled_blocks[block.block_id] = block
             plan.scheduled_blocks = list(scheduled_blocks.values())
 

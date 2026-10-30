@@ -114,3 +114,12 @@ def test_sources_api_smoke(auth_client):
     assert "hand_written_details" in data
     assert data["overall_provenance"] == "hand_written"
     assert data["ui_label"] == "illustrative, not fetched"
+
+
+def test_navigation_and_tab_reachability():
+    """Verify role-based nav tab visibility and reachability across routes via node."""
+    import subprocess
+    res = subprocess.run(["node", "frontend/test_nav.js"], capture_output=True, text=True)
+    assert res.returncode == 0, f"Navigation test failed: {res.stderr}\n{res.stdout}"
+    assert "All navigation and reachability tests passed successfully!" in res.stdout
+

@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "provenance": "hand_written",
+  "snapshot_timestamp": "2026-10-30T10:50:00Z",
+  "illustrative": true,
+  "data": {
+    "train_number": "64414",
+    "train_name": "GZB-NDLS Passenger",
+    "train_type": "PASSENGER",
+    "route": [
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "11:40",
+        "departure": "11:40",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "11:45",
+        "departure": "11:46",
+        "distance": 4.0,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "11:52",
+        "departure": "11:54",
+        "distance": 6.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "11:02",
+        "departure": "11:03",
+        "distance": 16.3,
+        "day": 1
+      },
+      {
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "11:07",
+        "departure": "11:08",
+        "distance": 17.5,
+        "day": 1
+      },
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "12:25",
+        "departure": "12:25",
+        "distance": 19.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot",
+    "provenance": "hand_written",
+    "illustrative": true
+  }
+}

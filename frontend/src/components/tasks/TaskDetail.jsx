@@ -24,7 +24,8 @@ export default function TaskDetail({ task, onClose, onExplain }) {
   const corridor = corridors.find((c) => c.id === shown.corridorId)
   const u = urgencyClass(shown.score)
   const block = weeklyBlocks.find((b) => b.taskIds.includes(shown.id))
-  const max = Math.max(...shown.contributions.map((c) => Math.abs(c.value)))
+  const contributions = Array.isArray(shown.contributions) ? shown.contributions : []
+  const max = Math.max(1, ...contributions.map((c) => Math.abs(c.value ?? c.signed ?? 0)))
 
   return (
     <Drawer

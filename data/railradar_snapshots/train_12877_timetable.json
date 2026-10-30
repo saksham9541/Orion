@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "provenance": "hand_written",
+  "snapshot_timestamp": "2026-10-30T10:50:00Z",
+  "illustrative": true,
+  "data": {
+    "train_number": "12877",
+    "train_name": "Ranchi Garib Rath (Up)",
+    "train_type": "GARIB_RATH",
+    "route": [
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "09:15",
+        "departure": "09:15",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "09:20",
+        "departure": "09:21",
+        "distance": 4.0,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "09:27",
+        "departure": "09:29",
+        "distance": 6.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "09:37",
+        "departure": "09:38",
+        "distance": 16.3,
+        "day": 1
+      },
+      {
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "09:42",
+        "departure": "09:43",
+        "distance": 17.5,
+        "day": 1
+      },
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "09:50",
+        "departure": "09:50",
+        "distance": 19.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot",
+    "provenance": "hand_written",
+    "illustrative": true
+  }
+}

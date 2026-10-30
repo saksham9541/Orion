@@ -14,12 +14,16 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  Plus
+  Plus,
+  AlertTriangle
 } from 'lucide-react'
 import PortalLayout from '@/components/app/PortalLayout'
 import DepartmentTaskModal from '@/components/app/DepartmentTaskModal'
 import ReportComplaintModal from '@/components/app/ReportComplaintModal'
-import { fetchTasks, updateTaskStatus } from '@/api'
+import AwaitingAckInbox from '@/components/tasks/AwaitingAckInbox'
+import { fetchDashboardCounts, fetchTasks, updateTaskStatus } from '@/api'
+import CannotStartModal from '@/components/tasks/CannotStartModal'
+import { useAppState } from '@/state/AppState'
 
 const PRE_WORK_CHECKLIST_ITEMS = [
   { id: 'flag', label: 'Banner Flag & Detonator Protection placed 1,200m ahead and rear of work site' },
@@ -32,14 +36,23 @@ const PRE_WORK_CHECKLIST_ITEMS = [
 export default function TechnicianDashboard() {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [counts, setCounts] = useState({ total: 0, pending: 0, active_scheduled: 0, resolved: 0 })
   const [error, setError] = useState(null)
   const [selectedTask, setSelectedTask] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isReportOpen, setIsReportOpen] = useState(false)
+  const [cannotStartError, setCannotStartError] = useState(null)
+  const { role, currentUser } = useAppState()
+  const isControllerOrAdmin = ['admin', 'controller'].includes((role?.id || '').toLowerCase()) || ['admin', 'controller'].includes((currentUser?.role || '').toLowerCase())
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [expandedNotes, setExpandedNotes] = useState({})
   const [technicianNotes, setTechnicianNotes] = useState({})
+  const [saveSuccess, setSaveSuccess] = useState({})
+  const handleSaveFieldLog = (taskId) => {
+    setSaveSuccess((prev) => ({ ...prev, [taskId]: true }))
+    setTimeout(() => setSaveSuccess((prev) => ({ ...prev, [taskId]: false })), 3000)
+  }
   const [checklist, setChecklist] = useState({
     flag: true,
     discharge: true,
@@ -49,10 +62,16 @@ export default function TechnicianDashboard() {
   })
   const [actionLoading, setActionLoading] = useState(null)
 
-  const loadTasks = () => {
-    setLoading(true)
-    fetchTasks()
-      .then(res => {
+  const loadTasks = (silent = false) => {
+    if (!silent) setLoading(true)
+    Promise.all([
+      fetchTasks(),
+      fetchDashboardCounts().catch(() => ({ data: null }))
+    ])
+      .then(([res, countsRes]) => {
+        if (countsRes?.data) {
+          setCounts(countsRes.data)
+        }
         const raw = res.data || []
         const mapped = [...raw]
         mapped.reverse()
@@ -70,7 +89,9 @@ export default function TechnicianDashboard() {
         console.error('Failed to fetch tasks:', err)
         setError('Could not load tasks. Please ensure you are connected.')
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (!silent) setLoading(false)
+      })
   }
 
   useEffect(() => {
@@ -97,10 +118,10 @@ export default function TechnicianDashboard() {
     window.addEventListener('railopt:task-updated', handleTaskUpdated)
     window.addEventListener('storage', handleStorage)
 
-    // 2. Continuous 3.5s sync poll for instant reflection of Super Admin actions
+    // 2. Continuous 5s background sync for instant reflection of Super Admin actions
     const pollTimer = setInterval(() => {
-      loadTasks()
-    }, 3500)
+      loadTasks(true)
+    }, 5000)
 
     return () => {
       window.removeEventListener('railopt:task-created', handleTaskCreated)
@@ -118,10 +139,10 @@ export default function TechnicianDashboard() {
     return Object.values(checklist).every(Boolean)
   }, [checklist])
 
-  const handleStatusChange = async (taskId, newStatus) => {
+  const handleStatusChange = async (taskId, newStatus, confirmLow = true) => {
     setActionLoading(taskId)
     try {
-      await updateTaskStatus(taskId, { status: newStatus })
+      await updateTaskStatus(taskId, { status: newStatus, confirm_low_confidence: confirmLow })
 
       // Dispatch sync events locally and cross-tab
       if (typeof window !== 'undefined') {
@@ -137,10 +158,18 @@ export default function TechnicianDashboard() {
         } catch {}
       }
 
+      if (newStatus === 'IN_PROGRESS' && (filterStatus === 'STARTABLE NOW' || filterStatus === 'PENDING')) {
+        setFilterStatus('ACTIVE')
+      }
+
       await loadTasks()
     } catch (err) {
-      console.error('Failed to update status', err)
-      alert('Failed to update task status')
+      if (err.response?.status === 409 && err.response?.data?.detail) {
+        setCannotStartError(err.response.data.detail)
+      } else {
+        console.error('Failed to update status', err)
+        alert(err.response?.data?.detail || 'Failed to update task status')
+      }
     } finally {
       setActionLoading(null)
     }
@@ -171,6 +200,15 @@ export default function TechnicianDashboard() {
     setIsModalOpen(true)
   }
 
+  const isTaskStartableNow = (t) => {
+    const s = (t.status || '').toUpperCase()
+    return ['APPROVED', 'READY', 'SCHEDULED'].includes(s) && t.window_status === 'ACTIVE'
+  }
+
+  const startableCount = useMemo(() => {
+    return tasks.filter(isTaskStartableNow).length
+  }, [tasks])
+
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
       const matchSearch =
@@ -183,8 +221,12 @@ export default function TechnicianDashboard() {
       const s = (t.status || '').toUpperCase()
       const sev = (t.severity || t.raw_severity || t.ml_predicted_severity || '').toUpperCase()
 
+      // STARTABLE NOW: strictly tasks that are ready to start right now (not yet started)
+      if (filterStatus === 'STARTABLE NOW') {
+        return isTaskStartableNow(t)
+      }
       if (filterStatus === 'ALL') return true
-      if (filterStatus === 'ACTIVE') return ['IN_PROGRESS', 'IN PROGRESS', 'SCHEDULED', 'DEPARTMENT NOTIFIED', 'AUTHORIZED'].includes(s)
+      if (filterStatus === 'ACTIVE') return ['IN_PROGRESS', 'IN PROGRESS', 'OVERRUN', 'SUSPENDED', 'SCHEDULED', 'APPROVED', 'READY', 'DEPARTMENT NOTIFIED', 'AUTHORIZED'].includes(s)
       if (filterStatus === 'PENDING') return ['PENDING', 'UNVERIFIED', 'NEW', 'SCORED', 'DRAFT', 'SUBMITTED', 'ESCALATED', 'REPORTED', 'ACKNOWLEDGED'].includes(s)
       if (filterStatus === 'COMPLETED') return ['COMPLETED', 'RESOLVED', 'DONE'].includes(s)
       if (filterStatus === 'CRITICAL') return ['EMERGENCY', 'CRITICAL', 'HIGH'].includes(sev)
@@ -192,13 +234,48 @@ export default function TechnicianDashboard() {
     })
   }, [tasks, searchQuery, filterStatus])
 
+  // Sort tasks so startable now are at the VERY TOP!
+  const sortedTasks = useMemo(() => {
+    const getTaskRank = (t) => {
+      const s = (t.status || '').toUpperCase()
+      const win = t.window_status
+      // Rank 0: Startable right now!
+      if (isTaskStartableNow(t)) return 0
+      // Rank 1: Work currently in progress
+      if (s === 'IN_PROGRESS' || s === 'OVERRUN') return 1
+      // Rank 2: Upcoming approved window (opens soon)
+      if (['APPROVED', 'READY', 'SCHEDULED'].includes(s) && win === 'UPCOMING') return 2
+      // Rank 3: Approved / Scheduled (other)
+      if (['APPROVED', 'READY', 'SCHEDULED'].includes(s)) return 3
+      // Rank 4: Unverified / Pending supervisor action
+      if (['UNVERIFIED', 'PENDING', 'REPORTED', 'AWAITING_ACK', 'SCORED', 'DRAFT', 'SUBMITTED'].includes(s)) return 4
+      // Rank 5: Expired / Completed / Aborted
+      return 5
+    }
+
+    return [...filteredTasks].sort((a, b) => {
+      const rankA = getTaskRank(a)
+      const rankB = getTaskRank(b)
+      if (rankA !== rankB) return rankA - rankB
+
+      // If both upcoming, sort by start time
+      if (rankA === 2 && a.start_allowed_from && b.start_allowed_from) {
+        return new Date(a.start_allowed_from).getTime() - new Date(b.start_allowed_from).getTime()
+      }
+
+      // Tiebreaker: criticality score descending
+      return (b.criticality_score || 0) - (a.criticality_score || 0)
+    })
+  }, [filteredTasks])
+
   const stats = useMemo(() => {
-    const total = tasks.length
-    const inProgress = tasks.filter(t => t.status === 'IN_PROGRESS').length
-    const pending = tasks.filter(t => t.status === 'PENDING' || t.status === 'SCHEDULED').length
-    const completed = tasks.filter(t => t.status === 'COMPLETED').length
-    return { total, inProgress, pending, completed }
-  }, [tasks])
+    return {
+      total: counts.total || tasks.length,
+      inProgress: counts.active_scheduled ?? tasks.filter(t => t.status === 'IN_PROGRESS').length,
+      pending: counts.pending ?? tasks.filter(t => t.status === 'PENDING' || t.status === 'SCHEDULED').length,
+      completed: counts.resolved ?? tasks.filter(t => t.status === 'COMPLETED').length
+    }
+  }, [counts, tasks])
 
   return (
     <PortalLayout role="technician">
@@ -322,9 +399,9 @@ export default function TechnicianDashboard() {
 
         {/* FULL-WIDTH PRE-WORK SAFETY PROTOCOL */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
           className="rounded-2xl border border-line bg-surface p-6 sm:p-7 shadow-sm space-y-5"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-line">
@@ -352,7 +429,12 @@ export default function TechnicianDashboard() {
               return (
                 <div
                   key={item.id}
+                  role="checkbox"
+                  aria-checked={isChecked}
+                  tabIndex={0}
+                  data-testid={`safety-checklist-${item.id}`}
                   onClick={() => toggleChecklist(item.id)}
+                  onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') toggleChecklist(item.id) }}
                   className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
                     isChecked
                       ? 'border-[#0D996B]/40 bg-[#E5F5EC]/60 text-ink'
@@ -413,17 +495,24 @@ export default function TechnicianDashboard() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {['ALL', 'ACTIVE', 'PENDING', 'COMPLETED', 'CRITICAL'].map((f) => (
+              {['STARTABLE NOW', 'ALL', 'ACTIVE', 'PENDING', 'COMPLETED', 'CRITICAL'].map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilterStatus(f)}
-                  className={`rounded-lg px-3.5 py-1.5 text-xs font-mono font-semibold uppercase tracking-wider transition-all ${
+                  className={`rounded-lg px-3.5 py-1.5 text-xs font-mono font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
                     filterStatus === f
                       ? 'bg-[#282D2A] text-white shadow-sm'
+                      : f === 'STARTABLE NOW' && startableCount > 0
+                      ? 'border border-emerald-500/50 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20'
                       : 'border border-line bg-surface text-muted hover:text-ink hover:bg-base'
                   }`}
                 >
-                  {f}
+                  <span>{f}</span>
+                  {f === 'STARTABLE NOW' && startableCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-500 text-white animate-pulse">
+                      {startableCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -451,9 +540,38 @@ export default function TechnicianDashboard() {
             </div>
           )}
 
+          {/* Part B2: My Reports Awaiting Supervisor Acknowledgement */}
+          <AwaitingAckInbox isTechnicianView={true} />
+
+          {/* Highlight Banner: Startable Tasks Ready Right Now */}
+          {startableCount > 0 && filterStatus !== 'STARTABLE NOW' && (
+            <div className="flex items-center justify-between p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-900 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center text-white shrink-0 shadow">
+                  <PlayCircle size={18} className="animate-pulse" />
+                </div>
+                <div>
+                  <p className="font-mono text-xs font-bold uppercase tracking-wider text-emerald-900">
+                    {startableCount} {startableCount === 1 ? 'Task' : 'Tasks'} Ready To Start Right Now
+                  </p>
+                  <p className="text-[11px] text-emerald-800 font-sans">
+                    Approved maintenance windows are active now. Sorted to the top of your queue for immediate execution.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFilterStatus('STARTABLE NOW')}
+                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-bold uppercase tracking-wider transition-colors shrink-0"
+              >
+                View Startable ({startableCount})
+              </button>
+            </div>
+          )}
+
           {/* Work Orders List */}
           <div className="space-y-4 sm:space-y-5">
-            {filteredTasks.map((task) => {
+            {sortedTasks.map((task) => {
               const taskId = task.task_id || task.id
               const sevUpper = (task.severity || '').toUpperCase()
               const isCritical = ['EMERGENCY', 'CRITICAL', 'HIGH'].includes(sevUpper)
@@ -518,22 +636,30 @@ export default function TechnicianDashboard() {
                     {task.inspector_remarks || task.defect_description || 'Track surface anomaly detected during inspection. Requires manual tension test.'}
                   </p>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-xs font-mono pt-3.5 border-t border-line">
+                                    {task.designated_period_clock && (
+                    <div className="flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 font-mono text-xs">
+                      <Clock size={13} className="text-accent" />
+                      <span className="text-muted">Start Window:</span>
+                      <strong className="text-ink">{task.designated_period_clock}</strong>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 text-xs font-mono pt-1 text-muted">
                     <div>
-                      <span className="text-muted block text-[11px]">CORRIDOR:</span>
-                      <span className="text-ink font-semibold mt-0.5 block">{task.corridor_id || 'NDLS-CNB'}</span>
+                      <span className="block text-[10px]">CORRIDOR:</span>
+                      <span className="text-ink font-semibold block">{task.corridor_id || 'NDLS-CNB'}</span>
                     </div>
                     <div>
-                      <span className="text-muted block text-[11px]">KM POST:</span>
-                      <span className="text-ink font-semibold mt-0.5 block">KM {task.km_location || '14.500'}</span>
+                      <span className="block text-[10px]">KM POST:</span>
+                      <span className="text-ink font-semibold block">KM {task.km_location || '14.500'}</span>
                     </div>
                     <div>
-                      <span className="text-muted block text-[11px]">EST TIME:</span>
-                      <span className="text-ink font-semibold mt-0.5 block">{task.estimated_duration_hours || 2} HOURS</span>
+                      <span className="block text-[10px]">SECTION:</span>
+                      <span className="text-ink font-semibold block">{task.section_id || 'SEC-NDLS-GZB'}</span>
                     </div>
                     <div>
-                      <span className="text-muted block text-[11px]">TARGET SPEED:</span>
-                      <span className="text-ink font-semibold mt-0.5 block">130 KM/H</span>
+                      <span className="block text-[10px]">TARGET SPEED:</span>
+                      <span className="text-ink font-semibold block">130 KM/H</span>
                     </div>
                   </div>
 
@@ -556,12 +682,71 @@ export default function TechnicianDashboard() {
                       />
                       <button
                         type="button"
-                        onClick={() => alert(`Logged remarks for ${taskId}`)}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#282D2A] text-white text-xs font-mono font-semibold uppercase tracking-wider hover:bg-[#3A403B]"
+                        onClick={() => handleSaveFieldLog(taskId)}
+                        className="px-3.5 py-1.5 rounded-lg bg-[#282D2A] text-white text-xs font-mono font-semibold uppercase tracking-wider hover:bg-[#3A403B] flex items-center gap-1.5"
                       >
-                        Save Field Log
+                        {saveSuccess[taskId] ? (
+                          <>
+                            <CheckCircle size={13} className="text-emerald-400" />
+                            <span>Logged</span>
+                          </>
+                        ) : (
+                          <span>Save Field Log</span>
+                        )}
                       </button>
                     </motion.div>
+                  )}
+
+                  {/* Explicit Operational Time Notice — Mutually Exclusive States */}
+                  {(task.status === 'IN_PROGRESS' || task.status === 'OVERRUN') ? (
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs font-mono">
+                      <PlayCircle size={15} className="text-amber-600 shrink-0 animate-pulse" />
+                      <span>
+                        <strong>MAINTENANCE IN PROGRESS:</strong> Work is actively underway by <strong>{task.assigned_team || 'Field Crew Unit-04'}</strong>. Track possession is secured. Click <strong>Mark Done</strong> when field work is verified and track is clear.
+                      </span>
+                    </div>
+                  ) : task.status === 'COMPLETED' ? (
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 text-xs font-mono">
+                      <CheckCircle size={15} className="text-emerald-600 shrink-0" />
+                      <span>
+                        <strong>MAINTENANCE COMPLETED:</strong> Work order executed successfully. Track section returned to commercial service.
+                      </span>
+                    </div>
+                  ) : task.window_status === 'ACTIVE' ? (
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 text-xs font-mono">
+                      <PlayCircle size={15} className="text-emerald-600 shrink-0 animate-pulse" />
+                      <span>
+                        <strong>Window is OPEN NOW:</strong> You can start maintenance immediately.
+                        {task.start_allowed_until_clock ? (
+                          <> Allowed to start until <strong>{task.start_allowed_until_clock}</strong>{task.planned_end_clock ? <>, finish by <strong>{task.planned_end_clock}</strong></> : null}.</>
+                        ) : task.planned_end_clock ? (
+                          <> Planned finish by <strong>{task.planned_end_clock}</strong>.</>
+                        ) : (
+                          <> Track availability is reserved for this maintenance block.</>
+                        )}
+                      </span>
+                    </div>
+                  ) : task.window_status === 'UPCOMING' ? (
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-900 text-xs font-mono">
+                      <Clock size={15} className="text-blue-600 shrink-0" />
+                      <span>
+                        <strong>Window opens at {task.start_allowed_from_clock || 'the scheduled time'}:</strong> You can start maintenance at <strong>{task.start_allowed_from_clock || 'the scheduled start'}</strong>{task.planned_end_clock ? <> (Work planned to finish by <strong>{task.planned_end_clock}</strong>)</> : null}.
+                      </span>
+                    </div>
+                  ) : task.window_status === 'EXPIRED' ? (
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-900 text-xs font-mono">
+                      <AlertTriangle size={15} className="text-rose-600 shrink-0" />
+                      <span>
+                        <strong>Scheduled Maintenance Window Expired:</strong> Approved window ended{task.planned_end_clock ? <> at <strong>{task.planned_end_clock}</strong></> : null}. Starting now requires rescheduling and controller approval.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-base border border-line text-muted text-xs font-mono">
+                      <Clock size={15} className="shrink-0" />
+                      <span>
+                        <strong>Window Pending Approval:</strong> Controller must approve a block window before maintenance can be started.
+                      </span>
+                    </div>
                   )}
 
                   {/* Action Bar */}
@@ -569,24 +754,52 @@ export default function TechnicianDashboard() {
                     {task.status !== 'IN_PROGRESS' && task.status !== 'COMPLETED' && (
                       <button
                         type="button"
-                        disabled={isUpdating}
+                        disabled={
+                          isUpdating ||
+                          !['APPROVED', 'READY', 'SCHEDULED'].includes((task.status || '').toUpperCase()) ||
+                          task.window_status === 'UPCOMING' ||
+                          task.window_status === 'EXPIRED'
+                        }
                         onClick={() => handleStatusChange(taskId, 'IN_PROGRESS')}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#D99A2B] hover:bg-[#c28723] text-white font-sans text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50"
+                        title={
+                          task.window_status === 'UPCOMING'
+                            ? `Maintenance Cannot Be Started: This task is scheduled for ${task.start_allowed_from_clock || 'the approved window'}. You can start maintenance at ${task.start_allowed_from_clock}.`
+                            : task.window_status === 'EXPIRED'
+                            ? `Scheduled Maintenance Window Expired: The approved window ended at ${task.planned_end_clock || 'scheduled end'}. Controller approval required.`
+                            : !['APPROVED', 'READY', 'SCHEDULED'].includes((task.status || '').toUpperCase())
+                            ? 'Task must be approved by controller before starting work'
+                            : 'Start maintenance within approved window'
+                        }
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#D99A2B] hover:bg-[#c28723] text-white font-sans text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <PlayCircle size={15} />
-                        {isUpdating ? 'STARTING...' : 'Start Action'}
+                        {isUpdating ? 'STARTING...' : 'Start Maintenance'}
                       </button>
                     )}
 
-                    {task.status !== 'COMPLETED' && (
+                    {isControllerOrAdmin && (task.window_status === 'EXPIRED' || task.window_status === 'UPCOMING' || task.window_status === 'DELAYED' || task.status === 'IN_PROGRESS') && (
+                      <button
+                        type="button"
+                        onClick={() => setOverrideModalTask(task)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#D99A2B]/60 bg-[#FFF3D9]/30 text-[#D99A2B] hover:bg-[#FFF3D9]/60 font-mono text-xs font-semibold uppercase tracking-wider transition-all"
+                        title="Authorize schedule override as Railway Controller"
+                      >
+                        <ShieldCheck size={14} />
+                        <span>Controller Override</span>
+                      </button>
+                    )}
+
+                    {/* Mark Done ONLY available when task is actually IN_PROGRESS or OVERRUN */}
+                    {(task.status === 'IN_PROGRESS' || task.status === 'OVERRUN') && (
                       <button
                         type="button"
                         disabled={isUpdating}
                         onClick={() => handleStatusChange(taskId, 'COMPLETED')}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D996B] hover:bg-[#0a7a55] text-white font-sans text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D996B] hover:bg-[#0a7a55] text-white font-sans text-xs font-semibold uppercase tracking-wider transition-all shadow-sm disabled:opacity-50"
+                        title="Mark maintenance work as completed"
                       >
                         <CheckCircle size={15} />
-                        {isUpdating ? 'UPDATING...' : 'Mark Done'}
+                        {isUpdating ? 'COMPLETING...' : 'Mark Done'}
                       </button>
                     )}
 
@@ -633,6 +846,22 @@ export default function TechnicianDashboard() {
           loadTasks()
         }}
       />
+
+      <CannotStartModal
+        isOpen={!!cannotStartError}
+        errorData={cannotStartError}
+        onClose={() => setCannotStartError(null)}
+        isControllerOrAdmin={isControllerOrAdmin}
+        onOpenControllerOverride={() => {
+          const t = tasks.find(x => x.task_id === cannotStartError.task_id || x.id === cannotStartError.task_id) || selectedTask
+          if (t) setOverrideModalTask(t)
+        }}
+        onRequestNewWindow={() => {
+          setCannotStartError(null)
+          alert('Rescheduling request submitted to Section Controller.')
+        }}
+      />
+
     </PortalLayout>
   )
 }

@@ -20,7 +20,10 @@ import PortalLayout from '@/components/app/PortalLayout'
 import { useAppState } from '@/state/AppState'
 import { useNotifications } from '@/state/NotificationContext'
 import IndiaRailwayMap from '@/components/network/IndiaRailwayMap'
-import { fetchLiveTrains, fetchTasks, updateTaskStatus } from '@/api'
+import AwaitingAckInbox from '@/components/tasks/AwaitingAckInbox'
+import { fetchDashboardCounts, fetchLiveTrains, fetchTasks, updateTaskStatus } from '@/api'
+import CannotStartModal from '@/components/tasks/CannotStartModal'
+import { EmergencyImpactPanel } from '@/components/tasks/EmergencyImpactModal'
 
 /**
  * Super Admin operations statuses and transitions.
@@ -124,9 +127,11 @@ function mapTaskForAdmin(t) {
     status: status,
     type: defectType,
     time: t.reported_date ? `Reported ${t.reported_date}` : 'Just now',
+    designated_period_clock: t.designated_period_clock,
+    is_emergency: severity === 'EMERGENCY',
     details: {
       what: t.inspector_remarks || `${defectType} reported on ${t.corridor_id || 'sector'}.`,
-      why: [{ level: 'CONFIRMED', text: `Criticality Score: ${(t.ml_criticality_score ?? 0.85).toFixed(2)}` }],
+      why: [{ level: 'CONFIRMED', text: `Severity Level: ${t.severity || 'HIGH'}` }],
       how: [],
       impact: 'Predicted Duration: ' + (t.ml_predicted_duration_hours || t.estimated_duration_hours || 2) + ' hrs',
       seriousness: severity,
@@ -142,6 +147,7 @@ export default function AdminDashboard() {
   const [searchParams] = useSearchParams()
   const urlIssueId = searchParams.get('issue') || searchParams.get('search')
   const [issues, setIssues] = useState([])
+  const [counts, setCounts] = useState(null)
   const [selectedIssueId, setSelectedIssueId] = useState(urlIssueId || null)
   const [severityFilter, setSeverityFilter] = useState('ALL')
   const [deptFilter, setDeptFilter] = useState('ALL')
@@ -151,10 +157,15 @@ export default function AdminDashboard() {
   const [error, setError] = useState(null)
   const [actionLoading, setActionLoading] = useState(null)
   const [toastMessage, setToastMessage] = useState(null)
+  const [cannotStartError, setCannotStartError] = useState(null)
 
   const loadTasks = useCallback(async () => {
     try {
-      const res = await fetchTasks()
+      const [res, countsRes] = await Promise.all([
+        fetchTasks(),
+        fetchDashboardCounts().catch(() => ({ data: null }))
+      ])
+      if (countsRes?.data) setCounts(countsRes.data)
       const backendTasks = Array.isArray(res.data) ? res.data : []
       const mapped = backendTasks.map(mapTaskForAdmin)
       // Reverse order so newly reported tasks appear at the very top!
@@ -268,9 +279,13 @@ export default function AdminDashboard() {
       setToastMessage(`Issue ${id} marked as ${targetStatus}`)
       setTimeout(() => setToastMessage(null), 3000)
     } catch (e) {
-      console.error('Failed to update task status:', e)
-      setToastMessage(`Failed to update issue status: ${e.message || 'Error'}`)
-      setTimeout(() => setToastMessage(null), 3000)
+      if (e.response?.status === 409 && e.response?.data?.detail) {
+        setCannotStartError(e.response.data.detail)
+      } else {
+        console.error('Failed to update task status:', e)
+        setToastMessage(`Failed to update issue status: ${e.message || 'Error'}`)
+        setTimeout(() => setToastMessage(null), 3000)
+      }
     } finally {
       setActionLoading(null)
     }
@@ -326,30 +341,6 @@ export default function AdminDashboard() {
 
         {/* Executive Controllers Cluster & Utilities */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-          <div className="flex items-center -space-x-2">
-            {[
-              { initials: 'CC', name: 'Chief Controller - NDLS', role: 'Head of Operations', badgeColor: 'bg-blue-600', count: 4 },
-              { initials: 'DR', name: 'Divisional Railway Mgr', role: 'Executive Authority', badgeColor: 'bg-emerald-600', count: 2 },
-              { initials: 'SK', name: 'Senior Section Eng', role: 'Signaling & Interlocking', badgeColor: 'bg-indigo-600', count: 5 },
-              { initials: 'PM', name: 'Power & Catenary Lead', role: 'TRD Controller', badgeColor: 'bg-amber-600', count: 1 }
-            ].map((member, idx) => (
-              <div
-                key={idx}
-                className="relative group cursor-pointer transition-transform hover:-translate-y-0.5"
-                title={`${member.name} (${member.role})`}
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 text-[10px] font-bold shadow-sm">
-                  {member.initials}
-                </div>
-                <span className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white ${member.badgeColor} ring-1 ring-surface`}>
-                  {member.count}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="h-6 w-px bg-line/80 hidden sm:block" />
-
           <button
             type="button"
             onClick={loadTasks}
@@ -408,9 +399,12 @@ export default function AdminDashboard() {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2 text-xs font-mono text-muted">
-          <span>{filteredIssues.length} of {issues.length} issues shown</span>
+          <span>{filteredIssues.length} of {counts?.total ?? issues.length} issues shown</span>
         </div>
       </motion.div>
+
+      {/* Part B2: Reports Awaiting Supervisor / Admin Acknowledgement */}
+      <AwaitingAckInbox departmentFilter={deptFilter} />
 
       <motion.div
         initial={{ opacity: 0, y: 15 }}
@@ -757,6 +751,31 @@ export default function AdminDashboard() {
                 <p className="text-sm text-ink font-medium">{selectedIssue.details.recommendation}</p>
               </div>
 
+              {/* Designated Start Window Clock Time (Item C1) */}
+              {selectedIssue.designated_period_clock && (
+                <div className="mb-4 rounded-xl border border-accent/40 bg-accent/10 p-3.5 flex items-center gap-2.5">
+                  <Clock size={16} className="text-accent shrink-0" />
+                  <div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted block">
+                      Approved Start Window & Planned Finish
+                    </span>
+                    <span className="font-mono text-xs font-bold text-ink">
+                      {selectedIssue.designated_period_clock}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Real-Time Emergency Delay Impact (Item C2) */}
+              {selectedIssue.is_emergency && (
+                <div className="mb-6">
+                  <h3 className="text-[11px] font-bold text-rose-500 uppercase tracking-wider mb-2 border-b border-hair pb-2 flex items-center gap-1.5">
+                    <ShieldAlert size={14} className="text-rose-500" /> Real-Time Emergency Delay Impact
+                  </h3>
+                  <EmergencyImpactPanel taskId={selectedIssue.id} />
+                </div>
+              )}
+
               {/* Supporting information */}
               <div className="mb-2">
                 <h3 className="text-[11px] font-bold text-faint uppercase tracking-wider mb-2 border-b border-hair pb-2">SUPPORTING INFORMATION</h3>
@@ -777,6 +796,16 @@ export default function AdminDashboard() {
           </div>
         )}
       </motion.div>
+
+      <CannotStartModal
+        isOpen={!!cannotStartError}
+        errorData={cannotStartError}
+        onClose={() => setCannotStartError(null)}
+        onRequestNewWindow={() => {
+          setCannotStartError(null)
+          alert('Window request reset.')
+        }}
+      />
 
       {/* Floating Action Confirmation Toast */}
       {toastMessage && (

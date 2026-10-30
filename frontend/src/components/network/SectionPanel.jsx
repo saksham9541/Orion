@@ -154,14 +154,14 @@ export default function SectionPanel({ section, day, minutes, onClose, onExplain
         {/* Straight into the record behind whatever is on this section. */}
         <div className="flex flex-wrap gap-2">
           <Link
-            to="/app/plan"
+            to="/plan"
             className="flex items-center gap-1.5 rounded-panel border border-line px-3 py-2 text-[12.5px] text-muted transition-colors hover:border-merge/50 hover:text-ink"
           >
             <CalendarRange size={13} aria-hidden="true" />
             View block
           </Link>
           <Link
-            to="/app/tasks"
+            to="/tasks"
             className="flex items-center gap-1.5 rounded-panel border border-line px-3 py-2 text-[12.5px] text-muted transition-colors hover:border-merge/50 hover:text-ink"
           >
             <ListOrdered size={13} aria-hidden="true" />

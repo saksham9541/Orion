@@ -462,6 +462,66 @@ def run_scheduled_revalidations(
             session.close()
 
 
+def format_clock_ist(dt: Union[datetime, time, str, None]) -> str:
+    """Format time or datetime as 12-hour clock time with AM/PM (e.g. 1:30 PM)."""
+    if dt is None:
+        return ""
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt)
+        except Exception:
+            try:
+                dt = time.fromisoformat(dt)
+            except Exception:
+                return dt
+    if isinstance(dt, datetime):
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(KOLKATA_TZ)
+        t = dt.time()
+    else:
+        t = dt
+    h = t.hour % 12
+    if h == 0:
+        h = 12
+    m = f"{t.minute:02d}"
+    ampm = "AM" if t.hour < 12 else "PM"
+    return f"{h}:{m} {ampm}"
+
+
+def _audit_log_blocked_start(
+    session: Optional[Session],
+    task: MaintenanceTask,
+    user: Optional[Any],
+    reason_code: str,
+    timestamp: datetime,
+    detail: dict,
+) -> None:
+    if session is None:
+        return
+    try:
+        from backend.database import TaskTransitionAuditRecord
+        u_email = getattr(user, "email", "system")
+        u_role = getattr(user, "role", "unknown")
+        u_dept = getattr(user, "department", "unknown")
+        audit = TaskTransitionAuditRecord(
+            id=str(uuid.uuid4()),
+            task_id=task.task_id,
+            from_status=getattr(task.status, "value", str(task.status)),
+            to_status="BLOCKED_START",
+            changed_by_user_id=u_email,
+            changed_by_role=str(u_role),
+            changed_by_department=str(u_dept),
+            reason=f"Blocked start: {detail.get('message', reason_code)}",
+            reason_code=reason_code,
+            timestamp=timestamp.astimezone(timezone.utc) if timestamp.tzinfo else timestamp,
+            details=detail,
+        )
+        session.add(audit)
+        session.commit()
+    except Exception as e:
+        logger.warning("Failed to write audit log for blocked start: %s", e)
+
+
 def start_task_execution(
     task_id: str,
     confirm_low_confidence: bool = False,
@@ -470,16 +530,21 @@ def start_task_execution(
     current_user: Optional[Any] = None,
     session: Optional[Session] = None,
     app_state: Optional[Any] = None,
+    server_time_override: Optional[datetime] = None,
 ) -> MaintenanceTask:
     """
     Technician start action:
     - Enforces status == APPROVED (or READY).
     - Enforces role + department scope.
-    - Validates execution start inside [approved_start - tolerance, approved_end].
+    - Validates execution start strictly using server time in IST (never device clock).
+    - Checks start is within [start_allowed_from - early_tolerance, start_allowed_until].
+    - Returns HTTP 409 Conflict with structured data on invalid or out-of-window attempts.
+    - Audit logs blocked attempts to TaskTransitionAuditRecord.
     - Requires explicit confirm_low_confidence=True if confidence is LOW or status is stale.
     - Transitions task to IN_PROGRESS and logs transition.
     """
-    from backend.database import TaskRecord, load_tasks
+    import os
+    from backend.database import TaskRecord, load_tasks, save_tasks
     from railopt.task_transitions import transition_task
 
     target_task: Optional[MaintenanceTask] = None
@@ -499,35 +564,106 @@ def start_task_execution(
     if target_task is None:
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
+    # Authoritative server time in IST (client actual_start is ignored for gate enforcement)
+    server_now = server_time_override or datetime.now(KOLKATA_TZ)
+    if server_now.tzinfo is None:
+        server_now = server_now.replace(tzinfo=KOLKATA_TZ)
+
     # 1. State check: Must be APPROVED or READY
     if target_task.status not in (TaskStatus.APPROVED, TaskStatus.READY):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Task {task_id} cannot be started in status '{target_task.status.value}'. Must be APPROVED or READY.",
-        )
+        detail = {
+            "code": "WINDOW_NOT_APPROVED",
+            "message": "This task has not been approved by the controller.",
+            "server_now": server_now.isoformat(),
+            "server_now_clock": format_clock_ist(server_now),
+            "status": getattr(target_task.status, "value", str(target_task.status)),
+        }
+        _audit_log_blocked_start(session, target_task, current_user, "WINDOW_NOT_APPROVED", server_now, detail)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
-    # 2. Timing check
-    window = _find_task_assigned_window(target_task, session=session, app_state=app_state)
-    start_dt = actual_start or datetime.now(KOLKATA_TZ)
-    if window:
-        w_start_m = _time_to_minutes(window.start_time)
-        w_end_m = _time_to_minutes(window.end_time)
-        tolerance_m = 15  # 15 min early tolerance
-        earliest_m = max(0, w_start_m - tolerance_m)
-        latest_m = w_end_m
+    # 2. Timing check: start_allowed_from and start_allowed_until
+    s_from = getattr(target_task, "start_allowed_from", None)
+    s_until = getattr(target_task, "start_allowed_until", None)
+    p_end = getattr(target_task, "planned_end", None)
 
-        cur_m = _time_to_minutes(start_dt.time())
-        # Check window range
-        if cur_m < earliest_m or cur_m > latest_m:
-            earliest_str = _minutes_to_time(earliest_m).strftime("%H:%M")
-            latest_str = _minutes_to_time(latest_m).strftime("%H:%M")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"Cannot start task outside approved window [{earliest_str}, {latest_str}]. "
-                    f"Attempted start time is {start_dt.strftime('%H:%M')}."
-                ),
-            )
+    # If start window fields not explicitly on task, derive from assigned block window
+    if not s_from or not s_until:
+        window = _find_task_assigned_window(target_task, session=session, app_state=app_state)
+        if window:
+            w_date = window.date or date.today()
+            if isinstance(w_date, str):
+                w_date = date.fromisoformat(w_date)
+            dur_h = target_task.estimated_duration_hours or 1.25
+            s_from = datetime.combine(w_date, window.start_time).replace(tzinfo=KOLKATA_TZ)
+            w_end = datetime.combine(w_date, window.end_time).replace(tzinfo=KOLKATA_TZ)
+            w_dur_m = max(15, int((w_end - s_from).total_seconds() / 60))
+            slack_m = max(0, w_dur_m - int(dur_h * 60))
+            latest_m = min(30, slack_m) if slack_m > 0 else 0
+            s_until = s_from + timedelta(minutes=latest_m)
+            p_end = s_until + timedelta(minutes=int(dur_h * 60))
+        else:
+            detail = {
+                "code": "WINDOW_NOT_APPROVED",
+                "message": "This task has not been approved by the controller.",
+                "server_now": server_now.isoformat(),
+                "server_now_clock": format_clock_ist(server_now),
+                "status": getattr(target_task.status, "value", str(target_task.status)),
+            }
+            _audit_log_blocked_start(session, target_task, current_user, "WINDOW_NOT_APPROVED", server_now, detail)
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+    if s_from and s_from.tzinfo is None:
+        s_from = s_from.replace(tzinfo=KOLKATA_TZ)
+    if s_until and s_until.tzinfo is None:
+        s_until = s_until.replace(tzinfo=KOLKATA_TZ)
+    if p_end and p_end.tzinfo is None:
+        p_end = p_end.replace(tzinfo=KOLKATA_TZ)
+
+    # Configurable early tolerance (default: 0 minutes)
+    tol_min = getattr(target_task, "early_tolerance_minutes", None)
+    if tol_min is None:
+        try:
+            tol_min = int(os.environ.get("START_WINDOW_EARLY_TOLERANCE_MINUTES", "0"))
+        except ValueError:
+            tol_min = 0
+
+    early_bound = s_from - timedelta(minutes=tol_min)
+
+    designated_period_clock = f"{format_clock_ist(s_from)} - {format_clock_ist(s_until)}"
+    planned_end_clock = format_clock_ist(p_end)
+
+    if server_now < early_bound:
+        seconds_until_open = max(0, int((s_from - server_now).total_seconds()))
+        detail = {
+            "code": "WINDOW_TOO_EARLY",
+            "message": "Starting outside the approved period can disrupt train running.",
+            "server_now": server_now.isoformat(),
+            "server_now_clock": format_clock_ist(server_now),
+            "start_allowed_from": s_from.isoformat(),
+            "start_allowed_until": s_until.isoformat(),
+            "planned_end": p_end.isoformat(),
+            "designated_period_clock": designated_period_clock,
+            "planned_end_clock": planned_end_clock,
+            "seconds_until_open": seconds_until_open,
+        }
+        _audit_log_blocked_start(session, target_task, current_user, "WINDOW_TOO_EARLY", server_now, detail)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+    if server_now > s_until:
+        detail = {
+            "code": "WINDOW_TOO_LATE",
+            "message": "Starting outside the approved period can disrupt train running.",
+            "server_now": server_now.isoformat(),
+            "server_now_clock": format_clock_ist(server_now),
+            "start_allowed_from": s_from.isoformat(),
+            "start_allowed_until": s_until.isoformat(),
+            "planned_end": p_end.isoformat(),
+            "designated_period_clock": designated_period_clock,
+            "planned_end_clock": planned_end_clock,
+            "window_ended": True,
+        }
+        _audit_log_blocked_start(session, target_task, current_user, "WINDOW_TOO_LATE", server_now, detail)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
     # 3. Confidence and Staleness Check
     reval = revalidate_task(
@@ -548,13 +684,15 @@ def start_task_execution(
             ),
         )
 
-    # 4. Perform Transition to IN_PROGRESS
+    # 4. Perform Transition to IN_PROGRESS using authoritative server_now
     updated = transition_task(
         task=target_task,
         to_status=TaskStatus.IN_PROGRESS,
         user=current_user,
-        actual_start=start_dt,
+        actual_start=server_now,
         notes=notes,
         session=session,
     )
+    if session is not None:
+        save_tasks(session, [updated])
     return updated

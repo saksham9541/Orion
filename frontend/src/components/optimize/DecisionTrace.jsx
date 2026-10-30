@@ -59,7 +59,7 @@ export default function DecisionTrace({ taskId, onSelect, showPicker = true }) {
                     : 'border-line text-muted hover:text-ink'
                 }`}
               >
-                <DeptTag dept={t.department} showName={false} size="sm" />
+                <DeptTag dept={t?.department || 'ENG'} showName={false} size="sm" />
                 {id}
               </button>
             )

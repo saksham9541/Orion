@@ -429,15 +429,20 @@ def rank_candidate_windows(
             # Already surfaced via clean free gaps finder
             continue
 
-        # Compute hold delay for each held train
+        # Compute hold delay for each held train using canonical shared delay function
+        from traffic.delay_model import compute_train_hold_delay
         total_delay = 0.0
         train_delays: List[float] = []
         for p in held_trains:
             p_enter = _time_to_minutes(p.enter_time)
             p_clr = passage_margin_fn(p) if passage_margin_fn is not None else clr
-            hold = max(0.0, (win_end_m + p_clr) - p_enter)
-            if has_alternate_route:
-                hold = min(hold, alternate_route_penalty_minutes)
+            hold = compute_train_hold_delay(
+                block_end_minutes=win_end_m,
+                enter_minutes=p_enter,
+                clearance_margin_minutes=p_clr,
+                has_alternate_route=has_alternate_route,
+                alternate_route_penalty_minutes=alternate_route_penalty_minutes,
+            )
             train_delays.append(hold)
             total_delay += hold
 

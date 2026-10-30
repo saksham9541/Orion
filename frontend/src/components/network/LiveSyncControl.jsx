@@ -126,7 +126,7 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-[14px] font-semibold tracking-tight text-white">Live Train Sync & API Budget</h2>
+              <h2 className="text-[14px] font-semibold tracking-tight text-ink">Live Train Sync & API Budget</h2>
               <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] font-medium text-accent">
                 {role.id.toUpperCase()}
               </span>
@@ -152,11 +152,12 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
             size="sm"
             variant="default"
             onClick={handleOpenConfirm}
-            disabled={syncing || loading || (cooldownActive && availableForSync === 0)}
+            disabled={syncing || loading || keysBudget.length === 0 || (cooldownActive && availableForSync === 0)}
+            title={keysBudget.length === 0 ? 'No API keys loaded' : (cooldownActive ? 'Cooldown active' : 'Sync live trains')}
             className="flex items-center gap-1.5 font-medium"
           >
             <Train size={13} />
-            <span>Sync live trains</span>
+            <span>{keysBudget.length === 0 ? 'No API keys loaded' : 'Sync live trains'}</span>
           </Button>
         </div>
       </div>
@@ -201,9 +202,9 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
                 return (
                   <div key={idx} className="rounded bg-surface/60 p-2.5 border border-hair/50">
                     <div className="flex items-center justify-between font-mono text-[11.5px] mb-1">
-                      <span className="text-white font-medium">{kb.key_suffix}</span>
+                      <span className="text-ink font-medium">{kb.key_suffix}</span>
                       <span className="text-muted">
-                        <strong className="text-white">{kb.used}</strong> / {kb.limit} calls ({kb.remaining} left)
+                        <strong className="text-ink">{kb.used}</strong> / {kb.limit} calls ({kb.remaining} left)
                       </span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-hair/60">
@@ -237,11 +238,19 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
             <div className="grid grid-cols-2 gap-2 mt-2">
               <div className="rounded border border-hair/60 bg-surface/40 p-2.5">
                 <div className="text-[11px] text-muted">Spendable Quota</div>
-                <div className="mt-1 font-mono text-[18px] font-semibold text-white">
-                  {availableForSync}
-                  <span className="ml-1 text-[11px] font-normal text-muted">calls</span>
+                <div className="mt-1 font-mono text-[18px] font-semibold text-ink">
+                  {keysBudget.length === 0 ? (
+                    <span className="text-amber-500 text-sm font-semibold">No API keys loaded</span>
+                  ) : (
+                    <>
+                      {availableForSync}
+                      <span className="ml-1 text-[11px] font-normal text-muted">calls</span>
+                    </>
+                  )}
                 </div>
-                <div className="text-[10px] text-faint mt-0.5">Above safe reserve</div>
+                <div className="text-[10px] text-faint mt-0.5">
+                  {keysBudget.length === 0 ? 'Configure RAILRADAR_API_KEYS' : 'Above safe reserve'}
+                </div>
               </div>
 
               <div className="rounded border border-hair/60 bg-surface/40 p-2.5">
@@ -289,7 +298,7 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
 
               <div className="mt-2.5 flex items-center justify-between border-t border-hair/50 pt-2 text-[12px]">
                 <span className="text-muted">Last Synced (IST):</span>
-                <span className="font-mono text-[11.5px] text-white font-medium">{lastSyncedIst}</span>
+                <span className="font-mono text-[11.5px] text-ink font-medium">{lastSyncedIst}</span>
               </div>
             </div>
           </div>
@@ -304,14 +313,14 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-hair bg-surface p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-xl border border-line bg-surface p-6 shadow-2xl">
             <div className="flex items-start justify-between border-b border-hair pb-3.5">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
                   <Train size={18} />
                 </div>
                 <div>
-                  <h3 className="text-[16px] font-semibold text-white">Confirm Live Train Sync</h3>
+                  <h3 className="text-[16px] font-semibold text-ink">Confirm Live Train Sync</h3>
                   <p className="text-[12px] text-muted">
                     Fetch real-time RailRadar delays for {preview?.corridor_name || 'pilot corridor'}
                   </p>
@@ -319,7 +328,7 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
               </div>
               <button
                 onClick={() => setShowConfirmModal(false)}
-                className="rounded p-1 text-muted hover:text-white hover:bg-surface-elevated"
+                className="rounded p-1 text-muted hover:text-ink hover:bg-raised"
               >
                 <X size={16} />
               </button>
@@ -339,7 +348,7 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
               )}
 
               {/* Call requirement summary */}
-              <div className="rounded-lg border border-hair bg-surface/50 p-3.5">
+              <div className="rounded-lg border border-line bg-raised/50 p-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-muted">Total RailRadar calls to make:</span>
                   <span className="font-mono text-[15px] font-bold text-accent">
@@ -348,8 +357,8 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
                 </div>
                 <div className="mt-1 flex items-center justify-between text-[12px]">
                   <span className="text-muted">Available budget above reserve:</span>
-                  <span className={`font-mono font-medium ${availableForSync >= callsNeeded ? 'text-emerald-300' : 'text-rose-400'}`}>
-                    {availableForSync} call{availableForSync === 1 ? '' : 's'}
+                  <span className={`font-mono font-medium ${keysBudget.length === 0 ? 'text-amber-500 font-semibold' : availableForSync >= callsNeeded ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    {keysBudget.length === 0 ? 'No API keys loaded' : `${availableForSync} call${availableForSync === 1 ? '' : 's'}`}
                   </span>
                 </div>
               </div>
@@ -357,45 +366,57 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
               {/* Covered trains list */}
               <div>
                 <div className="mb-1.5 flex items-center justify-between text-[12px]">
-                  <span className="font-medium text-white">Covered Trains with Timetable Snapshots:</span>
+                  <span className="font-medium text-ink">Covered Trains with Timetable Snapshots:</span>
                   <span className="font-mono text-faint">({coveredTrains.length} trains)</span>
                 </div>
-                <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-hair bg-surface/30 p-2.5">
+                <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-line bg-surface/50 p-2.5">
                   {coveredTrains.length === 0 ? (
                     <span className="text-faint text-[12px] italic">No pilot corridor timetable snapshots found.</span>
                   ) : (
                     coveredTrains.map((tid) => (
                       <span
                         key={tid}
-                        className="rounded border border-hair/80 bg-surface/70 px-2 py-0.5 font-mono text-[11px] font-semibold text-white"
+                        className="rounded border border-line bg-raised px-2.5 py-1 font-mono text-[11px] font-semibold text-ink flex items-center gap-1.5"
                       >
-                        {tid}
+                        <span>{tid}</span>
+                        <span className="text-[9px] font-sans font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/20">
+                          Illustrative
+                        </span>
                       </span>
                     ))
                   )}
                 </div>
                 <p className="mt-1 text-[11px] text-faint">
-                  Strictly limited to trains operating through the pilot corridor with existing timetable snapshots.
+                  Strictly limited to trains operating through the pilot corridor with existing timetable snapshots (offline fixtures — illustrative, not fetched).
                 </p>
               </div>
 
               {/* Remaining monthly budget per key */}
               <div>
-                <div className="mb-1.5 text-[12px] font-medium text-white">Remaining Monthly Budget Per Key:</div>
-                <div className="space-y-1.5">
-                  {keysBudget.map((kb, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between rounded border border-hair/60 bg-surface/40 px-3 py-1.5 font-mono text-[12px]"
-                    >
-                      <span className="text-white font-medium">Key {kb.key_suffix}</span>
-                      <span className="text-muted">
-                        Used <strong className="text-white">{kb.used}</strong> / {kb.limit} ·{' '}
-                        <span className="text-emerald-400 font-semibold">{kb.remaining} remaining</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <div className="mb-1.5 text-[12px] font-medium text-ink">Remaining Monthly Budget Per Key:</div>
+                {keysBudget.length === 0 ? (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[12px] text-amber-300">
+                    <p className="font-semibold text-amber-200">No RailRadar API keys found on server</p>
+                    <p className="mt-1 text-muted">
+                      Configure <code>RAILRADAR_API_KEYS</code> in your environment variables to enable live sync.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {keysBudget.map((kb, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded border border-line bg-surface/50 px-3 py-1.5 font-mono text-[12px]"
+                      >
+                        <span className="text-ink font-medium">Key {kb.key_suffix}</span>
+                        <span className="text-muted">
+                          Used <strong className="text-ink">{kb.used}</strong> / {kb.limit} ·{' '}
+                          <span className="text-emerald-500 font-semibold">{kb.remaining} remaining</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -410,7 +431,8 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
               <Button
                 variant="default"
                 onClick={() => handleExecuteSync(cooldownActive)}
-                disabled={syncing || (availableForSync < callsNeeded)}
+                disabled={syncing || keysBudget.length === 0 || (availableForSync < callsNeeded)}
+                title={keysBudget.length === 0 ? 'No API keys loaded' : undefined}
                 className="flex items-center gap-1.5"
               >
                 {syncing ? (
@@ -433,20 +455,20 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
       {/* Sync Result Summary Modal */}
       {syncResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-hair bg-surface p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-2xl">
             <div className="flex items-start justify-between border-b border-hair pb-3.5">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
                   <CheckCircle2 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-[16px] font-semibold text-white">Live Sync Complete</h3>
+                  <h3 className="text-[16px] font-semibold text-ink">Live Sync Complete</h3>
                   <p className="text-[12px] text-muted">RailRadar real-time delays updated</p>
                 </div>
               </div>
               <button
                 onClick={() => setSyncResult(null)}
-                className="rounded p-1 text-muted hover:text-white hover:bg-surface-elevated"
+                className="rounded p-1 text-muted hover:text-ink hover:bg-raised"
               >
                 <X size={16} />
               </button>
@@ -454,14 +476,14 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
 
             <div className="my-4 space-y-3 text-[13px]">
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-hair bg-surface/50 p-3">
+                <div className="rounded-lg border border-line bg-surface/50 p-3">
                   <div className="text-[11px] text-muted">Trains Updated</div>
-                  <div className="mt-1 font-mono text-[20px] font-bold text-emerald-400">
+                  <div className="mt-1 font-mono text-[20px] font-bold text-emerald-500">
                     {syncResult.trains_updated}
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-hair bg-surface/50 p-3">
+                <div className="rounded-lg border border-line bg-surface/50 p-3">
                   <div className="text-[11px] text-muted">API Calls Used</div>
                   <div className="mt-1 font-mono text-[20px] font-bold text-accent">
                     {syncResult.calls_used}
@@ -469,26 +491,26 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
                 </div>
               </div>
 
-              <div className="rounded-lg border border-hair bg-surface/40 p-3">
+              <div className="rounded-lg border border-line bg-surface/40 p-3">
                 <div className="text-[11px] text-muted">Last Synced Time (IST)</div>
-                <div className="mt-1 font-mono text-[13px] font-semibold text-white">
+                <div className="mt-1 font-mono text-[13px] font-semibold text-ink">
                   {syncResult.last_synced_time_ist}
                 </div>
               </div>
 
               {/* Failures list if any */}
               <div>
-                <div className="text-[12px] font-medium text-white mb-1">Status & Failures:</div>
+                <div className="text-[12px] font-medium text-ink mb-1">Status & Failures:</div>
                 {syncResult.failures && syncResult.failures.length > 0 ? (
                   <div className="max-h-28 overflow-y-auto rounded border border-rose-500/30 bg-rose-500/10 p-2.5 text-[11.5px] space-y-1">
                     {syncResult.failures.map((f, i) => (
-                      <div key={i} className="text-rose-200">
-                        <strong className="text-white font-mono">{f.train_number}:</strong> {f.error}
+                      <div key={i} className="text-rose-400">
+                        <strong className="text-ink font-mono">{f.train_number}:</strong> {f.error}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 text-emerald-400 text-[12px] bg-emerald-500/10 border border-emerald-500/20 rounded p-2.5">
+                  <div className="flex items-center gap-1.5 text-emerald-500 text-[12px] bg-emerald-500/10 border border-emerald-500/20 rounded p-2.5">
                     <CheckCircle2 size={14} />
                     <span>All covered corridor trains updated without errors.</span>
                   </div>

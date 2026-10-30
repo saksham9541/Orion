@@ -4,31 +4,56 @@
   "snapshot_timestamp": "2026-10-30T10:50:00Z",
   "illustrative": true,
   "data": {
-    "train": {
-      "number": "12432",
-      "name": "Trivandrum Rajdhani",
-      "type": "RAJDHANI"
-    },
-    "running_days": [
-      2,
-      5,
-      6
-    ],
+    "train_number": "12432",
+    "train_name": "Trivandrum Rajdhani",
+    "train_type": "RAJDHANI",
     "route": [
       {
-        "station_code": "NZM",
-        "station_name": "Hazrat Nizamuddin",
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
         "arrival": "06:16",
         "departure": "06:16",
         "distance": 0.0,
         "day": 1
       },
       {
-        "station_code": "KOTA",
-        "station_name": "Kota Junction",
-        "arrival": "10:40",
-        "departure": "10:50",
-        "distance": 458.0,
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "06:19",
+        "departure": "06:20",
+        "distance": 1.5,
+        "day": 1
+      },
+      {
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "06:24",
+        "departure": "06:25",
+        "distance": 2.7,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "06:34",
+        "departure": "06:36",
+        "distance": 12.5,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "06:41",
+        "departure": "06:42",
+        "distance": 15.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "06:45",
+        "departure": "06:45",
+        "distance": 19.0,
         "day": 1
       }
     ]
@@ -36,8 +61,6 @@
   "meta": {
     "source": "snapshot",
     "provenance": "hand_written",
-    "snapshot_timestamp": "2026-10-30T10:50:00Z",
-    "illustrative": true,
-    "note": "Illustrative, not fetched \u2014 calibrated from Indian Railways published timetables"
+    "illustrative": true
   }
 }

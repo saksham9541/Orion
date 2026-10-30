@@ -4,46 +4,63 @@
   "snapshot_timestamp": "2026-10-30T10:50:00Z",
   "illustrative": true,
   "data": {
-    "train": {
-      "number": "12444",
-      "name": "Anand Vihar Haldia SF",
-      "type": "SUPERFAST"
-    },
-    "running_days": [
-      1
-    ],
+    "train_number": "12444",
+    "train_name": "Anand Vihar-Haldia SF",
+    "train_type": "SUPERFAST",
     "route": [
       {
-        "station_code": "ANVT",
-        "station_name": "Anand Vihar",
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
         "arrival": "20:20",
         "departure": "20:20",
         "distance": 0.0,
         "day": 1
       },
       {
-        "station_code": "GZB",
-        "station_name": "Ghaziabad",
-        "arrival": "20:47",
-        "departure": "20:49",
-        "distance": 13.0,
+        "station_code": "CSB",
+        "station_name": "Shivaji Bridge",
+        "arrival": "20:23",
+        "departure": "20:24",
+        "distance": 1.5,
         "day": 1
       },
       {
-        "station_code": "CNB",
-        "station_name": "Kanpur Central",
-        "arrival": "01:10",
-        "departure": "01:15",
-        "distance": 428.0,
-        "day": 2
+        "station_code": "TKJ",
+        "station_name": "Tilak Bridge",
+        "arrival": "20:28",
+        "departure": "20:29",
+        "distance": 2.7,
+        "day": 1
+      },
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "20:38",
+        "departure": "20:40",
+        "distance": 12.5,
+        "day": 1
+      },
+      {
+        "station_code": "SBB",
+        "station_name": "Sahibabad",
+        "arrival": "20:45",
+        "departure": "20:46",
+        "distance": 15.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "20:47",
+        "departure": "20:47",
+        "distance": 19.0,
+        "day": 1
       }
     ]
   },
   "meta": {
     "source": "snapshot",
     "provenance": "hand_written",
-    "snapshot_timestamp": "2026-10-30T10:50:00Z",
-    "illustrative": true,
-    "note": "Illustrative, not fetched \u2014 calibrated from Indian Railways published timetables"
+    "illustrative": true
   }
 }
