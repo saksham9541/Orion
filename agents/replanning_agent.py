@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from railopt.models import (
@@ -178,11 +178,9 @@ class ReplanningAgent:
                     narrative_explanation=narrative,
                 )
             else:
-                # Non-pilot section fallback
+                # Non-pilot section fallback (preserves existing synthetic window behavior)
                 new_block_id = f"BLK-EMERGENCY-{uuid.uuid4().hex[:6].upper()}"
-                dur = max(2.0, emergency_task.estimated_duration_hours)
-                end_h = min(23, int(1 + dur))
-                end_m = int((dur % 1) * 60)
+                dur = max(2.5, emergency_task.estimated_duration_hours)
                 emergency_block = ScheduledBlock(
                     block_id=new_block_id,
                     window_id=f"WIN-EMG-{uuid.uuid4().hex[:6].upper()}",
@@ -190,14 +188,14 @@ class ReplanningAgent:
                     section_id=emergency_task.section_id,
                     section_name=emergency_task.section_id,
                     date=target_date,
-                    start_time=time(1, 30),
-                    end_time=time(end_h, end_m),
+                    start_time=time(2, 0),
+                    end_time=time(4, 30),
                     duration_hours=dur,
                     task_ids=[emergency_task.task_id],
                     departments=[emergency_task.department],
                     block_type=BlockType.POWER_BLOCK if emergency_task.requires_power_block else BlockType.TRAFFIC_BLOCK,
-                    trains_affected=1,
-                    cumulative_delay_minutes=15.0,
+                    trains_affected=2,
+                    cumulative_delay_minutes=35.0,
                     is_merged=False,
                     justification=f"Force-scheduled emergency block for defect {emergency_task.task_id} on non-pilot section.",
                 )

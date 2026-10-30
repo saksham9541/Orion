@@ -39,6 +39,12 @@ Orion enforces strict Role-Based Access Control on every API endpoint to protect
 | `/api/tasks/import` | POST | `DEPT_USER`+ | Imports bulk tasks for user's department. |
 | `/api/plans` | GET | `VIEWER`+ | Reads block plans and schedules. |
 | `/api/plans/generate` | POST | `CONTROLLER`+ | Generates a new multi-department optimized block plan. |
+| `/api/plans/{plan_id}/my-blocks` | GET | `DEPT_USER`+ | Returns blocks involving caller's department with shared tasks from other depts. |
+| `/api/plans/{plan_id}/blocks/{block_id}/respond` | POST | `DEPT_USER`+ | Submits ACCEPT, REJECT, or COUNTER response for department block. |
+| `/api/plans/{plan_id}/re-solve` | POST | `CONTROLLER`+ | Re-solves CP-SAT schedule with forbidden constraints on rejected blocks. |
+| `/api/plans/{plan_id}/delay-report` | GET | `VIEWER`+ | Detailed breakdown of delay impact per train and section before/after cascade. |
+| `/api/sections/{section_id}/windows` | GET | `VIEWER`+ | Timetable-derived free maintenance windows on section with coverage summary. |
+| `/api/tasks/{task_id}/affected-trains` | GET | `VIEWER`+ | Computes on-demand affected trains and delays from cached timetables and live sync. |
 | `/api/plans/{plan_id}/approve`| POST | `CONTROLLER`+ | Approves a proposed block plan for execution. |
 | `/api/plans/{plan_id}/reject` | POST | `CONTROLLER`+ | Rejects a proposed block plan. |
 | `/api/plans/{plan_id}/modify` | POST | `CONTROLLER`+ | Modifies assigned block windows. |

@@ -31,7 +31,8 @@ import PortalLayout from '@/components/app/PortalLayout'
 import { useAppState } from '@/state/AppState'
 import IndiaRailwayMap from '@/components/network/IndiaRailwayMap'
 import DepartmentTaskModal from '@/components/app/DepartmentTaskModal'
-import { fetchLiveTrains, fetchTasks, updateTaskStatus } from '@/api'
+import DepartmentBlockReview from '@/components/plan/DepartmentBlockReview'
+import { fetchLiveTrains, fetchPlans, fetchTasks, updateTaskStatus } from '@/api'
 
 const TEAM_MEMBERS_BY_DEPT = {
   snt: [
@@ -449,6 +450,20 @@ export default function DepartmentDashboard({ deptId, title, department }) {
   const [actionInProgress, setActionInProgress] = useState(null)
   const [toastMessage, setToastMessage] = useState(null)
   const [liveTrains, setLiveTrains] = useState([])
+  const [activeView, setActiveView] = useState('board')
+  const [activePlanId, setActivePlanId] = useState(null)
+
+  useEffect(() => {
+    fetchPlans()
+      .then((res) => {
+        const plans = res.data || []
+        if (plans.length > 0) {
+          const candidate = plans.find(p => ['PROPOSED', 'DEPT_REVIEW', 'CONFLICT', 'READY_FOR_CONTROLLER'].includes(p.status)) || plans[plans.length - 1]
+          setActivePlanId(candidate.plan_id)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('')
@@ -818,6 +833,32 @@ export default function DepartmentDashboard({ deptId, title, department }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* View Switcher: Journey Board vs Block Governance Review */}
+            <div className="flex items-center rounded-full border border-line bg-surface p-0.5 shadow-sm text-xs">
+              <button
+                type="button"
+                onClick={() => setActiveView('board')}
+                className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                  activeView === 'board'
+                    ? 'bg-ink text-deep shadow-sm'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                Journey Board
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView('review')}
+                className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                  activeView === 'review'
+                    ? 'bg-[#d71920] text-white shadow-sm'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                Block Review (Accept/Reject)
+              </button>
+            </div>
+
             <div className="relative">
               <Search size={13} className="absolute left-3 top-2.5 text-muted" />
               <input
@@ -848,8 +889,14 @@ export default function DepartmentDashboard({ deptId, title, department }) {
           </div>
         </div>
 
-        {/* 4 Interconnected Columns Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
+        {activeView === 'review' ? (
+          <DepartmentBlockReview
+            planId={activePlanId || 'active'}
+            department={resolvedDept}
+          />
+        ) : (
+          /* 4 Interconnected Columns Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
           
           {/* Column 1: Case Allocation */}
           <div className="flex flex-col gap-3">
@@ -1145,6 +1192,7 @@ export default function DepartmentDashboard({ deptId, title, department }) {
           </div>
 
         </div>
+        )}
       </motion.div>
 
       {/* FULL-WIDTH SUGGESTED KNOWLEDGE & DEFECT REGISTRY TABLE */}

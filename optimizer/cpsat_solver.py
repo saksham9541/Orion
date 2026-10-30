@@ -9,11 +9,13 @@ With only the valid pairs the model is roughly 30x smaller, so the solver can
 finish and prove the answer is optimal instead of stopping at "FEASIBLE".
 """
 
+from __future__ import annotations
+
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import logging
-from typing import Dict
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ortools.sat.python import cp_model
 
@@ -84,10 +86,12 @@ class BlockScheduler:
         sections: dict[str, Section],
         time_limit_seconds: int | None = None,
         horizon: PlanHorizon = PlanHorizon.WEEKLY,
+        forbidden_assignments: Optional[set[tuple[str, str]]] = None,
     ) -> BlockPlan:
         """
         Assigns tasks to block windows maximizing scheduling of critical tasks
         and inter-department merging, while minimizing disruption.
+        Supports forbidden_assignments: set of (task_id, window_id) to exclude.
         """
         cfg = self.config
         time_limit = time_limit_seconds if time_limit_seconds is not None else cfg.time_limit_seconds
@@ -209,6 +213,12 @@ class BlockScheduler:
                         s2, e2 = _window_interval(windows[j2])
                         if max(s1, s2) < min(e1, e2):  # overlapping intervals
                             model.Add(window_used[j1] + window_used[j2] <= 1)
+
+            # 9. Forbidden assignments (e.g. from department rejections)
+            if forbidden_assignments:
+                for (i, j), var in x.items():
+                    if (tasks[i].task_id, windows[j].window_id) in forbidden_assignments:
+                        model.Add(var == 0)
 
             # ---- objective (minimize) -------------------------------------------
             obj = []

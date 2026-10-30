@@ -196,9 +196,30 @@ class PlanHorizon(str, Enum):
 class PlanStatus(str, Enum):
     """Lifecycle status for a block plan."""
     DRAFT = "DRAFT"
+    PROPOSED = "PROPOSED"
+    DEPT_REVIEW = "DEPT_REVIEW"
+    CONFLICT = "CONFLICT"
+    READY_FOR_CONTROLLER = "READY_FOR_CONTROLLER"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     MODIFIED = "MODIFIED"
+
+
+class BlockDecision(str, Enum):
+    """Department decision on a proposed scheduled block."""
+    ACCEPT = "ACCEPT"
+    REJECT = "REJECT"
+    COUNTER = "COUNTER"
+
+
+class BlockRejectReason(str, Enum):
+    """Standardized reason codes required when rejecting a block."""
+    RESOURCE_UNAVAILABLE = "RESOURCE_UNAVAILABLE"
+    SAFETY_CONCERN = "SAFETY_CONCERN"
+    INSUFFICIENT_DURATION = "INSUFFICIENT_DURATION"
+    INTER_DEPARTMENT_CONFLICT = "INTER_DEPARTMENT_CONFLICT"
+    EQUIPMENT_BREAKDOWN = "EQUIPMENT_BREAKDOWN"
+    OPERATIONAL_PRIORITY = "OPERATIONAL_PRIORITY"
 
 
 class Season(str, Enum):
@@ -546,6 +567,21 @@ class BlockPlan(BaseModel):
             self.sla_compliance_pct = round(
                 (scheduled_critical / total_critical) * 100, 1
             )
+
+
+class BlockResponse(BaseModel):
+    """Department user's review response to an assigned block in a proposed plan."""
+    id: str = Field(default_factory=lambda: f"RESP-{uuid.uuid4().hex[:8]}")
+    plan_id: str
+    block_id: str
+    department: Department
+    decision: BlockDecision
+    counter_window_id: Optional[str] = None
+    reason: Optional[str] = None
+    reason_code: Optional[BlockRejectReason] = None
+    decided_by_user_id: str
+    decided_by_name: str = ""
+    decided_at: datetime = Field(default_factory=datetime.now)
 
 
 class EarlyWarning(BaseModel):

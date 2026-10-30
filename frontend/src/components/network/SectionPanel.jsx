@@ -4,6 +4,7 @@ import { CalendarRange, HelpCircle, Lightbulb, ListOrdered, Train, X } from 'luc
 import StatusChip, { DataTag } from '@/components/common/StatusChip'
 import DeptTag from '@/components/common/DeptTag'
 import ScoreMeter from '@/components/common/ScoreMeter'
+import SectionTimeline from '@/components/network/SectionTimeline'
 import { sectionDetail } from '@/lib/optimizer'
 import { DAYS, clock, duration } from '@/lib/format'
 
@@ -57,6 +58,8 @@ export default function SectionPanel({ section, day, minutes, onClose, onExplain
           <StatusChip state={d.state.state} />
           <DataTag kind="simulation" />
         </div>
+
+        <SectionTimeline sectionId={d.section} sectionName={d.section} />
 
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line">
           <Cell label="Traffic" value={d.traffic} sub={`${d.corridor.trainsPerDay} movements/day`} />

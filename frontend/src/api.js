@@ -129,4 +129,14 @@ export const fetchAgentsStatus = () => api.get('/agents/status');
 export const triggerAgentNegotiation = (horizon = 'WEEKLY') => api.post('/agents/negotiate', { horizon });
 export const scanEarlyWarnings = () => api.post('/agents/early-warning/scan');
 
+// Department Review & Governance
+export const fetchMyBlocks = (planId, department) => api.get(`/plans/${planId}/my-blocks`, { params: { department } });
+export const respondToBlock = (planId, blockId, data) => api.post(`/plans/${planId}/blocks/${blockId}/respond`, data);
+export const resolvePlanConflicts = (planId) => api.post(`/plans/${planId}/re-solve`);
+export const fetchPlanDelayReport = (planId) => api.get(`/plans/${planId}/delay-report`);
+
+// Real Track & Timetable Windows
+export const fetchSectionWindows = (sectionId, date) => api.get(`/sections/${sectionId}/windows`, { params: { date } });
+export const fetchTaskAffectedTrains = (taskId, windowId) => api.get(`/tasks/${taskId}/affected-trains`, { params: { window_id: windowId } });
+
 export default api;

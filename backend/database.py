@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from railopt.models import (
     BlockPlan,
+    BlockResponse,
     Corridor,
     DefectSeverity,
     EarlyWarning,
@@ -114,6 +115,21 @@ class BlockPlanRecord(Base):
     status = Column(String)
     approved_by = Column(String)
     override_log = Column(JSON_TYPE)
+
+
+class BlockResponseRecord(Base):
+    __tablename__ = 'block_responses'
+    id = Column(String(36), primary_key=True)
+    plan_id = Column(String(64), index=True, nullable=False)
+    block_id = Column(String(64), index=True, nullable=False)
+    department = Column(String(32), nullable=False)
+    decision = Column(String(16), nullable=False)  # "ACCEPT" | "REJECT" | "COUNTER"
+    counter_window_id = Column(String(64), nullable=True)
+    reason = Column(Text, nullable=True)
+    reason_code = Column(String(64), nullable=True)
+    decided_by_user_id = Column(String(36), nullable=False)
+    decided_by_name = Column(String(128), nullable=True)
+    decided_at = Column(DateTime, default=utc_now, nullable=False)
 
 
 class CorridorRecord(Base):
@@ -419,6 +435,29 @@ def load_all_plans(session: Session) -> list[BlockPlan]:
         d.pop('_sa_instance_state', None)
         plans.append(BlockPlan(**d))
     return plans
+
+
+def save_block_response(session: Session, response: BlockResponse):
+    """Save or update department response to a scheduled block."""
+    d = response.model_dump(mode='json')
+    if hasattr(response, "decided_at") and response.decided_at:
+        d["decided_at"] = response.decided_at
+    session.merge(BlockResponseRecord(**d))
+    session.commit()
+
+
+def load_block_responses(session: Session, plan_id: str) -> list[BlockResponse]:
+    """Load all department block responses for a plan."""
+    records = session.query(BlockResponseRecord).filter(BlockResponseRecord.plan_id == plan_id).all()
+    responses = []
+    for r in records:
+        d = r.__dict__.copy()
+        d.pop('_sa_instance_state', None)
+        try:
+            responses.append(BlockResponse(**d))
+        except Exception as e:
+            logger.warning("Failed to parse BlockResponse %s: %s", d.get("id"), e)
+    return responses
 
 def save_corridors(session: Session, corridors: list[Corridor]):
     for c in corridors:
