@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 import requests
+from dotenv import load_dotenv
+load_dotenv()
 
 from backend.database import (
     get_api_cache,

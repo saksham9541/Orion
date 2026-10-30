@@ -8,6 +8,9 @@ NL briefings, what-if simulation, and a one-click demo setup.
 
 from __future__ import annotations
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from contextlib import asynccontextmanager
 import logging
 import os
