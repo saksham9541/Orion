@@ -1,0 +1,36 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12432",
+      "name": "Trivandrum Rajdhani",
+      "type": "RAJDHANI"
+    },
+    "running_days": [
+      2,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "NZM",
+        "station_name": "Hazrat Nizamuddin",
+        "arrival": "06:16",
+        "departure": "06:16",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "KOTA",
+        "station_name": "Kota Junction",
+        "arrival": "10:40",
+        "departure": "10:50",
+        "distance": 458.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

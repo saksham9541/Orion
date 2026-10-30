@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12301",
+      "name": "Howrah Rajdhani (Up)",
+      "type": "RAJDHANI"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "HWH",
+        "station_name": "Howrah Junction",
+        "arrival": "16:50",
+        "departure": "16:50",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "CNB",
+        "station_name": "Kanpur Central",
+        "arrival": "00:50",
+        "departure": "00:55",
+        "distance": 1010.0,
+        "day": 2
+      },
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "06:00",
+        "departure": "06:00",
+        "distance": 1450.0,
+        "day": 2
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

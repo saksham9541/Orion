@@ -1,0 +1,56 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12004",
+      "name": "Lucknow Shatabdi",
+      "type": "SHATABDI"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "06:10",
+        "departure": "06:10",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "06:42",
+        "departure": "06:44",
+        "distance": 19.0,
+        "day": 1
+      },
+      {
+        "station_code": "CNB",
+        "station_name": "Kanpur Central",
+        "arrival": "11:20",
+        "departure": "11:25",
+        "distance": 440.0,
+        "day": 1
+      },
+      {
+        "station_code": "LKO",
+        "station_name": "Lucknow Ne",
+        "arrival": "12:40",
+        "departure": "12:40",
+        "distance": 512.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

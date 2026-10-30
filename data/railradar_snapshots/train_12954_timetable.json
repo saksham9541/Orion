@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12954",
+      "name": "August Kranti Rajdhani",
+      "type": "RAJDHANI"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "NZM",
+        "station_name": "Hazrat Nizamuddin",
+        "arrival": "17:15",
+        "departure": "17:15",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "MTJ",
+        "station_name": "Mathura Junction",
+        "arrival": "18:43",
+        "departure": "18:45",
+        "distance": 134.0,
+        "day": 1
+      },
+      {
+        "station_code": "KOTA",
+        "station_name": "Kota Junction",
+        "arrival": "22:00",
+        "departure": "22:10",
+        "distance": 458.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

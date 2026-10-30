@@ -1,0 +1,134 @@
+{
+  "success": true,
+  "data": {
+    "from_station": "NDLS",
+    "to_station": "GZB",
+    "trains": [
+      {
+        "train_number": "12302",
+        "train_name": "Howrah Rajdhani",
+        "train_type": "RAJDHANI",
+        "departure_time": "16:50",
+        "arrival_time": "17:15",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12301",
+        "train_name": "Howrah Rajdhani (Up)",
+        "train_type": "RAJDHANI",
+        "departure_time": "05:35",
+        "arrival_time": "06:00",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12004",
+        "train_name": "Lucknow Shatabdi",
+        "train_type": "SHATABDI",
+        "departure_time": "06:10",
+        "arrival_time": "06:42",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12003",
+        "train_name": "Lucknow Shatabdi (Up)",
+        "train_type": "SHATABDI",
+        "departure_time": "21:38",
+        "arrival_time": "22:25",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12313",
+        "train_name": "Sealdah Rajdhani",
+        "train_type": "RAJDHANI",
+        "departure_time": "16:30",
+        "arrival_time": "16:55",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12424",
+        "train_name": "Dibrugarh Rajdhani",
+        "train_type": "RAJDHANI",
+        "departure_time": "16:20",
+        "arrival_time": "16:45",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12560",
+        "train_name": "Shiv Ganga Express",
+        "train_type": "SUPERFAST",
+        "departure_time": "20:05",
+        "arrival_time": "20:32",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12444",
+        "train_name": "Anand Vihar - Haldia SF",
+        "train_type": "SUPERFAST",
+        "departure_time": "20:20",
+        "arrival_time": "20:47",
+        "running_days": [
+          1
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

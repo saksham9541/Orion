@@ -1,0 +1,42 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12444",
+      "name": "Anand Vihar Haldia SF",
+      "type": "SUPERFAST"
+    },
+    "running_days": [
+      1
+    ],
+    "route": [
+      {
+        "station_code": "ANVT",
+        "station_name": "Anand Vihar",
+        "arrival": "20:20",
+        "departure": "20:20",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "20:47",
+        "departure": "20:49",
+        "distance": 13.0,
+        "day": 1
+      },
+      {
+        "station_code": "CNB",
+        "station_name": "Kanpur Central",
+        "arrival": "01:10",
+        "departure": "01:15",
+        "distance": 428.0,
+        "day": 2
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "22692",
+      "name": "Bengaluru Rajdhani",
+      "type": "RAJDHANI"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "NZM",
+        "station_name": "Hazrat Nizamuddin",
+        "arrival": "20:45",
+        "departure": "20:45",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "AGC",
+        "station_name": "Agra Cantt",
+        "arrival": "22:50",
+        "departure": "22:55",
+        "distance": 188.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

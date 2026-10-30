@@ -1,0 +1,101 @@
+{
+  "success": true,
+  "data": {
+    "train_number": "12302",
+    "train_name": "Howrah Rajdhani Express",
+    "type": "LineString",
+    "coordinates": [
+      [
+        77.2205,
+        28.6424
+      ],
+      [
+        77.23,
+        28.63
+      ],
+      [
+        77.2415,
+        28.6247
+      ],
+      [
+        77.275,
+        28.635
+      ],
+      [
+        77.3153,
+        28.6502
+      ],
+      [
+        77.3592,
+        28.6728
+      ],
+      [
+        77.4338,
+        28.6675
+      ],
+      [
+        77.7,
+        28.5
+      ],
+      [
+        80.35,
+        26.45
+      ]
+    ],
+    "stations": [
+      {
+        "code": "NDLS",
+        "name": "New Delhi",
+        "lat": 28.6424,
+        "lon": 77.2205,
+        "distance_km": 0.0
+      },
+      {
+        "code": "CSB",
+        "name": "Shivaji Bridge",
+        "lat": 28.63,
+        "lon": 77.23,
+        "distance_km": 1.5
+      },
+      {
+        "code": "TKJ",
+        "name": "Tilak Bridge",
+        "lat": 28.6247,
+        "lon": 77.2415,
+        "distance_km": 2.7
+      },
+      {
+        "code": "ANVT",
+        "name": "Anand Vihar",
+        "lat": 28.6502,
+        "lon": 77.3153,
+        "distance_km": 12.5
+      },
+      {
+        "code": "SBB",
+        "name": "Sahibabad",
+        "lat": 28.6728,
+        "lon": 77.3592,
+        "distance_km": 15.0
+      },
+      {
+        "code": "GZB",
+        "name": "Ghaziabad",
+        "lat": 28.6675,
+        "lon": 77.4338,
+        "distance_km": 19.0
+      },
+      {
+        "code": "CNB",
+        "name": "Kanpur Central",
+        "lat": 26.45,
+        "lon": 80.35,
+        "distance_km": 440.0
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot",
+    "corridor": "Delhi\u2013Howrah Main"
+  }
+}

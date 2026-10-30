@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12003",
+      "name": "Lucknow Shatabdi (Up)",
+      "type": "SHATABDI"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "LKO",
+        "station_name": "Lucknow Ne",
+        "arrival": "15:30",
+        "departure": "15:30",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "GZB",
+        "station_name": "Ghaziabad",
+        "arrival": "21:38",
+        "departure": "21:40",
+        "distance": 493.0,
+        "day": 1
+      },
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "22:25",
+        "departure": "22:25",
+        "distance": 512.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

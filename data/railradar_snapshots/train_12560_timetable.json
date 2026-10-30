@@ -1,0 +1,40 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12560",
+      "name": "Shiv Ganga Express",
+      "type": "SUPERFAST"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "20:05",
+        "departure": "20:05",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "CNB",
+        "station_name": "Kanpur Central",
+        "arrival": "01:40",
+        "departure": "01:45",
+        "distance": 440.0,
+        "day": 2
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

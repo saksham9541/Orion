@@ -1,0 +1,56 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12926",
+      "name": "Paschim Express",
+      "type": "SUPERFAST"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "16:20",
+        "departure": "16:35",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "FDB",
+        "station_name": "Faridabad",
+        "arrival": "17:01",
+        "departure": "17:03",
+        "distance": 28.5,
+        "day": 1
+      },
+      {
+        "station_code": "MTJ",
+        "station_name": "Mathura Junction",
+        "arrival": "19:08",
+        "departure": "19:10",
+        "distance": 141.0,
+        "day": 1
+      },
+      {
+        "station_code": "KOTA",
+        "station_name": "Kota Junction",
+        "arrival": "00:10",
+        "departure": "00:20",
+        "distance": 465.0,
+        "day": 2
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

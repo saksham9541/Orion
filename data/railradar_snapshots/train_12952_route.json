@@ -1,0 +1,130 @@
+{
+  "success": true,
+  "data": {
+    "train_number": "12952",
+    "train_name": "Mumbai Central Tejas Rajdhani Express",
+    "type": "LineString",
+    "coordinates": [
+      [
+        77.2205,
+        28.6424
+      ],
+      [
+        77.2534,
+        28.5886
+      ],
+      [
+        77.273,
+        28.5582
+      ],
+      [
+        77.2917,
+        28.5034
+      ],
+      [
+        77.3178,
+        28.4124
+      ],
+      [
+        77.3235,
+        28.337
+      ],
+      [
+        77.3298,
+        28.1458
+      ],
+      [
+        77.4312,
+        27.7915
+      ],
+      [
+        77.5023,
+        27.7198
+      ],
+      [
+        77.6737,
+        27.4924
+      ],
+      [
+        77.72,
+        27.18
+      ]
+    ],
+    "stations": [
+      {
+        "code": "NDLS",
+        "name": "New Delhi",
+        "lat": 28.6424,
+        "lon": 77.2205,
+        "distance_km": 0.0
+      },
+      {
+        "code": "NZM",
+        "name": "Hazrat Nizamuddin",
+        "lat": 28.5886,
+        "lon": 77.2534,
+        "distance_km": 7.2
+      },
+      {
+        "code": "OKA",
+        "name": "Okhla",
+        "lat": 28.5582,
+        "lon": 77.273,
+        "distance_km": 10.8
+      },
+      {
+        "code": "TKD",
+        "name": "Tuglakabad",
+        "lat": 28.5034,
+        "lon": 77.2917,
+        "distance_km": 17.5
+      },
+      {
+        "code": "FDB",
+        "name": "Faridabad",
+        "lat": 28.4124,
+        "lon": 77.3178,
+        "distance_km": 28.5
+      },
+      {
+        "code": "BVH",
+        "name": "Ballabgarh",
+        "lat": 28.337,
+        "lon": 77.3235,
+        "distance_km": 36.8
+      },
+      {
+        "code": "PWL",
+        "name": "Palwal",
+        "lat": 28.1458,
+        "lon": 77.3298,
+        "distance_km": 59.8
+      },
+      {
+        "code": "KSV",
+        "name": "Kosi Kalan",
+        "lat": 27.7915,
+        "lon": 77.4312,
+        "distance_km": 101.5
+      },
+      {
+        "code": "CHJ",
+        "name": "Chata",
+        "lat": 27.7198,
+        "lon": 77.5023,
+        "distance_km": 114.2
+      },
+      {
+        "code": "MTJ",
+        "name": "Mathura Jn",
+        "lat": 27.4924,
+        "lon": 77.6737,
+        "distance_km": 141.0
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot",
+    "corridor": "Delhi\u2013Mumbai Rajdhani Route"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12951",
+      "name": "Mumbai Rajdhani (Up)",
+      "type": "RAJDHANI"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "MMCT",
+        "station_name": "Mumbai Central",
+        "arrival": "17:00",
+        "departure": "17:00",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "KOTA",
+        "station_name": "Kota Junction",
+        "arrival": "03:15",
+        "departure": "03:20",
+        "distance": 919.0,
+        "day": 2
+      },
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "08:32",
+        "departure": "08:32",
+        "distance": 1384.0,
+        "day": 2
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12313",
+      "name": "Sealdah Rajdhani",
+      "type": "RAJDHANI"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "16:30",
+        "departure": "16:30",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "CNB",
+        "station_name": "Kanpur Central",
+        "arrival": "21:15",
+        "departure": "21:20",
+        "distance": 440.0,
+        "day": 1
+      },
+      {
+        "station_code": "SDAH",
+        "station_name": "Sealdah",
+        "arrival": "10:05",
+        "departure": "10:05",
+        "distance": 1458.0,
+        "day": 2
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

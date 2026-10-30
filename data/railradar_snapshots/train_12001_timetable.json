@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "data": {
+    "train": {
+      "number": "12001",
+      "name": "Bhopal Shatabdi (Up)",
+      "type": "SHATABDI"
+    },
+    "running_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "route": [
+      {
+        "station_code": "AGC",
+        "station_name": "Agra Cantt",
+        "arrival": "20:30",
+        "departure": "20:35",
+        "distance": 0.0,
+        "day": 1
+      },
+      {
+        "station_code": "MTJ",
+        "station_name": "Mathura Junction",
+        "arrival": "21:20",
+        "departure": "21:25",
+        "distance": 54.0,
+        "day": 1
+      },
+      {
+        "station_code": "NDLS",
+        "station_name": "New Delhi",
+        "arrival": "23:50",
+        "departure": "23:50",
+        "distance": 195.0,
+        "day": 1
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}

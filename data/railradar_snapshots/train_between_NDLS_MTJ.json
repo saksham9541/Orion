@@ -1,0 +1,136 @@
+{
+  "success": true,
+  "data": {
+    "from_station": "NDLS",
+    "to_station": "MTJ",
+    "trains": [
+      {
+        "train_number": "12952",
+        "train_name": "Mumbai Rajdhani",
+        "train_type": "RAJDHANI",
+        "departure_time": "16:55",
+        "arrival_time": "18:25",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12951",
+        "train_name": "Mumbai Rajdhani (Up)",
+        "train_type": "RAJDHANI",
+        "departure_time": "06:50",
+        "arrival_time": "08:32",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12002",
+        "train_name": "Bhopal Shatabdi",
+        "train_type": "SHATABDI",
+        "departure_time": "06:00",
+        "arrival_time": "07:19",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12001",
+        "train_name": "Bhopal Shatabdi (Up)",
+        "train_type": "SHATABDI",
+        "departure_time": "21:20",
+        "arrival_time": "23:50",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "22692",
+        "train_name": "Bengaluru Rajdhani",
+        "train_type": "RAJDHANI",
+        "departure_time": "20:45",
+        "arrival_time": "22:20",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12954",
+        "train_name": "August Kranti Rajdhani",
+        "train_type": "RAJDHANI",
+        "departure_time": "17:15",
+        "arrival_time": "18:43",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12432",
+        "train_name": "Trivandrum Rajdhani",
+        "train_type": "RAJDHANI",
+        "departure_time": "06:16",
+        "arrival_time": "07:55",
+        "running_days": [
+          2,
+          5,
+          6
+        ]
+      },
+      {
+        "train_number": "12926",
+        "train_name": "Paschim Express",
+        "train_type": "SUPERFAST",
+        "departure_time": "16:35",
+        "arrival_time": "19:10",
+        "running_days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "source": "snapshot"
+  }
+}
