@@ -23,6 +23,8 @@ import logging
 import os
 import sys
 from datetime import date, datetime, timezone
+from dotenv import load_dotenv
+load_dotenv()
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
