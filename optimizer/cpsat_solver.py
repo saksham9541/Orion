@@ -22,6 +22,7 @@ from ortools.sat.python import cp_model
 logger = logging.getLogger(__name__)
 
 from optimizer.block_merger import BlockMerger
+from traffic.train_weights import TRAIN_TYPE_PRIORITY_WEIGHTS, get_train_type_weight
 from railopt.models import (
     BlockPlan,
     BlockWindow,

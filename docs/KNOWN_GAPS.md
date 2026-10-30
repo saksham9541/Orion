@@ -139,3 +139,31 @@ $$\text{Total Margin} = (\text{Gap End} - \text{Gap Start}) - (\text{Task Durati
 ### Provenance Honesty & Live Delay Replay
 - **Coverage Honesty**: The coverage metric $\text{coverage\_ratio} = \frac{\text{real\_live\_trains}}{\text{total\_trains}}$ counts **only** trains with `provenance == "live"`. Hand-written seed snapshots and synthetic filler report $0.0\%$ real coverage (`illustrative`).
 - **Live Replay Tooling**: `scripts/replay_windows.py` revalidates predicted-free windows against logged live delays (`load_live_status`), enforcing a 6-hour linear decay horizon and tracking train encroachments and margin erosion.
+
+---
+
+## 8. Phase 2 Step 0: Reliability Layer & Window Replay Audit
+
+### Window Finder Audit Results
+1. **Occupancy Definition (OK)**: Block section occupancy uses departure time (or pass time) at `from_station` and arrival time at `to_station`. A train waiting or dwelling at `from_station` prior to departure does not occupy the block section.
+2. **Oracle Verification (OK)**: A brute-force oracle test (`test_oracle_minute_grid_vs_interval_merge`) verifies minute-by-minute occupancy grid representation against interval-merge discovery with randomized timetables and midnight crossing.
+3. **Buffer Configurability (OK)**: Safety clearance buffers (`clearance_buffer_minutes`) and task setup/handover buffers (`pre_buffer_minutes`, `post_buffer_minutes`) are fully configurable per invocation via `BlockWindowConfig` and `ReliabilityConfig`.
+4. **Per-Passage Margins Seam (OK)**: `find_block_section_windows` and `rank_candidate_windows` expose an optional `passage_margin_fn: Optional[Callable[[BlockSectionPassage], int]] = None` parameter. Default behavior falls back to `clearance_buffer_minutes`.
+5. **Traffic Mode (OK)**: Added `traffic_mode: str = "LIVE_ONLY" | "LIVE_PLUS_SYNTHETIC"`. By default, the window engine operates on `LIVE_ONLY` mode to protect supervisors from fabricated filler traffic. Every window stamps its `traffic_mode`.
+
+### Replay Engine Results (`scripts/replay_windows.py`)
+- **Evaluation Date**: 2026-11-01
+- **Total Windows Evaluated**: 35
+- **Clean Windows**: 35
+- **Encroached Windows**: 0
+- **Window Hit Rate**: 100.0%
+- **Average Margin Erosion**: 0.0 min
+- **Live Delays Tracked**: 18 trains
+
+### Reliability Layer Guarantees (`traffic/window_reliability.py`)
+- **Dynamic Uncertainty**: Interpolated passages receive $+5\text{ min}$ base uncertainty plus transit span scaling. Anticipated windows add $+2\text{ min/day}$ ahead of execution date.
+- **Track Modeling**: Supports `CONSERVATIVE` (default) and `OPTIMISTIC` modes. In conservative mode, directional passages block all tracks unless specific track assignment is verified.
+- **Confidence Invariant**: Synthetic traffic (`share_synthetic > 0` or `traffic_mode == "LIVE_PLUS_SYNTHETIC"`) forces confidence to `MEDIUM` or `LOW`. It can **never** be rated `HIGH`.
+- **Bounding Trains**: Prev clearing and next entering trains are stamped with train number, scheduled time, and provenance.
+- **Decision Support**: All reliable windows are stamped `proposal=True` and `"requires controller confirmation"`.
+

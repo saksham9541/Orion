@@ -20,7 +20,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 try:
     from zoneinfo import ZoneInfo
@@ -69,6 +69,7 @@ class BlockWindowConfig:
     decay_horizon_hours: float = 6.0       # Live delay decay horizon (delay decays to 0 over 6h)
     long_block_km: float = LONG_BLOCK_THRESHOLD_KM
     busy_occupancy_share: float = BUSY_OCCUPANCY_SHARE_THRESHOLD
+    traffic_mode: str = "LIVE_ONLY"        # "LIVE_ONLY" | "LIVE_PLUS_SYNTHETIC"
 
     def __post_init__(self):
         if self.default_clearance_minutes != 10 and self.clearance_buffer_minutes == 10:
@@ -99,6 +100,7 @@ class UsableBlockWindow:
     known_trains: int
     estimated_total_trains: int
     coverage: float  # known_trains / estimated_total_trains (only provenance='live' counts as real)
+    traffic_mode: str = "LIVE_ONLY"  # "LIVE_ONLY" | "LIVE_PLUS_SYNTHETIC"
     source: str = "timetable_derived"
     is_free_gap: bool = True
     trains_held: int = 0
@@ -162,6 +164,7 @@ def find_block_section_windows(
     passages: Optional[List[BlockSectionPassage]] = None,
     config: Optional[BlockWindowConfig] = None,
     snapshot_dir=None,
+    passage_margin_fn: Optional[Callable[[BlockSectionPassage], int]] = None,
 ) -> List[UsableBlockWindow]:
     """
     Finds clean free gaps on block_section for target_date.
@@ -181,11 +184,19 @@ def find_block_section_windows(
 
     # Load passages if not supplied
     if passages is None:
-        passages = load_pilot_block_passages(
-            pilot_section_id=block_section.pilot_section_id,
-            target_date=target_date,
-            snapshot_dir=snapshot_dir,
-        )
+        if cfg.traffic_mode == "LIVE_PLUS_SYNTHETIC":
+            from traffic.fill import get_all_block_section_passages
+            passages, _ = get_all_block_section_passages(
+                block_section=block_section,
+                target_date=target_date,
+                snapshot_dir=snapshot_dir,
+            )
+        else:
+            passages = load_pilot_block_passages(
+                pilot_section_id=block_section.pilot_section_id,
+                target_date=target_date,
+                snapshot_dir=snapshot_dir,
+            )
 
     # Line filtering rule (Double line vs Single line)
     # Double line counts only relevant line unless requires_both_lines
@@ -193,6 +204,8 @@ def find_block_section_windows(
     relevant_passages: List[BlockSectionPassage] = []
     for p in passages:
         if p.block_section_id != block_section.id:
+            continue
+        if cfg.traffic_mode == "LIVE_ONLY" and getattr(p, "provenance", "") == "synthetic":
             continue
         if block_section.tracks == 1 or requires_both_lines or req_line == "BOTH":
             relevant_passages.append(p)
@@ -206,7 +219,6 @@ def find_block_section_windows(
     freight_unverified = any(p.train_type.value == "FREIGHT" or p.provenance == "synthetic" for p in relevant_passages)
 
     # 1. Build occupied intervals in minute coordinates [0..1440]
-    buf = cfg.clearance_buffer_minutes
     occupied: List[Tuple[int, int]] = []
 
     for p in relevant_passages:
@@ -216,7 +228,8 @@ def find_block_section_windows(
         if e_min < s_min:
             e_min += 1440
 
-        # Padded with clearance buffer
+        # Padded with clearance buffer or per-passage margin
+        buf = passage_margin_fn(p) if passage_margin_fn is not None else cfg.clearance_buffer_minutes
         occ_s = max(0, s_min - buf)
         occ_e = e_min + buf
 
@@ -296,6 +309,7 @@ def find_block_section_windows(
                 known_trains=live_trains,
                 estimated_total_trains=total_trains,
                 coverage=coverage,
+                traffic_mode=cfg.traffic_mode,
                 source="timetable_derived",
                 is_free_gap=True,
                 trains_held=0,
@@ -323,6 +337,7 @@ def rank_candidate_windows(
     config: Optional[BlockWindowConfig] = None,
     top_k: int = 5,
     snapshot_dir=None,
+    passage_margin_fn: Optional[Callable[[BlockSectionPassage], int]] = None,
 ) -> List[UsableBlockWindow]:
     """
     Sliding window candidate evaluation (every 5 min over the 24h day).
@@ -340,16 +355,26 @@ def rank_candidate_windows(
     req_line = line or block_section.line
 
     if passages is None:
-        passages = load_pilot_block_passages(
-            pilot_section_id=block_section.pilot_section_id,
-            target_date=target_date,
-            snapshot_dir=snapshot_dir,
-        )
+        if cfg.traffic_mode == "LIVE_PLUS_SYNTHETIC":
+            from traffic.fill import get_all_block_section_passages
+            passages, _ = get_all_block_section_passages(
+                block_section=block_section,
+                target_date=target_date,
+                snapshot_dir=snapshot_dir,
+            )
+        else:
+            passages = load_pilot_block_passages(
+                pilot_section_id=block_section.pilot_section_id,
+                target_date=target_date,
+                snapshot_dir=snapshot_dir,
+            )
 
     # Filter passages by line
     active_passages: List[BlockSectionPassage] = []
     for p in passages:
         if p.block_section_id != block_section.id:
+            continue
+        if cfg.traffic_mode == "LIVE_ONLY" and getattr(p, "provenance", "") == "synthetic":
             continue
         if block_section.tracks == 1 or requires_both_lines or req_line == "BOTH":
             active_passages.append(p)
@@ -371,6 +396,7 @@ def rank_candidate_windows(
         passages=passages,
         config=cfg,
         snapshot_dir=snapshot_dir,
+        passage_margin_fn=passage_margin_fn,
     )
 
     candidates: List[UsableBlockWindow] = list(free_windows)
@@ -394,8 +420,9 @@ def rank_candidate_windows(
             if p_exit < p_enter:
                 p_exit += 1440
 
+            p_clr = passage_margin_fn(p) if passage_margin_fn is not None else clr
             # Overlap test with clearance buffer
-            if (p_enter - clr) < win_end_m and win_start_m < (p_exit + clr):
+            if (p_enter - p_clr) < win_end_m and win_start_m < (p_exit + p_clr):
                 held_trains.append(p)
 
         if not held_trains:
@@ -407,7 +434,8 @@ def rank_candidate_windows(
         train_delays: List[float] = []
         for p in held_trains:
             p_enter = _time_to_minutes(p.enter_time)
-            hold = max(0.0, (win_end_m + clr) - p_enter)
+            p_clr = passage_margin_fn(p) if passage_margin_fn is not None else clr
+            hold = max(0.0, (win_end_m + p_clr) - p_enter)
             if has_alternate_route:
                 hold = min(hold, alternate_route_penalty_minutes)
             train_delays.append(hold)
@@ -474,6 +502,7 @@ def rank_candidate_windows(
                 known_trains=live_trains,
                 estimated_total_trains=total_trains,
                 coverage=coverage,
+                traffic_mode=cfg.traffic_mode,
                 source="sliding_candidate",
                 is_free_gap=False,
                 trains_held=len(held_trains),
