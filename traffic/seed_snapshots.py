@@ -14,6 +14,9 @@ from pathlib import Path
 SNAPSHOT_DIR = Path(__file__).resolve().parent.parent / "data" / "railradar_snapshots"
 SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
+SNAPSHOT_TIMESTAMP = "2026-10-30T10:50:00Z"
+SNAPSHOT_PROVENANCE = "hand_written"
+
 
 def generate_seed_snapshots():
     # ------------------------------------------------------------------
@@ -21,6 +24,9 @@ def generate_seed_snapshots():
     # ------------------------------------------------------------------
     route_12302 = {
         "success": True,
+        "provenance": SNAPSHOT_PROVENANCE,
+        "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+        "illustrative": True,
         "data": {
             "train_number": "12302",
             "train_name": "Howrah Rajdhani Express",
@@ -46,13 +52,23 @@ def generate_seed_snapshots():
                 {"code": "CNB", "name": "Kanpur Central", "lat": 26.4500, "lon": 80.3500, "distance_km": 440.0},
             ]
         },
-        "meta": {"source": "snapshot", "corridor": "Delhi–Howrah Main"}
+        "meta": {
+            "source": "snapshot",
+            "provenance": SNAPSHOT_PROVENANCE,
+            "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+            "illustrative": True,
+            "corridor": "Delhi–Howrah Main",
+            "note": "Illustrative, not fetched — calibrated from Indian Railways published timetables",
+        }
     }
     with open(SNAPSHOT_DIR / "train_12302_route.json", "w", encoding="utf-8") as f:
         json.dump(route_12302, f, indent=2)
 
     route_12952 = {
         "success": True,
+        "provenance": SNAPSHOT_PROVENANCE,
+        "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+        "illustrative": True,
         "data": {
             "train_number": "12952",
             "train_name": "Mumbai Central Tejas Rajdhani Express",
@@ -83,7 +99,14 @@ def generate_seed_snapshots():
                 {"code": "MTJ", "name": "Mathura Jn", "lat": 27.4924, "lon": 77.6737, "distance_km": 141.0},
             ]
         },
-        "meta": {"source": "snapshot", "corridor": "Delhi–Mumbai Rajdhani Route"}
+        "meta": {
+            "source": "snapshot",
+            "provenance": SNAPSHOT_PROVENANCE,
+            "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+            "illustrative": True,
+            "corridor": "Delhi–Mumbai Rajdhani Route",
+            "note": "Illustrative, not fetched — calibrated from Indian Railways published timetables",
+        }
     }
     with open(SNAPSHOT_DIR / "train_12952_route.json", "w", encoding="utf-8") as f:
         json.dump(route_12952, f, indent=2)
@@ -93,6 +116,9 @@ def generate_seed_snapshots():
     # ------------------------------------------------------------------
     between_ndls_gzb = {
         "success": True,
+        "provenance": SNAPSHOT_PROVENANCE,
+        "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+        "illustrative": True,
         "data": {
             "from_station": "NDLS",
             "to_station": "GZB",
@@ -107,13 +133,22 @@ def generate_seed_snapshots():
                 {"train_number": "12444", "train_name": "Anand Vihar - Haldia SF", "train_type": "SUPERFAST", "departure_time": "20:20", "arrival_time": "20:47", "running_days": [1]},
             ]
         },
-        "meta": {"source": "snapshot"}
+        "meta": {
+            "source": "snapshot",
+            "provenance": SNAPSHOT_PROVENANCE,
+            "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+            "illustrative": True,
+            "note": "Illustrative, not fetched — calibrated from Indian Railways published timetables",
+        }
     }
     with open(SNAPSHOT_DIR / "train_between_NDLS_GZB.json", "w", encoding="utf-8") as f:
         json.dump(between_ndls_gzb, f, indent=2)
 
     between_ndls_mtj = {
         "success": True,
+        "provenance": SNAPSHOT_PROVENANCE,
+        "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+        "illustrative": True,
         "data": {
             "from_station": "NDLS",
             "to_station": "MTJ",
@@ -128,7 +163,13 @@ def generate_seed_snapshots():
                 {"train_number": "12926", "train_name": "Paschim Express", "train_type": "SUPERFAST", "departure_time": "16:35", "arrival_time": "19:10", "running_days": [0,1,2,3,4,5,6]},
             ]
         },
-        "meta": {"source": "snapshot"}
+        "meta": {
+            "source": "snapshot",
+            "provenance": SNAPSHOT_PROVENANCE,
+            "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+            "illustrative": True,
+            "note": "Illustrative, not fetched — calibrated from Indian Railways published timetables",
+        }
     }
     with open(SNAPSHOT_DIR / "train_between_NDLS_MTJ.json", "w", encoding="utf-8") as f:
         json.dump(between_ndls_mtj, f, indent=2)
@@ -301,8 +342,17 @@ def generate_seed_snapshots():
         t_num = tt["train"]["number"]
         payload = {
             "success": True,
+            "provenance": SNAPSHOT_PROVENANCE,
+            "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+            "illustrative": True,
             "data": tt,
-            "meta": {"source": "snapshot"}
+            "meta": {
+                "source": "snapshot",
+                "provenance": SNAPSHOT_PROVENANCE,
+                "snapshot_timestamp": SNAPSHOT_TIMESTAMP,
+                "illustrative": True,
+                "note": "Illustrative, not fetched — calibrated from Indian Railways published timetables",
+            }
         }
         with open(SNAPSHOT_DIR / f"train_{t_num}_timetable.json", "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -337,3 +337,100 @@ def load_pilot_passages(
     # Sort passages by enter_time
     passages.sort(key=lambda x: (x.enter_time.hour, x.enter_time.minute))
     return passages
+
+
+def get_snapshots_provenance_report(snapshot_dir: Optional[Path] = None) -> dict:
+    """
+    Scans all snapshot files in snapshot_dir, reporting provenance, snapshot age,
+    and exact values for any hand_written (illustrative, not fetched) timetables or coordinates.
+    """
+    s_dir = snapshot_dir or DEFAULT_SNAPSHOT_DIR
+    files = sorted(list(s_dir.glob("*.json"))) if s_dir.exists() else []
+
+    total = len(files)
+    prov_counts = {"live": 0, "hand_written": 0}
+    items = []
+    oldest_ts = None
+    newest_ts = None
+    hand_written_coords = []
+    hand_written_trains = []
+    hand_written_pairs = []
+
+    now = datetime.now(timezone.utc)
+
+    for f in files:
+        try:
+            with open(f, "r", encoding="utf-8") as fp:
+                data = json.load(fp)
+            prov = data.get("provenance") or (data.get("meta") or {}).get("provenance", "hand_written")
+            prov_counts[prov] = prov_counts.get(prov, 0) + 1
+            ts_str = data.get("snapshot_timestamp") or (data.get("meta") or {}).get("snapshot_timestamp", "2026-10-30T10:50:00Z")
+            illustrative = bool(data.get("illustrative") or (data.get("meta") or {}).get("illustrative", prov == "hand_written"))
+
+            # Calculate age
+            age_hours = 0.0
+            try:
+                dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                age_hours = max(0.0, (now - dt).total_seconds() / 3600.0)
+                if oldest_ts is None or dt < oldest_ts:
+                    oldest_ts = dt
+                if newest_ts is None or dt > newest_ts:
+                    newest_ts = dt
+            except Exception:
+                pass
+
+            if prov == "hand_written":
+                if "_route.json" in f.name:
+                    stations = (data.get("data") or {}).get("stations", [])
+                    for stn in stations:
+                        hand_written_coords.append({
+                            "code": stn.get("code"),
+                            "name": stn.get("name"),
+                            "lat": stn.get("lat"),
+                            "lon": stn.get("lon"),
+                            "distance_km": stn.get("distance_km"),
+                            "corridor": (data.get("meta") or {}).get("corridor", ""),
+                        })
+                elif "_timetable.json" in f.name:
+                    t_info = (data.get("data") or {}).get("train", {})
+                    hand_written_trains.append({
+                        "number": t_info.get("number"),
+                        "name": t_info.get("name"),
+                        "type": t_info.get("type"),
+                        "running_days": (data.get("data") or {}).get("running_days", []),
+                    })
+                elif "train_between_" in f.name:
+                    frm = (data.get("data") or {}).get("from_station")
+                    to = (data.get("data") or {}).get("to_station")
+                    hand_written_pairs.append(f"{frm}–{to}")
+
+            items.append({
+                "filename": f.name,
+                "provenance": prov,
+                "snapshot_timestamp": ts_str,
+                "age_hours": round(age_hours, 1),
+                "age_days": round(age_hours / 24.0, 1),
+                "illustrative": illustrative,
+            })
+        except Exception:
+            pass
+
+    overall_prov = "live" if (prov_counts.get("live", 0) > 0 and prov_counts.get("hand_written", 0) == 0) else "hand_written"
+    has_hand_written = prov_counts.get("hand_written", 0) > 0
+
+    return {
+        "total_snapshots": total,
+        "provenance_breakdown": prov_counts,
+        "overall_provenance": overall_prov,
+        "has_hand_written": has_hand_written,
+        "ui_label": "illustrative, not fetched" if has_hand_written else "live",
+        "oldest_timestamp": oldest_ts.isoformat() if oldest_ts else None,
+        "newest_timestamp": newest_ts.isoformat() if newest_ts else None,
+        "average_age_days": round(sum(i["age_days"] for i in items) / max(total, 1), 1),
+        "hand_written_details": {
+            "coordinates": hand_written_coords,
+            "timetables": hand_written_trains,
+            "station_pairs": hand_written_pairs,
+        },
+        "snapshots": items,
+    }

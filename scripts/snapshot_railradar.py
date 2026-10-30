@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Set
 
@@ -153,6 +154,15 @@ def snapshot_pilot_railradar(
         print(f"\n[1/3] Fetching trains between {sec_cfg.from_code} and {sec_cfg.to_code}...")
         try:
             between_data = client.get_trains_between(sec_cfg.from_code, sec_cfg.to_code)
+            ts = datetime.now(timezone.utc).isoformat()
+            between_data["provenance"] = "live"
+            between_data["snapshot_timestamp"] = ts
+            between_data["illustrative"] = False
+            if "meta" not in between_data or not isinstance(between_data["meta"], dict):
+                between_data["meta"] = {}
+            between_data["meta"]["provenance"] = "live"
+            between_data["meta"]["snapshot_timestamp"] = ts
+            between_data["meta"]["illustrative"] = False
             out_file = output_dir / f"train_between_{sec_cfg.from_code}_{sec_cfg.to_code}.json"
             with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(between_data, f, indent=2)
@@ -182,6 +192,15 @@ def snapshot_pilot_railradar(
         print(f"  Fetching geometry for {corridor_name} (Train {geo_train})...")
         try:
             route_data = client.get_train_route(geo_train)
+            ts = datetime.now(timezone.utc).isoformat()
+            route_data["provenance"] = "live"
+            route_data["snapshot_timestamp"] = ts
+            route_data["illustrative"] = False
+            if "meta" not in route_data or not isinstance(route_data["meta"], dict):
+                route_data["meta"] = {}
+            route_data["meta"]["provenance"] = "live"
+            route_data["meta"]["snapshot_timestamp"] = ts
+            route_data["meta"]["illustrative"] = False
             out_file = output_dir / f"train_{geo_train}_route.json"
             with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(route_data, f, indent=2)
@@ -199,6 +218,15 @@ def snapshot_pilot_railradar(
         print(f"  [{idx}/{len(all_unique_trains)}] Fetching timetable for train {t_num}...")
         try:
             timetable_data = client.get_train_timetable(t_num)
+            ts = datetime.now(timezone.utc).isoformat()
+            timetable_data["provenance"] = "live"
+            timetable_data["snapshot_timestamp"] = ts
+            timetable_data["illustrative"] = False
+            if "meta" not in timetable_data or not isinstance(timetable_data["meta"], dict):
+                timetable_data["meta"] = {}
+            timetable_data["meta"]["provenance"] = "live"
+            timetable_data["meta"]["snapshot_timestamp"] = ts
+            timetable_data["meta"]["illustrative"] = False
             out_file = output_dir / f"train_{t_num}_timetable.json"
             with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(timetable_data, f, indent=2)

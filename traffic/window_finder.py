@@ -24,9 +24,9 @@ from traffic.section_map import PilotSectionConfig, get_pilot_section_config
 class WindowFinderConfig:
     """Configuration parameters for timetable-derived block window discovery."""
     clearance_buffer_minutes: int = 10      # Safety clearance before train entry & after exit
-    min_window_duration_hours: float = 1.5  # Minimum contiguous free gap to qualify as a window
+    min_window_duration_hours: float = 0.5  # Do not discard gaps shorter than 1.5h globally; keep down to 30 min
     setup_buffer_minutes: int = 15         # Setup and handover buffer for maintenance teams
-    max_windows_per_day: int = 4           # Maximum candidate windows to yield per day per section
+    max_windows_per_day: int = 6           # Maximum candidate windows to yield per day per section
 
 
 def _time_to_minutes(t: time) -> int:
@@ -40,11 +40,25 @@ def _minutes_to_time(m: int) -> time:
     return time(m // 60, m % 60)
 
 
+def filter_windows_for_task(
+    windows: List[BlockWindow],
+    task_duration_hours: float,
+    setup_buffer_hours: float = 0.25,
+) -> List[BlockWindow]:
+    """
+    Task-specific window filter: selects windows that can accommodate the task's
+    estimated duration plus maintenance setup/clearance buffer.
+    """
+    needed = task_duration_hours + setup_buffer_hours
+    return [w for w in windows if w.duration_hours >= needed]
+
+
 def find_free_windows(
     sec_cfg: PilotSectionConfig | str,
     target_date: date,
     passages: Optional[List[TrainPassage]] = None,
     config: Optional[WindowFinderConfig] = None,
+    min_duration_hours: Optional[float] = None,
     snapshot_dir=None,
 ) -> List[BlockWindow]:
     """
@@ -107,14 +121,15 @@ def find_free_windows(
     if cursor < 1440:
         free_gaps.append((cursor, 1440, 1440 - cursor))
 
-    # 3. Filter gaps meeting minimum duration requirement
-    min_duration_mins = int(cfg.min_window_duration_hours * 60)
+    # 3. Filter gaps meeting duration requirement (task-specific or global minimum)
+    effective_min_hours = min_duration_hours if min_duration_hours is not None else cfg.min_window_duration_hours
+    min_duration_mins = int(effective_min_hours * 60)
     qualifying_gaps = [g for g in free_gaps if g[2] >= min_duration_mins]
 
-    # Fallback: if no gap meets strict threshold, take the largest available gap >= 60 mins
+    # Fallback: if no gap meets strict threshold, take the largest available gap >= 30 mins
     if not qualifying_gaps and free_gaps:
         free_gaps.sort(key=lambda g: g[2], reverse=True)
-        if free_gaps[0][2] >= 60:
+        if free_gaps[0][2] >= 30:
             qualifying_gaps = [free_gaps[0]]
 
     # Sort qualifying gaps by duration descending (most viable windows first)
@@ -137,7 +152,7 @@ def find_free_windows(
             continue
 
         dur_hours = round((actual_e - actual_s) / 60.0, 2)
-        if dur_hours < 1.0:
+        if dur_hours < effective_min_hours:
             continue
 
         start_t = _minutes_to_time(actual_s)

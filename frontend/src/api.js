@@ -138,5 +138,6 @@ export const fetchPlanDelayReport = (planId) => api.get(`/plans/${planId}/delay-
 // Real Track & Timetable Windows
 export const fetchSectionWindows = (sectionId, date) => api.get(`/sections/${sectionId}/windows`, { params: { date } });
 export const fetchTaskAffectedTrains = (taskId, windowId) => api.get(`/tasks/${taskId}/affected-trains`, { params: { window_id: windowId } });
+export const fetchSourcesSnapshots = () => api.get('/sources/snapshots');
 
 export default api;

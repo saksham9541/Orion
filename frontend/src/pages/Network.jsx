@@ -9,9 +9,11 @@ import TimeSlider from '@/components/network/TimeSlider'
 import SectionPanel from '@/components/network/SectionPanel'
 import RiskHeatmap from '@/components/network/RiskHeatmap'
 import ExplainDrawer from '@/components/optimize/ExplainDrawer'
+import DemoDataBadge from '@/components/common/DemoDataBadge'
 import { StatusLegend, DataTag } from '@/components/common/StatusChip'
 import { networkStateAt } from '@/lib/optimizer'
 import { DAYS, clock } from '@/lib/format'
+import { fetchCorridors, fetchPlans } from '@/api'
 
 /**
  * The digital twin: the division as a diagram, played through the week.
@@ -27,9 +29,13 @@ export default function Network() {
   const [selected, setSelected] = useState('DER–KRJ')
   const [explainId, setExplainId] = useState(null)
   const [viewMode, setViewMode] = useState('leaflet') // 'leaflet' (OpenRailwayMap) | 'schematic'
+  const [corridors, setCorridors] = useState([])
+  const [activePlan, setActivePlan] = useState(null)
 
   useEffect(() => {
     document.title = 'Digital twin — RailOpt'
+    fetchCorridors().then(res => res.data && setCorridors(res.data)).catch(() => {})
+    fetchPlans().then(res => res.data && res.data.length > 0 && setActivePlan(res.data[0])).catch(() => {})
   }, [])
 
   const day = Math.floor(minutes / 1440)
@@ -63,10 +69,16 @@ export default function Network() {
         title="Railway digital twin"
         description="The division's sections, played through the planning week. Drag the timeline to move simulated time; select any section for the work on it."
       >
-        <span className="flex items-center gap-2 rounded-panel border border-warn/35 bg-warn/10 px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] text-warn">
-          <Radio size={12} aria-hidden="true" />
-          SIMULATION MODE
-        </span>
+        <div className="flex items-center gap-2">
+          <DemoDataBadge
+            label="DEMO TWIN"
+            tooltip="Digital twin replay is running on simulated schedule and calibrated section states."
+          />
+          <span className="flex items-center gap-2 rounded-panel border border-warn/35 bg-warn/10 px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] text-warn">
+            <Radio size={12} aria-hidden="true" />
+            SIMULATION MODE
+          </span>
+        </div>
       </PageHeader>
 
       <div className="space-y-8 px-6 sm:px-10 lg:px-12 py-8 lg:py-10 max-w-7xl mx-auto">

@@ -8,12 +8,12 @@ import ScoreMeter from '@/components/common/ScoreMeter'
 import TaskDetail from '@/components/tasks/TaskDetail'
 import ExplainDrawer from '@/components/optimize/ExplainDrawer'
 import ReportComplaintModal from '@/components/app/ReportComplaintModal'
-import { tasks } from '@/data/tasks'
-import { corridors } from '@/data/corridors'
+import DemoDataBadge from '@/components/common/DemoDataBadge'
+import { tasks as fallbackTasks } from '@/data/tasks'
+import { corridors as fallbackCorridors } from '@/data/corridors'
 import { DEPT_LIST } from '@/lib/constants'
 import { duration } from '@/lib/format'
-
-const corridorName = (id) => corridors.find((c) => c.id === id)?.name ?? id
+import { fetchTasks, fetchCorridors } from '@/api'
 
 const rowVariants = {
   hidden: { opacity: 0, x: -10 },
@@ -35,13 +35,65 @@ export default function Tasks() {
   const [selected, setSelected] = useState(null)
   const [explainId, setExplainId] = useState(null)
   const [isReportOpen, setIsReportOpen] = useState(false)
+  const [taskList, setTaskList] = useState(fallbackTasks)
+  const [corridorList, setCorridorList] = useState(fallbackCorridors)
+  const [isDemoData, setIsDemoData] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     document.title = 'Pending work — RailOpt'
+    let isMounted = true
+    Promise.all([
+      fetchTasks().catch(() => null),
+      fetchCorridors().catch(() => null),
+    ]).then(([tasksRes, corridorsRes]) => {
+      if (!isMounted) return
+      let hasLive = false
+      if (tasksRes?.data && Array.isArray(tasksRes.data) && tasksRes.data.length > 0) {
+        const mapped = tasksRes.data.map((t) => {
+          const deptVal = (t.department?.value || t.department || 'ENG').toUpperCase()
+          const normalizedDept = deptVal.includes('ENG') || deptVal.includes('CIVIL') ? 'ENG'
+            : deptVal.includes('SNT') || deptVal.includes('SIG') ? 'S&T'
+            : 'TRD'
+          return {
+            id: t.task_id || t.id,
+            department: normalizedDept,
+            corridorId: t.corridor_id || t.corridorId || 'C-NDLS-GZB',
+            section: t.section_id || t.section || 'SEC-PILOT',
+            defectType: t.defect_description || t.defect_category || t.defectType || 'Track Maintenance',
+            daysOverdue: t.days_open ?? t.daysOverdue ?? 0,
+            score: Math.round(t.ml_urgency_score ?? t.score ?? 50),
+            estDuration: Math.round(t.required_duration_minutes ?? (t.duration_hours ? t.duration_hours * 60 : 120)),
+            status: t.status?.value || t.status || 'pending',
+            slaDays: t.sla_days_remaining ?? t.slaDays ?? 5,
+            contributions: t.contributions || [
+              { factor: 'Track Geometry / Speed Class', signed: 12 },
+              { factor: 'Traffic Density Class A', signed: 8 },
+            ],
+            note: t.description || t.note || '',
+            latitude: t.latitude,
+            longitude: t.longitude,
+            chainage_km: t.chainage_km,
+            assetId: t.asset_id || `${normalizedDept}-${(t.task_id || t.id).split('-')[1] || '01'}`,
+          }
+        })
+        setTaskList(mapped)
+        hasLive = true
+      }
+      if (corridorsRes?.data && Array.isArray(corridorsRes.data) && corridorsRes.data.length > 0) {
+        setCorridorList(corridorsRes.data)
+      }
+      setIsDemoData(!hasLive)
+      setIsLoading(false)
+    })
+    return () => { isMounted = false }
   }, [])
 
+  const corridorName = (id) =>
+    corridorList.find((c) => (c.corridor_id || c.id) === id)?.name ?? id
+
   const rows = useMemo(() => {
-    let list = tasks
+    let list = taskList
     if (dept) list = list.filter((t) => t.department === dept)
     if (query.trim()) {
       const q = query.toLowerCase()
@@ -56,7 +108,7 @@ export default function Tasks() {
     return [...list].sort((a, b) =>
       sort === 'score' ? b.score - a.score : b.daysOverdue - a.daysOverdue
     )
-  }, [dept, query, sort])
+  }, [taskList, corridorList, dept, query, sort])
 
   const breaching = rows.filter((t) => t.slaDays <= 0).length
 
@@ -65,7 +117,14 @@ export default function Tasks() {
       <PageHeader
         title="Pending work, all three departments"
         description="Every open task on one urgency scale. Open any row to see exactly which factors raised or lowered its score."
-      />
+      >
+        {isDemoData && (
+          <DemoDataBadge
+            label="DEMO TASKS"
+            tooltip="Backend returned no live tasks or is offline. Showing offline sample maintenance jobs."
+          />
+        )}
+      </PageHeader>
 
       <div className="px-6 sm:px-10 lg:px-12 py-8 lg:py-10 max-w-7xl mx-auto space-y-6">
         <motion.div

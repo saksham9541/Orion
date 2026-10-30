@@ -739,7 +739,21 @@ def health_check(verbose: bool = False):
             except Exception:
                 pass
         resp["impact_model_training_source"] = training_source
+
+        from traffic.passages import get_snapshots_provenance_report
+        snap_rep = get_snapshots_provenance_report()
+        resp["snapshot_provenance"] = snap_rep["overall_provenance"]
+        resp["snapshot_provenance_label"] = snap_rep["ui_label"]
+        resp["snapshot_average_age_days"] = snap_rep["average_age_days"]
+        resp["snapshot_count"] = snap_rep["total_snapshots"]
     return resp
+
+
+@app.get("/api/sources/snapshots")
+def get_sources_snapshots():
+    """Returns data provenance, snapshot age, and itemized illustrative values."""
+    from traffic.passages import get_snapshots_provenance_report
+    return get_snapshots_provenance_report()
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -1818,24 +1832,33 @@ def get_plan_delay_report(
 def get_section_windows(
     section_id: str,
     date_param: Optional[date] = Query(None, alias="date"),
+    task_id: Optional[str] = Query(None),
+    duration_hours: Optional[float] = Query(None),
     current_user: User = Depends(require_viewer_or_above),
 ):
     """
     Returns candidate free maintenance windows on a section for a date,
-    with computed traffic impact and real train coverage summary.
+    with computed traffic impact, real train coverage summary, and optional task-specific duration filtering.
     """
     target_date = date_param or date.today()
 
+    min_dur = duration_hours
+    if task_id and min_dur is None:
+        task_map = {t.task_id: t for t in app.state.tasks}
+        task = task_map.get(task_id)
+        if task:
+            min_dur = task.estimated_duration_hours
+
     from traffic.section_map import is_pilot_section, get_pilot_section_config
     from traffic.fill import get_all_passages_for_section
-    from traffic.window_finder import find_free_windows
+    from traffic.window_finder import find_free_windows, filter_windows_for_task
     from traffic.delay_model import calculate_block_delays
     from traffic.cascade import propagate_cascade
 
     if is_pilot_section(section_id):
         sec_cfg = get_pilot_section_config(section_id)
         passages, cov_summary = get_all_passages_for_section(sec_cfg, target_date)
-        free_wins = find_free_windows(sec_cfg, target_date, passages=passages)
+        free_wins = find_free_windows(sec_cfg, target_date, passages=passages, min_duration_hours=min_dur)
 
         out_windows = []
         for w in free_wins:
@@ -1850,6 +1873,8 @@ def get_section_windows(
             "section_id": section_id,
             "section_name": sec_cfg.name,
             "date": target_date.isoformat(),
+            "task_id": task_id,
+            "min_duration_hours": min_dur,
             "coverage": {
                 "real_trains": cov_summary.real_trains,
                 "synthetic_fill_trains": cov_summary.synthetic_fill_trains,
@@ -1866,7 +1891,7 @@ def get_section_windows(
         matched = [
             w.model_dump(mode="json")
             for w in getattr(app.state, "windows", [])
-            if w.section_id == section_id and w.date == target_date
+            if w.section_id == section_id and w.date == target_date and (min_dur is None or w.duration_hours >= min_dur)
         ]
         return {
             "section_id": section_id,
@@ -2240,12 +2265,12 @@ def run_all_adversarial(current_user: User = Depends(require_controller)):
 
 @app.get("/api/corridors", response_model=List[Corridor])
 def list_corridors(current_user: User = Depends(require_viewer_or_above)):
-    return app.state.corridors
+    return getattr(app.state, "corridors", [])
 
 
 @app.get("/api/alerts", response_model=List[EarlyWarning])
 def list_alerts(current_user: User = Depends(require_viewer_or_above)):
-    return app.state.alerts
+    return getattr(app.state, "alerts", [])
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -2254,13 +2279,13 @@ def list_alerts(current_user: User = Depends(require_viewer_or_above)):
 
 @app.get("/api/dashboard/stats", response_model=DashboardStats)
 def dashboard_stats(current_user: User = Depends(require_viewer_or_above)):
-    tasks = app.state.tasks
+    tasks = getattr(app.state, "tasks", [])
 
     # RBAC filtering: if DEPT_USER, calculate stats only on own department tasks
     if current_user.role == UserRole.DEPT_USER and current_user.department:
         tasks = [t for t in tasks if (t.department == current_user.department or t.department.value == current_user.department.value)]
 
-    plans = list(app.state.plans.values())
+    plans = list(getattr(app.state, "plans", {}).values())
     latest_plan = max(plans, key=lambda p: p.created_at) if plans else None
 
     dept_counts: dict[str, int] = {}

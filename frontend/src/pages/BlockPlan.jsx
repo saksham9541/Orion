@@ -9,6 +9,7 @@ import BlockDetail from '@/components/plan/BlockDetail'
 import Toast from '@/components/common/Toast'
 import PipelineFlow from '@/components/optimize/PipelineFlow'
 import ApprovalPanel from '@/components/optimize/ApprovalPanel'
+import DemoDataBadge from '@/components/common/DemoDataBadge'
 import { DataTag } from '@/components/common/StatusChip'
 import { useAppState } from '@/state/AppState'
 import { monthlyPlan, planMeta, weeklyBlocks } from '@/data/plan'
@@ -63,14 +64,45 @@ export default function BlockPlan() {
 
   // Approval state lives in the app store so the controller's decisions
   // survive moving between stages; the blocks themselves never mutate.
-  const blocks = useMemo(
-    () =>
-      weeklyBlocks.map((b) => ({
-        ...b,
-        status: (approvals && approvals[b.id]) ? 'approved' : 'proposed',
-      })),
-    [approvals]
-  )
+  const isUsingDemoBlocks = !solverResult || !solverResult.scheduled_blocks || solverResult.scheduled_blocks.length === 0
+
+  const blocks = useMemo(() => {
+    if (solverResult && solverResult.scheduled_blocks && solverResult.scheduled_blocks.length > 0) {
+      return solverResult.scheduled_blocks.map((sb) => {
+        let day = 0
+        if (sb.date && solverResult.start_date) {
+          const d1 = new Date(solverResult.start_date)
+          const d2 = new Date(sb.date)
+          const diffDays = Math.round((d2 - d1) / (1000 * 60 * 60 * 24))
+          day = Math.max(0, Math.min(6, isNaN(diffDays) ? 0 : diffDays))
+        }
+        let startMinutes = 120
+        if (sb.start_time) {
+          const parts = String(sb.start_time).split(':')
+          startMinutes = parseInt(parts[0], 10) * 60 + parseInt(parts[1] || '0', 10)
+        }
+        const durationMin = Math.round((sb.duration_hours || 2) * 60)
+        const endMinutes = startMinutes + durationMin
+        return {
+          id: sb.block_id,
+          corridorId: sb.corridor_id || 'C-NDLS-GZB',
+          section: sb.section_name || sb.section_id || 'DER–KRJ',
+          day,
+          start: startMinutes,
+          end: endMinutes,
+          taskIds: sb.task_ids || [],
+          reasonCodes: ['TIMETABLE_DERIVED', sb.is_merged ? 'MERGED_CROSS_DEPT' : 'LOW_TRAFFIC_WINDOW'],
+          status: (approvals && approvals[sb.block_id]) ? 'approved' : (sb.source === 'user' ? 'approved' : 'proposed'),
+          merged: Boolean(sb.is_merged),
+          source: sb.source || 'timetable_derived',
+        }
+      })
+    }
+    return weeklyBlocks.map((b) => ({
+      ...b,
+      status: (approvals && approvals[b.id]) ? 'approved' : 'proposed',
+    }))
+  }, [solverResult, approvals])
 
   const selected = blocks.find((b) => b.id === selectedId) ?? null
 
@@ -95,7 +127,15 @@ export default function BlockPlan() {
         title="Proposed block plan"
         description={`${planMeta.division} · ${planMeta.window}. A recommendation only — nothing here is sanctioned until a section controller signs it.`}
       >
-        <DataTag kind="model" />
+        <div className="flex items-center gap-2">
+          <DataTag kind="model" />
+          {isUsingDemoBlocks && (
+            <DemoDataBadge
+              label="DEMO PLAN"
+              tooltip="Displaying offline sample block plan. Solve or load a CP-SAT plan to display live solver output."
+            />
+          )}
+        </div>
       </PageHeader>
 
       <motion.div

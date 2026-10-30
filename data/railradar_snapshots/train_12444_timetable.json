@@ -1,5 +1,8 @@
 {
   "success": true,
+  "provenance": "hand_written",
+  "snapshot_timestamp": "2026-10-30T10:50:00Z",
+  "illustrative": true,
   "data": {
     "train": {
       "number": "12444",
@@ -37,6 +40,10 @@
     ]
   },
   "meta": {
-    "source": "snapshot"
+    "source": "snapshot",
+    "provenance": "hand_written",
+    "snapshot_timestamp": "2026-10-30T10:50:00Z",
+    "illustrative": true,
+    "note": "Illustrative, not fetched \u2014 calibrated from Indian Railways published timetables"
   }
 }

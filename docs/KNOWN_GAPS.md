@@ -23,7 +23,35 @@ Orion operates on a tiered data hierarchy that bridges real Indian Railways oper
 
 ---
 
-## 2. Mathematical Modeling & Simulation Assumptions
+## 2. Window Sensitivity & Filler Rule Analysis
+
+To evaluate how synthetic filler and goods trains affect block window availability, we ran an empirical sensitivity analysis across both pilot sections comparing 4 operational variants:
+1. **Variant (a) Real Trains Only**: Timetable-derived passenger trains from RailRadar snapshots ($100\%$ real coverage).
+2. **Variant (b) Real + Passenger Filler**: Real trains + synthetic passenger filler (`synthetic_fill`) scheduled during operational daytime hours ($05:00\text{--}23:59$).
+3. **Variant (c) Real + Fill + Goods (Default Rule)**: Full target density ($70\text{ trains/day}$ for Class A Special), with passenger filler restricted to daytime operational hours and goods traffic operating across $24\text{ hours}$.
+4. **Variant (d) Real + Fill + Goods (Unrestricted 24h Uniform)**: Full target density ($70\text{ trains/day}$), but passenger fillers are distributed uniformly across all $24\text{ hours}$ without respecting the corridor block shadow.
+
+### Sensitivity Comparison Table (Target Date: 2026-11-01)
+
+| Pilot Section | Variant | Total Daily Trains | Real Trains | Coverage Ratio | Available Windows ($\ge 0.5\text{h}$) | Key Discovered Windows (Time & Duration) |
+|---|---|---|---|---|---|---|
+| **New Delhi–Ghaziabad** (`SEC-93135bb9`, 19 km, $130\text{ km/h}$) | (a) Real Only | 15 | 15 | $100.0\%$ | **5 windows** | 00:00–05:35 ($5.58\text{h}$), 08:40–16:10 ($7.50\text{h}$), 17:35–19:55 ($2.33\text{h}$) |
+| | (b) Real + Fill | 55 | 15 | $27.3\%$ | **2 windows** | 00:00–05:35 ($5.58\text{h}$), 08:40–10:10 ($1.50\text{h}$) |
+| | (c) Real + Fill + Goods (Default) | 70 | 15 | $21.4\%$ | **2 windows** | **01:00–04:45 ($3.75\text{h}$)**, 09:00–10:10 ($1.17\text{h}$) |
+| | (d) Unrestricted 24h | 70 | 15 | $21.4\%$ | **4 windows** | 01:35–02:15 ($0.67\text{h}$), 04:10–04:45 ($0.58\text{h}$), 06:35–07:45 ($1.17\text{h}$) |
+| **New Delhi–Mathura Jn** (`SEC-d4d8b85c`, 141 km, $130\text{ km/h}$) | (a) Real Only | 15 | 15 | $100.0\%$ | **3 windows** | 00:00–04:35 ($4.58\text{h}$), 08:40–16:10 ($7.50\text{h}$), 19:15–19:55 ($0.67\text{h}$) |
+| | (b) Real + Fill | 55 | 15 | $27.3\%$ | **1 window** | **02:20–04:35 ($2.25\text{h}$)** |
+| | (c) Real + Fill + Goods (Default) | 70 | 15 | $21.4\%$ | **0 windows** (shared line) | Gaps fragmented by continuous $80\text{m}$ transit times without directional track splitting |
+| | (d) Unrestricted 24h | 70 | 15 | $21.4\%$ | **0 windows** | Completely saturated when modeled as single track capacity |
+
+### Impact of the Operational Hours Filler Rule
+- **Why Night Gaps Depend on the Rule**: In Variant (d), uniformly scattering filler trains across 24 hours fragments the night window into micro-gaps ($35\text{--}50\text{ min}$) insufficient for heavy track maintenance. Restricting passenger filler traffic to $05:00\text{--}23:59$ preserves the realistic $3.75\text{h}$ night window on NDLS–GZB and $2.25\text{h}$ on NDLS–MTJ.
+- **Indian Railways Operational Justification**: This matches physical Indian Railways operations where long-distance passenger services through Delhi division are scheduled away from $01:00\text{--}04:30\text{ AM}$ precisely to create the divisional maintenance window.
+- **Configurability**: In `traffic/fill.py`, `FillerConfig` provides `restrict_passenger_to_operational_hours` (default `True`), `passenger_operational_hours` (default `[0, 5..23]`), and `goods_operational_hours` (default `0..23`), allowing operators to test unconstrained scenarios.
+
+---
+
+## 3. Mathematical Modeling & Simulation Assumptions
 
 ### Clearance Buffers & Headway
 - **Clearance Buffer**: A configurable safety buffer of **10 minutes** is enforced before and after every train passage. A candidate block window must provide at least $\text{task\_duration} + \text{setup\_time} + \text{clearance\_buffer}$ of continuous unoccupied track.

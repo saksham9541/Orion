@@ -27,6 +27,7 @@ import PreventedPanel from '@/components/optimize/PreventedPanel'
 import ApprovalPanel from '@/components/optimize/ApprovalPanel'
 import DecisionTrace from '@/components/optimize/DecisionTrace'
 import Toast from '@/components/common/Toast'
+import DemoDataBadge from '@/components/common/DemoDataBadge'
 import { useAppState } from '@/state/AppState'
 import { weeklyBlocks, planMeta } from '@/data/plan'
 import { tasks } from '@/data/tasks'
@@ -39,6 +40,7 @@ import {
   optimised,
 } from '@/lib/optimizer'
 import { DAYS, clock, duration, hours } from '@/lib/format'
+import { fetchDashboardStats, fetchPlans } from '@/api'
 
 const axis = { stroke: 'rgb(var(--c-faint))', fontSize: 11, fontFamily: 'IBM Plex Mono' }
 
@@ -52,9 +54,13 @@ const axis = { stroke: 'rgb(var(--c-faint))', fontSize: 11, fontFamily: 'IBM Ple
 export default function Dashboard() {
   const { role, optimised: revealed } = useAppState()
   const [toast, setToast] = useState(null)
+  const [liveStats, setLiveStats] = useState(null)
+  const [activePlan, setActivePlan] = useState(null)
 
   useEffect(() => {
     document.title = 'Overview — RailOpt'
+    fetchDashboardStats().then(res => res.data && setLiveStats(res.data)).catch(() => {})
+    fetchPlans().then(res => res.data && res.data.length > 0 && setActivePlan(res.data[0])).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -83,10 +89,16 @@ export default function Dashboard() {
         title="Week 38 at a glance"
         description={`${planMeta.window} · ${planMeta.division} · generated ${planMeta.generatedAt}. Demonstration data throughout.`}
       >
-        <Button as={Link} to="/app/plan" size="sm">
-          Open plan
-          <ArrowRight size={14} />
-        </Button>
+        <div className="flex items-center gap-2">
+          <DemoDataBadge
+            label="DEMO DASHBOARD"
+            tooltip="Overview metrics reflect pre-calculated weekly benchmarks. Live plan and task data sync with backend when plans are generated."
+          />
+          <Button as={Link} to="/app/plan" size="sm">
+            Open plan
+            <ArrowRight size={14} />
+          </Button>
+        </div>
       </PageHeader>
 
       <div className="space-y-8 px-6 sm:px-10 lg:px-12 py-8 lg:py-10 max-w-7xl mx-auto">

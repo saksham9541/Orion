@@ -4,11 +4,13 @@ import { Minus, RotateCcw, TrendingDown, TrendingUp } from 'lucide-react'
 import PageHeader from '@/components/app/PageHeader'
 import StageFooter from '@/components/app/StageFooter'
 import Button from '@/components/common/Button'
+import DemoDataBadge from '@/components/common/DemoDataBadge'
 import { DataTag } from '@/components/common/StatusChip'
 import ScenarioComparison from '@/components/scenario/ScenarioComparison'
 import EmergencyPanel from '@/components/scenario/EmergencyPanel'
 import { SCENARIOS, currentPlanAsResult, scenarioDefaults, simulate } from '@/lib/optimizer'
 import { clock, duration } from '@/lib/format'
+import { fetchPlans, simulatePlan } from '@/api'
 
 /**
  * Scenario Lab.
@@ -22,9 +24,17 @@ import { clock, duration } from '@/lib/format'
 export default function Simulator() {
   const [settings, setSettings] = useState(scenarioDefaults)
   const [presetId, setPresetId] = useState('normal')
+  const [activePlan, setActivePlan] = useState(null)
 
   useEffect(() => {
     document.title = 'Scenario Lab — RailOpt'
+    fetchPlans()
+      .then((res) => {
+        if (res.data && res.data.length > 0) {
+          setActivePlan(res.data[0])
+        }
+      })
+      .catch(() => {})
   }, [])
 
   const result = useMemo(() => simulate(settings), [settings])
@@ -60,7 +70,13 @@ export default function Simulator() {
         title="Scenario Lab"
         description="Change what the division has to work with, and see what the same week costs before anyone commits to it."
       >
-        <DataTag kind="simulation" />
+        <div className="flex items-center gap-2">
+          <DataTag kind="simulation" />
+          <DemoDataBadge
+            label="DEMO SIMULATION"
+            tooltip="Displaying calibrated simulation scenarios. Backend transparent delay and cascade models run when generating and simulating plans."
+          />
+        </div>
         <Button
           variant="ghost"
           size="sm"
