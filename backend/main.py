@@ -1164,43 +1164,74 @@ async def submit_complaint(
 # RailRadar — Live Train Status
 # ──────────────────────────────────────────────────────────────────────
 
-@app.post("/api/trains/live/sync")
-def sync_live_trains(current_user: User = Depends(require_controller)):
-    adapter = app.state.data_integration.railradar_adapter
-    if adapter is None:
-        raise HTTPException(status_code=503, detail="RailRadar not configured — set RAILRADAR_API_KEYS in .env")
+@app.get("/api/trains/live/sync-preview")
+def get_live_sync_preview(
+    section_id: str = "SEC-93135bb9",
+    current_user: User = Depends(require_controller),
+):
+    """
+    Pre-flight confirmation preview for live RailRadar train delay sync:
+    - How many calls this sync will make
+    - Which trains it covers (only trains with a timetable snapshot on the pilot corridor)
+    - Remaining monthly budget per key
+    - Server-side minimum interval & cooldown status
+    """
+    from backend.sync_service import get_sync_preview
+    from integrations.railradar_client import RailRadarClient
 
+    client = getattr(getattr(app.state, "data_integration", None), "railradar_adapter", None)
+    if client is None:
+        client = RailRadarClient(db_engine=engine)
+
+    session = get_session(engine)
     try:
-        from railopt.real_train_registry import resolve_train_corridor_map
-        train_corridor_map = resolve_train_corridor_map(app.state.corridors)
-
-        # Use trains from the registry (real train numbers mapped to corridors)
-        train_ids = list(train_corridor_map.keys())
-        if not train_ids:
-            # Fallback to hardcoded list if registry is empty
-            train_ids = ["12015", "12016", "12951", "12952", "12229", "12230",
-                         "22691", "22692", "12431", "12432", "12423", "12424",
-                         "12859", "12860", "12137", "12138", "12903", "12904"]
-
-        statuses = []
-        import time
-        for tid in train_ids:
-            try:
-                raw = adapter.get_train_status(str(tid))
-                corridor_id = train_corridor_map.get(str(tid), "")
-                status = adapter.parse_live_status(raw, corridor_id=corridor_id)
-                statuses.append(status)
-                time.sleep(0.5)  # Throttle to avoid connection resets
-            except Exception as e:
-                logger.warning(f"RailRadar sync failed for {tid}: {e}")
-        
-        session = get_session(engine)
-        save_live_status(session, statuses)
+        return get_sync_preview(session, client, section_id=section_id)
+    finally:
         session.close()
-        return {"status": "ok", "synced": len(statuses)}
-    except Exception as e:
-        logger.error(f"Sync failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/trains/live/budget")
+def get_live_trains_budget(
+    current_user: User = Depends(require_viewer_or_above),
+):
+    """Returns monthly API budget breakdown (used/limit per key) and safety reserve."""
+    from backend.sync_service import get_api_budget_breakdown
+    from integrations.railradar_client import RailRadarClient
+
+    client = getattr(getattr(app.state, "data_integration", None), "railradar_adapter", None)
+    if client is None:
+        client = RailRadarClient(db_engine=engine)
+
+    session = get_session(engine)
+    try:
+        return get_api_budget_breakdown(session, client)
+    finally:
+        session.close()
+
+
+@app.post("/api/trains/live/sync")
+def sync_live_trains(
+    section_id: str = "SEC-93135bb9",
+    force: bool = False,
+    current_user: User = Depends(require_controller),
+):
+    """
+    Syncs live delays into LiveTrainStatus for pilot corridor timetable trains.
+    Enforces minimum interval (default 60m) and reserved budget (default 30 calls) returning 429 when blocked.
+    Returns trains updated, calls used, last synced time (IST), and any failures.
+    """
+    from backend.sync_service import execute_live_train_sync
+    from integrations.railradar_client import RailRadarClient
+
+    client = getattr(getattr(app.state, "data_integration", None), "railradar_adapter", None)
+    if client is None:
+        client = RailRadarClient(db_engine=engine)
+
+    session = get_session(engine)
+    try:
+        return execute_live_train_sync(session, client, section_id=section_id, force=force)
+    finally:
+        session.close()
 
 @app.get("/api/trains/live")
 def get_live_trains(current_user: User = Depends(require_viewer_or_above)):

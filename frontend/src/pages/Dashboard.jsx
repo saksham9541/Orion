@@ -26,6 +26,7 @@ import OptimizationRun from '@/components/optimize/OptimizationRun'
 import PreventedPanel from '@/components/optimize/PreventedPanel'
 import ApprovalPanel from '@/components/optimize/ApprovalPanel'
 import DecisionTrace from '@/components/optimize/DecisionTrace'
+import LiveSyncControl from '@/components/network/LiveSyncControl'
 import Toast from '@/components/common/Toast'
 import DemoDataBadge from '@/components/common/DemoDataBadge'
 import { useAppState } from '@/state/AppState'
@@ -102,6 +103,8 @@ export default function Dashboard() {
       </PageHeader>
 
       <div className="space-y-8 px-6 sm:px-10 lg:px-12 py-8 lg:py-10 max-w-7xl mx-auto">
+        <LiveSyncControl onSynced={(result) => setToast(`Synced ${result.trains_updated} live train delays`)} />
+
         <p className="text-[12.5px] text-muted">
           Ordered for the <span className="text-ink">{role.label.toLowerCase()}</span> —{' '}
           {role.focus.toLowerCase()}.

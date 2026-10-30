@@ -426,6 +426,6 @@ class RailRadarClient:
             corridor_id=corridor_id,
             delay_minutes=delay,
             status=status_str,
-            last_updated=datetime.datetime.now(),
+            last_updated=datetime.datetime.now(datetime.timezone.utc),
             source=source_str,
         )

@@ -9,7 +9,7 @@ planning models.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from enum import Enum
 from typing import Optional
 
@@ -459,7 +459,7 @@ class LiveTrainStatus(BaseModel):
     section_id: Optional[str] = ""    # best-effort only — not guaranteed accurate
     delay_minutes: float = 0.0
     status: str = "UNKNOWN"          # e.g. RUNNING / DELAYED / TERMINATED
-    last_updated: datetime = Field(default_factory=datetime.now)
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     source: str = "RAILRADAR"
 
 

@@ -122,7 +122,9 @@ export const fetchMapBlocks = (planId) => api.get('/map/blocks', { params: { pla
 // New features
 export const submitComplaint = (data) => api.post('/tasks/complaint', data);
 export const fetchLiveTrains = () => api.get('/trains/live');
-export const syncLiveTrains = () => api.post('/trains/live/sync');
+export const fetchSyncPreview = (sectionId = 'SEC-93135bb9') => api.get('/trains/live/sync-preview', { params: { section_id: sectionId } });
+export const fetchApiBudget = () => api.get('/trains/live/budget');
+export const syncLiveTrains = (sectionId = 'SEC-93135bb9', force = false) => api.post('/trains/live/sync', null, { params: { section_id: sectionId, force: force || undefined } });
 
 // Multi-Agent System
 export const fetchAgentsStatus = () => api.get('/agents/status');

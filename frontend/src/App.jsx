@@ -10,6 +10,7 @@ import TrdDashboard from '@/pages/department/TrdDashboard'
 import TechnicianDashboard from '@/pages/department/TechnicianDashboard'
 import AccessRestricted from '@/pages/AccessRestricted'
 import AppShell from '@/components/app/AppShell'
+import Dashboard from '@/pages/Dashboard'
 import Simulator from '@/pages/Simulator'
 import BlockPlan from '@/pages/BlockPlan'
 import Tasks from '@/pages/Tasks'
@@ -34,6 +35,8 @@ export default function App() {
       </>
 
       <Route element={<AppShell />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/overview" element={<Dashboard />} />
         <Route path="/simulate" element={<Simulator />} />
         <Route path="/plan" element={<BlockPlan />} />
         <Route path="/tasks" element={<Tasks />} />
