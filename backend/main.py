@@ -1909,6 +1909,238 @@ def get_section_windows(
         }
 
 
+@app.get("/api/block-sections/availability")
+def get_block_sections_availability(
+    date_param: Optional[date] = Query(None, alias="date"),
+    duration_minutes: int = Query(120, ge=15, le=720),
+    current_user: User = Depends(require_viewer_or_above),
+):
+    """
+    Returns block sections availability metrics, occupancy shares, comfort distributions,
+    and availability scores (0-100) on a given date.
+    """
+    from traffic.block_sections import get_all_pilot_block_sections
+    from traffic.window_finder import calculate_block_availability
+
+    target_date = date_param or date.today()
+    b_sections = get_all_pilot_block_sections()
+    results = []
+
+    for bs in b_sections:
+        avail = calculate_block_availability(
+            bs,
+            target_date=target_date,
+            task_duration_minutes=duration_minutes,
+        )
+        results.append({
+            "block_section_id": bs.id,
+            "name": bs.name,
+            "from_station": bs.from_station,
+            "to_station": bs.to_station,
+            "line": bs.line,
+            "length_km": bs.length_km,
+            "pilot_section_id": bs.pilot_section_id,
+            "is_long": avail.is_long,
+            "is_busy": avail.is_busy,
+            "daily_occupancy_share": avail.daily_occupancy_share,
+            "free_window_count": avail.free_window_count,
+            "max_free_gap_minutes": avail.max_free_gap_minutes,
+            "comfort_distribution": avail.comfort_distribution,
+            "window_availability_score": avail.window_availability_score,
+            "recommendation": avail.recommendation,
+        })
+
+    return {
+        "date": target_date.isoformat(),
+        "task_duration_minutes": duration_minutes,
+        "total_block_sections": len(results),
+        "block_sections": results,
+    }
+
+
+@app.get("/api/block-sections/{block_section_id}/windows")
+def get_block_section_windows(
+    block_section_id: str,
+    date_param: Optional[date] = Query(None, alias="date"),
+    task_id: Optional[str] = Query(None),
+    duration_minutes: Optional[int] = Query(None, ge=15, le=720),
+    top_k: int = Query(5, ge=1, le=20),
+    current_user: User = Depends(require_viewer_or_above),
+):
+    """
+    Returns transparent ranked candidate windows for a specific block section and date,
+    derived from real timetables, cascade modeling, and optional task preferences.
+    """
+    from traffic.block_sections import get_block_section_by_id
+    from traffic.window_finder import rank_candidate_windows
+
+    target_date = date_param or date.today()
+    b_sec = get_block_section_by_id(block_section_id)
+    if not b_sec:
+        raise HTTPException(status_code=404, detail=f"Block section {block_section_id} not found")
+
+    task_dur_min = duration_minutes or 120
+    pref_period = "ANY"
+    req_both = False
+    req_power = False
+
+    if task_id:
+        task_map = {t.task_id: t for t in getattr(app.state, "tasks", [])}
+        task = task_map.get(task_id)
+        if task:
+            if duration_minutes is None:
+                task_dur_min = max(15, int(task.estimated_duration_hours * 60))
+            pref_period = getattr(task, "preferred_period", "ANY")
+            req_both = getattr(task, "requires_both_lines", False)
+            req_power = getattr(task, "requires_power_block", False)
+
+    candidates = rank_candidate_windows(
+        b_sec,
+        target_date=target_date,
+        task_duration_minutes=task_dur_min,
+        line=b_sec.line,
+        requires_both_lines=req_both,
+        preferred_period=pref_period,
+        requires_power_block=req_power,
+        top_k=top_k,
+    )
+
+    out = []
+    for c in candidates:
+        out.append({
+            "window_id": c.window_id,
+            "block_section_id": c.block_section_id,
+            "line": c.line,
+            "date": c.date.isoformat(),
+            "earliest_start": c.earliest_start.strftime("%H:%M"),
+            "latest_start": c.latest_start.strftime("%H:%M"),
+            "recommended_start": c.recommended_start.strftime("%H:%M"),
+            "recommended_end": c.recommended_end.strftime("%H:%M"),
+            "duration_hours": c.duration_hours,
+            "task_duration_minutes": c.task_duration_minutes,
+            "margin_before_min": c.margin_before_min,
+            "margin_after_min": c.margin_after_min,
+            "comfort_label": c.comfort_label,
+            "freight_unverified": c.freight_unverified,
+            "known_trains": c.known_trains,
+            "estimated_total_trains": c.estimated_total_trains,
+            "coverage": c.coverage,
+            "source": c.source,
+            "is_free_gap": c.is_free_gap,
+            "trains_held": c.trains_held,
+            "total_delay_minutes": c.total_delay_minutes,
+            "score": c.score,
+            "score_breakdown": c.score_breakdown,
+            "reason_codes": c.reason_codes,
+        })
+
+    return {
+        "block_section_id": b_sec.id,
+        "name": b_sec.name,
+        "date": target_date.isoformat(),
+        "task_id": task_id,
+        "duration_minutes": task_dur_min,
+        "candidate_count": len(out),
+        "windows": out,
+    }
+
+
+class RevalidateWindowRequest(BaseModel):
+    live_delays_map: Optional[dict[str, float]] = None
+
+
+@app.post("/api/windows/{window_id}/revalidate")
+def revalidate_maintenance_window(
+    window_id: str,
+    request: Optional[RevalidateWindowRequest] = None,
+    current_user: User = Depends(require_viewer_or_above),
+):
+    """
+    Revalidates a planned window against latest live delays or provided delays map,
+    applying a 6-hour linear decay horizon and flagging encroaching trains.
+    """
+    from traffic.block_sections import get_block_section_by_id, get_all_pilot_block_sections
+    from traffic.window_finder import revalidate_window, UsableBlockWindow
+
+    all_windows = getattr(app.state, "windows", [])
+    target_window = next((w for w in all_windows if w.window_id == window_id), None)
+
+    # Find block section associated with this window
+    b_sec = None
+    if target_window and getattr(target_window, "block_section_id", None):
+        b_sec = get_block_section_by_id(target_window.block_section_id)
+
+    if not b_sec:
+        pilot_b_secs = get_all_pilot_block_sections()
+        if pilot_b_secs:
+            b_sec = pilot_b_secs[0]
+
+    if not b_sec:
+        raise HTTPException(status_code=404, detail="No block section found for revalidation")
+
+    if not target_window:
+        target_window = BlockWindow(
+            window_id=window_id,
+            corridor_id="COR-82d9c510",
+            section_id="SEC-93135bb9",
+            date=date.today(),
+            start_time=time(1, 30),
+            end_time=time(3, 30),
+            duration_hours=2.0,
+            block_section_id=b_sec.id,
+            line=b_sec.line,
+        )
+
+    u_win = UsableBlockWindow(
+        window_id=target_window.window_id,
+        block_section_id=b_sec.id,
+        line=getattr(target_window, "line", None) or b_sec.line,
+        date=target_window.date,
+        gap_start_min=target_window.start_time.hour * 60 + target_window.start_time.minute,
+        gap_end_min=target_window.end_time.hour * 60 + target_window.end_time.minute,
+        earliest_start=target_window.start_time,
+        latest_start=target_window.start_time,
+        recommended_start=target_window.start_time,
+        recommended_end=target_window.end_time,
+        duration_hours=target_window.duration_hours,
+        task_duration_minutes=int(target_window.duration_hours * 60),
+        pre_buffer_minutes=15,
+        post_buffer_minutes=15,
+        margin_before_min=0,
+        margin_after_min=0,
+        comfort_label="OK",
+        freight_unverified=True,
+        known_trains=0,
+        estimated_total_trains=0,
+        coverage=0.0,
+    )
+
+    delays_map = {}
+    if request and request.live_delays_map:
+        delays_map = request.live_delays_map
+    else:
+        try:
+            from backend.database import get_session, load_live_status
+            with get_session() as s:
+                live_statuses = load_live_status(s)
+                for ls in live_statuses:
+                    delays_map[ls.train_number] = ls.delay_minutes
+        except Exception as e:
+            logger.debug("Failed to read live status: %s", e)
+
+    res = revalidate_window(b_sec, u_win, live_delays_map=delays_map)
+    return {
+        "window_id": window_id,
+        "block_section_id": b_sec.id,
+        "is_valid": res.is_valid,
+        "status": res.status,
+        "encroaching_trains": res.encroaching_trains,
+        "next_best_start": res.next_best_start.strftime("%H:%M") if res.next_best_start else None,
+        "confidence": res.confidence,
+        "reasons": res.reasons,
+    }
+
+
 @app.get("/api/tasks/{task_id}/affected-trains")
 def get_task_affected_trains(
     task_id: str,

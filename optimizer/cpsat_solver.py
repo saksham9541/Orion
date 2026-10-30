@@ -49,6 +49,56 @@ def _window_interval(w: BlockWindow) -> tuple[datetime, datetime]:
     return s, e
 
 
+def _windows_conflict(w1: BlockWindow, w2: BlockWindow) -> bool:
+    """
+    Check if two windows conflict on track resources.
+    Windows conflict only if they share the same section AND:
+    - If block_section_ids are defined on both:
+      they conflict only if block_section_id is the same AND lines overlap (l1 == l2 or 'BOTH' in (l1, l2)).
+    - If either has no block_section_id:
+      they conflict if sections match (legacy full-section block).
+    """
+    if w1.section_id != w2.section_id:
+        return False
+
+    b1 = getattr(w1, "block_section_id", None)
+    b2 = getattr(w2, "block_section_id", None)
+    if b1 and b2:
+        if b1 != b2:
+            return False
+        l1 = (getattr(w1, "line", None) or "BOTH").upper()
+        l2 = (getattr(w2, "line", None) or "BOTH").upper()
+        return l1 == "BOTH" or l2 == "BOTH" or l1 == l2
+
+    return True
+
+
+def _is_task_compat(t: MaintenanceTask, w: BlockWindow) -> bool:
+    """Check if task t can physically be scheduled in window w."""
+    if t.section_id != w.section_id:
+        return False
+    if _dur(t) > w.duration_hours:
+        return False
+    # If window has a block_section_id and task has a block_section_id, they must match
+    b_task = getattr(t, "block_section_id", None)
+    b_win = getattr(w, "block_section_id", None)
+    if b_win and b_task:
+        if b_win != b_task:
+            return False
+
+    # Line compatibility
+    w_line = (getattr(w, "line", None) or "BOTH").upper()
+    t_line = (getattr(t, "line", None) or "DN").upper()
+    req_both = getattr(t, "requires_both_lines", False) or t_line == "BOTH"
+    if req_both:
+        if w_line != "BOTH":
+            return False
+    elif w_line != "BOTH":
+        if t_line != w_line:
+            return False
+    return True
+
+
 @dataclass
 class SchedulerConfig:
     """Weights and constraints configuration for the optimizer.
@@ -106,8 +156,7 @@ class BlockScheduler:
 
         compat: Dict[int, list[int]] = {}
         for i, t in enumerate(tasks):
-            d = _dur(t)
-            compat[i] = [j for j in windows_by_section.get(t.section_id, []) if d <= windows[j].duration_hours]
+            compat[i] = [j for j in windows_by_section.get(t.section_id, []) if _is_task_compat(t, windows[j])]
 
         no_compat_emergencies = []
         emerg_with_compat = []
@@ -210,6 +259,8 @@ class BlockScheduler:
                     for j2 in sec_windows[idx_a + 1:]:
                         if j2 not in window_used:
                             continue
+                        if not _windows_conflict(windows[j1], windows[j2]):
+                            continue
                         s2, e2 = _window_interval(windows[j2])
                         if max(s1, s2) < min(e1, e2):  # overlapping intervals
                             model.Add(window_used[j1] + window_used[j2] <= 1)
@@ -219,6 +270,22 @@ class BlockScheduler:
                 for (i, j), var in x.items():
                     if (tasks[i].task_id, windows[j].window_id) in forbidden_assignments:
                         model.Add(var == 0)
+
+            # 10. Locked tasks: tasks with approved or in-progress status/assigned window are fixed constraints
+            for i, t in enumerate(tasks):
+                is_locked = (
+                    t.status in (TaskStatus.APPROVED, TaskStatus.IN_PROGRESS)
+                    or getattr(t, "status", None) in ("APPROVED", "IN_PROGRESS")
+                )
+                if is_locked and compat[i]:
+                    if t.assigned_block_id:
+                        matching_j = [j for j in compat[i] if windows[j].window_id == t.assigned_block_id]
+                        if matching_j:
+                            model.Add(x[i, matching_j[0]] == 1)
+                        else:
+                            model.Add(sum(x[i, j] for j in compat[i]) == 1)
+                    else:
+                        model.Add(sum(x[i, j] for j in compat[i]) == 1)
 
             # ---- objective (minimize) -------------------------------------------
             obj = []
@@ -304,6 +371,8 @@ class BlockScheduler:
                     corridor_id=w.corridor_id,
                     section_id=w.section_id,
                     section_name=section.name if section else "",
+                    block_section_id=getattr(w, "block_section_id", None),
+                    line=getattr(w, "line", None),
                     date=w.date,
                     start_time=w.start_time,
                     end_time=w.end_time,

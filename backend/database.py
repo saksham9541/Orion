@@ -64,6 +64,14 @@ class TaskRecord(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     chainage_km = Column(Float, nullable=True)
+    block_section_id = Column(String(64), nullable=True, index=True)
+    line = Column(String(10), default="DN", nullable=True)
+    chainage_start_km = Column(Float, nullable=True)
+    chainage_end_km = Column(Float, nullable=True)
+    requires_both_lines = Column(Boolean, default=False, nullable=True)
+    preferred_period = Column(String(20), default="ANY", nullable=True)
+    reported_by = Column(String(50), default="DEPT_USER", nullable=True)
+    history = Column(JSON_TYPE, nullable=True)
     reported_date = Column(Date)
     due_date = Column(Date, nullable=True)
     days_overdue = Column(Integer)
@@ -341,6 +349,14 @@ def init_db(engine):
                 ("tasks", "latitude", "FLOAT"),
                 ("tasks", "longitude", "FLOAT"),
                 ("tasks", "chainage_km", "FLOAT"),
+                ("tasks", "block_section_id", "VARCHAR(64)"),
+                ("tasks", "line", "VARCHAR(10) DEFAULT 'DN'"),
+                ("tasks", "chainage_start_km", "FLOAT"),
+                ("tasks", "chainage_end_km", "FLOAT"),
+                ("tasks", "requires_both_lines", "BOOLEAN DEFAULT 0"),
+                ("tasks", "preferred_period", "VARCHAR(20) DEFAULT 'ANY'"),
+                ("tasks", "reported_by", "VARCHAR(50) DEFAULT 'DEPT_USER'"),
+                ("tasks", "history", "JSON"),
                 ("plans", "source", "VARCHAR(20) DEFAULT 'synthetic'"),
                 ("login_attempts", "ip_address", "VARCHAR(64)"),
                 ("api_usage", "key_suffix", "VARCHAR(16)"),

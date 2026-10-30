@@ -311,6 +311,74 @@ def _make_remark(template: str, km: float) -> str:
     )
 
 
+def _generate_task_history(status: TaskStatus, reported_date: date) -> list[dict]:
+    """Build chronological audit log history for a task."""
+    hist = [
+        {
+            "status": TaskStatus.REPORTED.value,
+            "timestamp": f"{reported_date.isoformat()}T08:30:00Z",
+            "user": "DEPT_USER",
+            "note": "Defect reported during field inspection",
+        }
+    ]
+    if status == TaskStatus.REPORTED:
+        return hist
+
+    hist.append({
+        "status": TaskStatus.SCORED.value,
+        "timestamp": f"{reported_date.isoformat()}T10:00:00Z",
+        "user": "SYSTEM",
+        "note": "ML criticality score and duration model evaluated",
+    })
+    if status in (TaskStatus.SCORED, TaskStatus.PENDING):
+        return hist
+
+    hist.append({
+        "status": TaskStatus.WINDOWS_PROPOSED.value,
+        "timestamp": f"{reported_date.isoformat()}T11:45:00Z",
+        "user": "SYSTEM",
+        "note": "Candidate timetable windows evaluated and ranked",
+    })
+    if status == TaskStatus.WINDOWS_PROPOSED:
+        return hist
+
+    hist.append({
+        "status": TaskStatus.WINDOW_SELECTED.value,
+        "timestamp": f"{reported_date.isoformat()}T14:15:00Z",
+        "user": "DEPT_USER",
+        "note": "Block window selected by department engineer",
+    })
+    if status == TaskStatus.WINDOW_SELECTED:
+        return hist
+
+    hist.append({
+        "status": TaskStatus.APPROVED.value,
+        "timestamp": f"{reported_date.isoformat()}T16:00:00Z",
+        "user": "CONTROLLER",
+        "note": "Approved by Section Controller",
+    })
+    if status == TaskStatus.APPROVED:
+        return hist
+
+    hist.append({
+        "status": TaskStatus.IN_PROGRESS.value,
+        "timestamp": f"{(reported_date + timedelta(days=1)).isoformat()}T01:30:00Z",
+        "user": "DEPT_USER",
+        "note": "Maintenance team on site, block active",
+    })
+    if status == TaskStatus.IN_PROGRESS:
+        return hist
+
+    if status == TaskStatus.COMPLETED:
+        hist.append({
+            "status": TaskStatus.COMPLETED.value,
+            "timestamp": f"{(reported_date + timedelta(days=1)).isoformat()}T04:15:00Z",
+            "user": "DEPT_USER",
+            "note": "Work finished and line cleared for traffic",
+        })
+    return hist
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Main generator
 # ──────────────────────────────────────────────────────────────────────
@@ -399,7 +467,120 @@ def generate_full_dataset(
     # ── 2. Generate maintenance tasks ────────────────────────────────
     tasks: list[MaintenanceTask] = []
 
-    for _ in range(num_tasks):
+    from traffic.section_map import is_pilot_section
+    from traffic.geo import locate
+    from traffic.block_sections import get_block_sections_for_corridor
+
+    pilot_block_sections = get_block_sections_for_corridor("PILOT_NDLS_GZB")
+    pilot_section = next((s for s in sections if is_pilot_section(s.section_id)), None)
+
+    # 2a. Pre-seed specific multi-department merge clusters on pilot block sections
+    if pilot_section and pilot_block_sections:
+        b_tkj_anvt = next((b for b in pilot_block_sections if b.from_station == "TKJ" and b.to_station == "ANVT" and b.line == "DN"), None)
+        b_ndls_csb = next((b for b in pilot_block_sections if b.from_station == "NDLS" and b.to_station == "CSB" and b.line == "DN"), None)
+
+        # Cluster 1: TKJ-ANVT (DN) - 3 departments: Eng (weld) + S&T (track circuit) + TRD (OHE sag)
+        if b_tkj_anvt and len(tasks) < num_tasks:
+            cluster1_defs = [
+                (Department.ENGINEERING, AssetType.RAIL, DefectCategory.WELD_DEFECT, 2.5, "Weld defect near TKJ yard detected by USFD", False, False, "DN"),
+                (Department.SNT, AssetType.TRACK_CIRCUIT, DefectCategory.TRACK_CIRCUIT_FAILURE, 1.2, "Intermittent drop on track circuit TC-412", False, False, "DN"),
+                (Department.TRD, AssetType.OHE_WIRE, DefectCategory.OHE_SAG, 2.0, "OHE contact wire sag exceeds permissible limit", True, False, "DN"),
+            ]
+            c1_start_ch = round(b_tkj_anvt.start_km + 0.5, 2)
+            c1_end_ch = round(min(b_tkj_anvt.end_km, c1_start_ch + 1.2), 2)
+            c1_lat, c1_lon = locate(pilot_section.section_id, c1_start_ch)
+            c1_reported = today - timedelta(days=2)
+
+            for dept, asset, defect, dur_hrs, rem, pwr, both_lines, line_code in cluster1_defs:
+                status_c1 = TaskStatus.WINDOWS_PROPOSED
+                tasks.append(
+                    MaintenanceTask(
+                        source_system={"ENGINEERING": "TMS", "SNT": "SMMS", "TRD": "TDMS"}[dept.value],
+                        source="synthetic",
+                        department=dept,
+                        asset_type=asset,
+                        defect_category=defect,
+                        corridor_id=pilot_section.corridor_id,
+                        section_id=pilot_section.section_id,
+                        km_location=round(pilot_section.start_km + c1_start_ch, 1),
+                        km_start=round(pilot_section.start_km + c1_start_ch, 1),
+                        km_end=round(pilot_section.start_km + c1_end_ch, 1),
+                        latitude=c1_lat,
+                        longitude=c1_lon,
+                        chainage_km=c1_start_ch,
+                        block_section_id=b_tkj_anvt.id,
+                        line=line_code,
+                        chainage_start_km=c1_start_ch,
+                        chainage_end_km=c1_end_ch,
+                        requires_both_lines=both_lines,
+                        requires_power_block=pwr,
+                        preferred_period="NIGHT",
+                        reported_by="DEPT_USER",
+                        status=status_c1,
+                        history=_generate_task_history(status_c1, c1_reported),
+                        reported_date=c1_reported,
+                        due_date=c1_reported + timedelta(days=7),
+                        days_overdue=0,
+                        inspector_remarks=rem,
+                        asset_age_years=round(random.uniform(3.0, 15.0), 1),
+                        historical_failure_count=random.randint(1, 3),
+                        crew_size_required=4,
+                        estimated_duration_hours=dur_hrs,
+                    )
+                )
+
+        # Cluster 2: NDLS-CSB (DN) - Eng (rail fracture, EMERGENCY) + S&T (turnout point failure, requires_both_lines)
+        if b_ndls_csb and len(tasks) < num_tasks:
+            cluster2_defs = [
+                (Department.ENGINEERING, AssetType.RAIL, DefectCategory.RAIL_FRACTURE, 3.5, "Severe rail fracture at km 1.2, emergency fishplate secured", False, False, "DN", TaskStatus.APPROVED),
+                (Department.SNT, AssetType.POINT_MACHINE, DefectCategory.POINT_FAILURE, 1.5, "Turnout 102A point detection failure across crossover", False, True, "BOTH", TaskStatus.APPROVED),
+            ]
+            c2_start_ch = round(b_ndls_csb.start_km + 0.3, 2)
+            c2_end_ch = round(min(b_ndls_csb.end_km, c2_start_ch + 0.8), 2)
+            c2_lat, c2_lon = locate(pilot_section.section_id, c2_start_ch)
+            c2_reported = today - timedelta(days=1)
+            c2_block_id = f"BW-{b_ndls_csb.id[:8]}-{today.strftime('%Y%m%d')}-01"
+
+            for dept, asset, defect, dur_hrs, rem, pwr, both_lines, line_code, status_c2 in cluster2_defs:
+                tasks.append(
+                    MaintenanceTask(
+                        source_system={"ENGINEERING": "TMS", "SNT": "SMMS", "TRD": "TDMS"}[dept.value],
+                        source="synthetic",
+                        department=dept,
+                        asset_type=asset,
+                        defect_category=defect,
+                        corridor_id=pilot_section.corridor_id,
+                        section_id=pilot_section.section_id,
+                        km_location=round(pilot_section.start_km + c2_start_ch, 1),
+                        km_start=round(pilot_section.start_km + c2_start_ch, 1),
+                        km_end=round(pilot_section.start_km + c2_end_ch, 1),
+                        latitude=c2_lat,
+                        longitude=c2_lon,
+                        chainage_km=c2_start_ch,
+                        block_section_id=b_ndls_csb.id,
+                        line=line_code,
+                        chainage_start_km=c2_start_ch,
+                        chainage_end_km=c2_end_ch,
+                        requires_both_lines=both_lines,
+                        requires_power_block=pwr,
+                        preferred_period="NIGHT",
+                        reported_by="CONTROLLER",
+                        status=status_c2,
+                        assigned_block_id=c2_block_id,
+                        history=_generate_task_history(status_c2, c2_reported),
+                        reported_date=c2_reported,
+                        due_date=c2_reported + timedelta(days=2),
+                        days_overdue=0,
+                        inspector_remarks=rem,
+                        asset_age_years=round(random.uniform(5.0, 20.0), 1),
+                        historical_failure_count=random.randint(1, 4),
+                        crew_size_required=6,
+                        estimated_duration_hours=dur_hrs,
+                    )
+                )
+
+    # 2b. Generate remaining tasks across network
+    while len(tasks) < num_tasks:
         # Department distribution: 50% Eng, 30% S&T, 20% TRD
         r = random.random()
         if r < 0.50:
@@ -419,33 +600,82 @@ def generate_full_dataset(
         asset = random.choice(valid_assets)
         section = random.choice(sections)
 
-        from traffic.section_map import is_pilot_section
-        from traffic.geo import locate
+        is_turnout_defect = defect in (DefectCategory.POINT_FAILURE, DefectCategory.INTERLOCKING_FAULT)
+        requires_both_lines = is_turnout_defect or (random.random() < 0.10)
+        requires_power = (dept == Department.TRD) or (defect in (DefectCategory.OHE_BREAK, DefectCategory.OHE_SAG))
 
-        # For pilot sections, place task at realistic track coordinates along the polyline
-        if is_pilot_section(section.section_id):
-            chainage = round(random.uniform(0.2, max(0.5, section.length_km - 0.2)), 2)
-            lat, lon = locate(section.section_id, chainage)
-            km = round(section.start_km + chainage, 1)
-            task_lat = lat
-            task_lon = lon
-            task_chainage = chainage
+        # Realistic duration distributions by defect category
+        if defect == DefectCategory.RAIL_FRACTURE:
+            dur_hours = round(random.uniform(3.0, 4.0), 2)  # 180-240 min
+        elif defect in (DefectCategory.WELD_DEFECT,):
+            dur_hours = round(random.uniform(2.0, 3.0), 2)  # 120-180 min
+        elif defect in (DefectCategory.POINT_FAILURE,):
+            dur_hours = round(random.uniform(1.0, 2.0), 2)  # 60-120 min
+        elif defect in (DefectCategory.TRACK_CIRCUIT_FAILURE,):
+            dur_hours = round(random.uniform(0.75, 1.5), 2)  # 45-90 min
+        elif defect in (DefectCategory.OHE_BREAK,):
+            dur_hours = round(random.uniform(2.0, 4.0), 2)  # 120-240 min
+        elif defect in (DefectCategory.OHE_SAG,):
+            dur_hours = round(random.uniform(1.5, 2.5), 2)  # 90-150 min
         else:
+            base_dur = {
+                Department.ENGINEERING: random.uniform(1.5, 4.0),
+                Department.SNT: random.uniform(1.0, 3.0),
+                Department.TRD: random.uniform(1.0, 3.5),
+            }[dept]
+            dur_hours = round(base_dur, 1)
+
+        # Days overdue & reported date
+        days_overdue = int(random.expovariate(1 / 8.0))
+        reported_date = today - timedelta(days=days_overdue + random.randint(1, 14))
+
+        # Lifecycle status distribution
+        status_choice = random.choices(
+            [
+                TaskStatus.REPORTED,
+                TaskStatus.SCORED,
+                TaskStatus.WINDOWS_PROPOSED,
+                TaskStatus.WINDOW_SELECTED,
+                TaskStatus.APPROVED,
+                TaskStatus.IN_PROGRESS,
+                TaskStatus.COMPLETED,
+                TaskStatus.PENDING,
+            ],
+            weights=[0.15, 0.15, 0.15, 0.15, 0.15, 0.10, 0.10, 0.05],
+            k=1,
+        )[0]
+
+        # Location details
+        if is_pilot_section(section.section_id) and pilot_block_sections:
+            b_sec = random.choice(pilot_block_sections)
+            task_block_section_id = b_sec.id
+            task_line = "BOTH" if requires_both_lines else b_sec.line
+
+            extent_km = round(random.uniform(0.1, min(3.0, max(0.2, b_sec.length_km - 0.2))), 2)
+            c_start = round(b_sec.start_km + random.uniform(0.05, max(0.1, b_sec.length_km - extent_km - 0.05)), 2)
+            c_end = round(c_start + extent_km, 2)
+
+            task_lat, task_lon = locate(section.section_id, c_start)
+            km = round(section.start_km + c_start, 1)
+            km_end_val = round(section.start_km + c_end, 1)
+            task_chainage = c_start
+            task_ch_start = c_start
+            task_ch_end = c_end
+        else:
+            task_block_section_id = None
+            task_line = "BOTH" if requires_both_lines else "DN"
+            task_ch_start = None
+            task_ch_end = None
             km = round(section.start_km + random.random() * section.length_km, 1)
+            km_end_val = km
             task_chainage = round(km - section.start_km, 2)
             task_lat = None
             task_lon = None
 
-        # Days overdue: exponential (most recent, some very old)
-        days_overdue = int(random.expovariate(1 / 8.0))
-        reported_date = today - timedelta(days=days_overdue + random.randint(1, 14))
-
-        # Duration estimates by type
-        base_duration = {
-            Department.ENGINEERING: random.uniform(1.5, 4.0),
-            Department.SNT: random.uniform(1.0, 3.0),
-            Department.TRD: random.uniform(1.0, 3.5),
-        }[dept]
+        assigned_b_id = None
+        if status_choice in (TaskStatus.APPROVED, TaskStatus.IN_PROGRESS):
+            b_ref = task_block_section_id[:8] if task_block_section_id else section.section_id[:8]
+            assigned_b_id = f"BW-{b_ref}-{today.strftime('%Y%m%d')}-01"
 
         task = MaintenanceTask(
             source_system={"ENGINEERING": "TMS", "SNT": "SMMS", "TRD": "TDMS"}[dept.value],
@@ -456,9 +686,22 @@ def generate_full_dataset(
             corridor_id=section.corridor_id,
             section_id=section.section_id,
             km_location=km,
+            km_start=km,
+            km_end=km_end_val,
             latitude=task_lat,
             longitude=task_lon,
             chainage_km=task_chainage,
+            block_section_id=task_block_section_id,
+            line=task_line,
+            chainage_start_km=task_ch_start,
+            chainage_end_km=task_ch_end,
+            requires_both_lines=requires_both_lines,
+            requires_power_block=requires_power,
+            preferred_period=random.choice(["DAY", "NIGHT", "ANY"]),
+            reported_by=random.choice(["DEPT_USER", "CONTROLLER", "SYSTEM"]),
+            status=status_choice,
+            assigned_block_id=assigned_b_id,
+            history=_generate_task_history(status_choice, reported_date),
             reported_date=reported_date,
             due_date=reported_date + timedelta(days=random.choice([7, 14, 30])),
             days_overdue=days_overdue,
@@ -466,7 +709,7 @@ def generate_full_dataset(
             asset_age_years=round(random.uniform(1.0, 35.0), 1),
             historical_failure_count=random.randint(0, 6),
             crew_size_required=random.choice([2, 3, 4, 6, 8]),
-            estimated_duration_hours=round(base_duration, 1),
+            estimated_duration_hours=dur_hours,
         )
         tasks.append(task)
 
@@ -569,6 +812,18 @@ def generate_full_dataset(
                     win.source = "timetable_derived"
                     win.delay_source = "computed"
                     block_windows.append(win)
+
+            # Also generate block-section level windows for all pilot block sections
+            from traffic.block_sections import get_block_sections_for_corridor
+            from traffic.window_finder import find_block_section_windows
+
+            pilot_b_secs = get_block_sections_for_corridor("PILOT_NDLS_GZB")
+            for b_sec in pilot_b_secs:
+                for day_offset in range(min(window_days, 14)):
+                    b_date = today + timedelta(days=day_offset)
+                    b_usable = find_block_section_windows(b_sec, target_date=b_date, task_duration_minutes=120)
+                    for ubw in b_usable:
+                        block_windows.append(ubw.to_block_window(corridor_id=section.corridor_id, section_id=section.section_id))
         else:
             for day_offset in range(window_days):
                 window_date = today + timedelta(days=day_offset)

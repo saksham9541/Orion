@@ -143,7 +143,11 @@ class TaskStatus(str, Enum):
     """Lifecycle status of a maintenance task."""
     DRAFT = "DRAFT"               # Created by user/dept, not yet submitted
     SUBMITTED = "SUBMITTED"       # Submitted for ML scoring & verification
+    REPORTED = "REPORTED"         # Reported by field/dept user
     SCORED = "SCORED"             # ML scoring & criticality calculated
+    WINDOWS_PROPOSED = "WINDOWS_PROPOSED" # Candidate windows computed/ranked
+    WINDOW_SELECTED = "WINDOW_SELECTED"   # Department or controller picked a window
+    APPROVED = "APPROVED"         # Approved by controller
     UNVERIFIED = "UNVERIFIED"     # Complaint submitted, waiting for technician verification
     PENDING = "PENDING"           # Verified and awaiting scheduling
     SCHEDULED = "SCHEDULED"       # Assigned to a block
@@ -351,6 +355,16 @@ class MaintenanceTask(BaseModel):
     longitude: Optional[float] = None          # Real track longitude (pilot sections)
     chainage_km: Optional[float] = None        # Track chainage from start station (approximate)
 
+    # Block section level fields (Phase 1)
+    block_section_id: Optional[str] = None     # Specific block section (e.g. BLK-...)
+    line: str = "DN"                           # "UP" | "DN" | "BOTH"
+    chainage_start_km: Optional[float] = None  # Start chainage within block section or corridor
+    chainage_end_km: Optional[float] = None    # End chainage within block section or corridor
+    requires_both_lines: bool = False          # E.g. crossover / turnout maintenance
+    preferred_period: str = "ANY"              # "DAY" | "NIGHT" | "ANY"
+    reported_by: str = "DEPT_USER"             # "DEPT_USER" | "CONTROLLER" | "SYSTEM"
+    history: list[dict] = Field(default_factory=list) # Audit logs [{status, timestamp, user, note}]
+
     # Timing
     reported_date: date
     due_date: Optional[date] = None
@@ -451,6 +465,8 @@ class BlockWindow(BaseModel):
     ml_cumulative_delay_minutes: float = 0.0
     source: str = "synthetic"                  # "synthetic" | "timetable_derived"
     delay_source: str = "ml_estimate"          # "computed" | "ml_estimate"
+    block_section_id: Optional[str] = None     # BlockSection ID if block-section level
+    line: Optional[str] = None                 # "UP" | "DN" | "BOTH"
 
     def model_post_init(self, __context: object) -> None:
         if self.duration_hours == 0.0:
@@ -474,6 +490,8 @@ class ScheduledBlock(BaseModel):
     duration_hours: float = 0.0
     block_type: BlockType = BlockType.TRAFFIC_BLOCK
     source: str = "synthetic"                  # "synthetic" | "user"
+    block_section_id: Optional[str] = None
+    line: Optional[str] = None
 
     # Tasks assigned
     task_ids: list[str] = Field(default_factory=list)

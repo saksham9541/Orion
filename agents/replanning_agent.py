@@ -116,8 +116,29 @@ class ReplanningAgent:
 
             if is_pilot_section(target_section):
                 sec_cfg = get_pilot_section_config(target_section)
-                if sec_cfg:
-                    # Search today and next 2 days for a free window that can accommodate the emergency task
+                from traffic.block_sections import find_block_section_for_chainage
+                from traffic.window_finder import find_block_section_windows
+
+                b_sec = find_block_section_for_chainage(
+                    emergency_task.chainage_km or emergency_task.km_location or 5.0,
+                    line=emergency_task.line or "DN",
+                    pilot_section_id=target_section,
+                )
+                if b_sec:
+                    for day_offset in range(3):
+                        d_cand = target_date + timedelta(days=day_offset)
+                        b_wins = find_block_section_windows(
+                            b_sec, d_cand, task_duration_minutes=int(emergency_task.estimated_duration_hours * 60)
+                        )
+                        if b_wins:
+                            w = b_wins[0].to_block_window(
+                                corridor_id=emergency_task.corridor_id, section_id=emergency_task.section_id
+                            )
+                            chosen_window = (w, None, sec_cfg)
+                            break
+
+                if not chosen_window and sec_cfg:
+                    # Search today and next 2 days for a free window across the whole section
                     for day_offset in range(3):
                         d_cand = target_date + timedelta(days=day_offset)
                         passages, _ = get_all_passages_for_section(sec_cfg, d_cand)
@@ -132,16 +153,25 @@ class ReplanningAgent:
             if chosen_window:
                 w, passages, sec_cfg = chosen_window
                 new_block_id = f"BLK-EMERGENCY-{uuid.uuid4().hex[:6].upper()}"
-                prim = calculate_block_delays(
-                    sec_cfg, w.date, w.start_time, w.end_time, passages, block_id=new_block_id
-                )
-                cas = propagate_cascade(prim, passages)
+                if passages and sec_cfg:
+                    prim = calculate_block_delays(
+                        sec_cfg, w.date, w.start_time, w.end_time, passages, block_id=new_block_id
+                    )
+                    cas = propagate_cascade(prim, passages)
+                    trains_hit = cas.trains_hit
+                    total_delay = cas.cascade_total_delay
+                else:
+                    trains_hit = getattr(w, "ml_trains_affected", 0)
+                    total_delay = getattr(w, "ml_cumulative_delay_minutes", 0.0)
+
                 emergency_block = ScheduledBlock(
                     block_id=new_block_id,
                     window_id=w.window_id,
                     corridor_id=emergency_task.corridor_id,
                     section_id=emergency_task.section_id,
                     section_name=emergency_task.section_id,
+                    block_section_id=getattr(w, "block_section_id", None),
+                    line=getattr(w, "line", None),
                     date=w.date,
                     start_time=w.start_time,
                     end_time=w.end_time,
@@ -149,8 +179,8 @@ class ReplanningAgent:
                     task_ids=[emergency_task.task_id],
                     departments=[emergency_task.department],
                     block_type=BlockType.POWER_BLOCK if emergency_task.requires_power_block else BlockType.TRAFFIC_BLOCK,
-                    trains_affected=cas.trains_hit,
-                    cumulative_delay_minutes=cas.cascade_total_delay,
+                    trains_affected=trains_hit,
+                    cumulative_delay_minutes=total_delay,
                     is_merged=False,
                     justification=f"Force-scheduled emergency block in free timetable gap for defect {emergency_task.task_id}.",
                 )

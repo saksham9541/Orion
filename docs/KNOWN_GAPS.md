@@ -107,3 +107,35 @@ $$\text{PROPOSED} \longrightarrow \text{DEPT_REVIEW} \longrightarrow \begin{case
 - **Secret Safety**: In production (`ENVIRONMENT=production`), the application refuses to start if `JWT_SECRET` is missing or shorter than 32 characters.
 - **CORS Configuration**: In production, `CORS_ORIGINS` must be explicitly defined. A warning is logged if default localhost origins are active in production.
 - **PostgreSQL Pre-Ping**: Database connection pools employ `pool_pre_ping=True` and connection retries to absorb serverless cold starts.
+
+---
+
+## 7. Phase 1 Block-Section Engine & Sensitivity Analysis
+
+### Why Block-Section Modeling Resolves Artificial Track Saturation
+In legacy section-level scheduling, corridors were modeled as monolithic stretches (`SEC-93135bb9` New Delhi–Ghaziabad 19 km, `SEC-d4d8b85c` New Delhi–Mathura 141 km). A single train passage occupied the entire stretch for 20 to 90 minutes plus safety clearance buffers. When scaling traffic to realistic Class A Special densities (50–70 daily trains), the 141 km NDLS–MTJ section saturated completely (0 free windows), and NDLS–GZB night windows existed solely because filler traffic was suppressed between 05:00 and 23:59.
+
+Phase 1 migrates operations to **Block-Section Granularity** (`traffic/block_sections.py`):
+- Track territory is partitioned into station-to-station block sections: `NDLS–CSB` (1.4 km), `CSB–TKJ` (1.8 km), `TKJ–ANVT` (7.8 km), `ANVT–SBB` (3.7 km), `SBB–GZB` (4.3 km).
+- Each physical section is segregated directionally into independent tracks: `DN` (away from Delhi, increasing chainage) and `UP` (towards Delhi, decreasing chainage).
+- Transit occupancy on a block section drops to **2 to 8 minutes** per train. As a consequence, even with 24-hour unconstrained traffic, each block section yields 3 to 5 comfortable maintenance gaps ($\ge 90\text{ min}$) across both day and night periods.
+
+### Directional Track Rules (Double Line vs Single Line)
+1. **Double Line Track (`tracks = 2`)**:
+   - Work on the `DN` line is constrained only by trains running in the `DN` direction. `UP` train passages pass on the adjacent track without restricting maintenance.
+   - If a task involves crossovers, scissors junctions, or turnouts (`requires_both_lines: True` or `line: "BOTH"`), it reserves both tracks simultaneously.
+2. **Single Line Track (`tracks = 1`)**:
+   - Both `UP` and `DN` train passages occupy the single track, enforcing bidirectional clearance.
+
+### Known-Answer Gap & Comfort Metric
+The window finder calculates exact non-overlapping gaps with safety buffers:
+$$\text{Earliest Start} = \text{Gap Start} + \text{Pre-Buffer}$$
+$$\text{Latest Start} = \text{Gap End} - \text{Post-Buffer} - \text{Task Duration}$$
+$$\text{Total Margin} = (\text{Gap End} - \text{Gap Start}) - (\text{Task Duration} + \text{Pre-Buffer} + \text{Post-Buffer})$$
+- $\text{Total Margin} < 15\text{ min} \implies \text{TIGHT}$
+- $15\text{ min} \le \text{Total Margin} < 60\text{ min} \implies \text{OK}$
+- $\text{Total Margin} \ge 60\text{ min} \implies \text{COMFORTABLE}$
+
+### Provenance Honesty & Live Delay Replay
+- **Coverage Honesty**: The coverage metric $\text{coverage\_ratio} = \frac{\text{real\_live\_trains}}{\text{total\_trains}}$ counts **only** trains with `provenance == "live"`. Hand-written seed snapshots and synthetic filler report $0.0\%$ real coverage (`illustrative`).
+- **Live Replay Tooling**: `scripts/replay_windows.py` revalidates predicted-free windows against logged live delays (`load_live_status`), enforcing a 6-hour linear decay horizon and tracking train encroachments and margin erosion.
