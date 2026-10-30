@@ -2,11 +2,48 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import { loginApi } from '@/api'
 
 export const ROLES = [
-  { id: 'admin', label: 'Super Admin', short: 'Admin' },
-  { id: 'engineering', label: 'Engineering', short: 'Eng' },
-  { id: 'snt', label: 'S&T', short: 'S&T' },
-  { id: 'trd', label: 'TRD', short: 'TRD' },
-  { id: 'technician', label: 'Technician', short: 'Tech' },
+  {
+    id: 'admin',
+    label: 'Super Admin',
+    short: 'Admin',
+    focus: 'Operations & Oversight',
+    panels: ['kpis', 'approval', 'conflicts', 'impact', 'active', 'urgent', 'departments', 'twin', 'trace'],
+  },
+  {
+    id: 'controller',
+    label: 'Section Controller',
+    short: 'Controller',
+    focus: 'Real-time Traffic & Approvals',
+    panels: ['approval', 'conflicts', 'kpis', 'active', 'impact', 'urgent', 'departments', 'twin'],
+  },
+  {
+    id: 'engineering',
+    label: 'Engineering',
+    short: 'Eng',
+    focus: 'Track & Structure Assets',
+    panels: ['urgent', 'active', 'departments', 'kpis', 'conflicts'],
+  },
+  {
+    id: 'snt',
+    label: 'S&T',
+    short: 'S&T',
+    focus: 'Signalling & Telecom Integrity',
+    panels: ['urgent', 'active', 'departments', 'kpis', 'conflicts'],
+  },
+  {
+    id: 'trd',
+    label: 'TRD',
+    short: 'TRD',
+    focus: 'OHE & Power Distribution',
+    panels: ['urgent', 'active', 'departments', 'kpis', 'conflicts'],
+  },
+  {
+    id: 'technician',
+    label: 'Technician',
+    short: 'Tech',
+    focus: 'Field Execution',
+    panels: ['active', 'urgent', 'kpis'],
+  },
 ]
 
 export const roleById = Object.fromEntries(ROLES.map((r) => [r.id, r]))
@@ -14,6 +51,7 @@ export const roleById = Object.fromEntries(ROLES.map((r) => [r.id, r]))
 /** Map frontend role IDs to backend login emails */
 const ROLE_EMAILS = {
   admin: 'admin@railopt.gov.in',
+  controller: 'admin@railopt.gov.in',
   engineering: 'eng@railopt.gov.in',
   snt: 'snt@railopt.gov.in',
   trd: 'trd@railopt.gov.in',
@@ -25,7 +63,13 @@ const AppStateContext = createContext(null)
 function loadSavedUser() {
   try {
     const sessionSaved = sessionStorage.getItem('railopt_user')
-    if (sessionSaved) return JSON.parse(sessionSaved)
+    if (sessionSaved) {
+      const parsed = JSON.parse(sessionSaved)
+      if (parsed?.id && roleById[parsed.id]) {
+        return { ...roleById[parsed.id], ...parsed }
+      }
+      return parsed
+    }
     return null
   } catch {
     return null
@@ -105,7 +149,12 @@ export function AppStateProvider({ children }) {
       currentUser,
       login,
       logout,
-      role: currentUser || { id: 'admin', label: 'Super Admin', focus: 'Operations', panels: ['kpis', 'conflicts', 'twin'] },
+      role: {
+        ...(currentUser?.id && roleById[currentUser.id] ? roleById[currentUser.id] : ROLES[0]),
+        ...(currentUser || {}),
+        panels: (currentUser?.id && roleById[currentUser.id]?.panels) || ROLES[0].panels,
+        focus: (currentUser?.id && roleById[currentUser.id]?.focus) || ROLES[0].focus,
+      },
       approvals,
       approvedCount,
       approveBlock,

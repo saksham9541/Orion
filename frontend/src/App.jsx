@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import ErrorBoundary from '@/components/common/ErrorBoundary'
 import { AppStateProvider } from '@/state/AppState'
 import { NotificationProvider } from '@/state/NotificationContext'
 import Landing from '@/pages/Landing'
@@ -19,15 +20,17 @@ import Sources from '@/pages/Sources'
 
 export default function App() {
   return (
-    <AppStateProvider>
-      <NotificationProvider>
-        <Routes>
+    <ErrorBoundary>
+      <AppStateProvider>
+        <NotificationProvider>
+          <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/restricted" element={<AccessRestricted />} />
       
       <>
         <Route path="/admin/*" element={<AdminDashboard />} />
+        <Route path="/controller/*" element={<Navigate to="/dashboard" replace />} />
         <Route path="/engineering/*" element={<EngineeringDashboard />} />
         <Route path="/snt/*" element={<SntDashboard />} />
         <Route path="/trd/*" element={<TrdDashboard />} />
@@ -46,7 +49,8 @@ export default function App() {
       
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      </NotificationProvider>
-    </AppStateProvider>
+        </NotificationProvider>
+      </AppStateProvider>
+    </ErrorBoundary>
   )
 }

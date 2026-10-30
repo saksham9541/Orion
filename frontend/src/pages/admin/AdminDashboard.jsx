@@ -149,6 +149,8 @@ export default function AdminDashboard() {
   const [liveTrains, setLiveTrains] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [actionLoading, setActionLoading] = useState(null)
+  const [toastMessage, setToastMessage] = useState(null)
 
   const loadTasks = useCallback(async () => {
     try {
@@ -234,15 +236,6 @@ export default function AdminDashboard() {
 
   const selectedIssue = issues.find(i => i.id === selectedIssueId)
 
-  // Access check sits after every hook so the hook order never changes
-  // between renders (e.g. while signing out).
-  if (currentUser?.id !== 'admin') {
-    return <Navigate to="/restricted" replace />
-  }
-
-  const [actionLoading, setActionLoading] = useState(null)
-  const [toastMessage, setToastMessage] = useState(null)
-
   const handleStatusChange = async (id, targetStatus) => {
     setActionLoading(targetStatus)
     // 1. Local state update
@@ -306,6 +299,11 @@ export default function AdminDashboard() {
       case 'TRD': return 'border-trd/30 bg-trd/10 text-trd'
       default: return 'border-line bg-raised text-muted'
     }
+  }
+
+  // Access check sits after all hooks and handlers
+  if (currentUser?.id !== 'admin') {
+    return <Navigate to="/restricted" replace />
   }
 
   return (

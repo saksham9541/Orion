@@ -12,6 +12,8 @@ export default function Login() {
 
   const [isLoading, setIsLoading] = useState(false)
 
+  const getRouteForRole = (r) => (r === 'admin' ? '/admin' : r === 'controller' ? '/dashboard' : `/${r}`)
+
   const handleSignIn = async (event) => {
     event.preventDefault()
     setIsLoading(true)
@@ -21,17 +23,18 @@ export default function Login() {
     else if (id.includes('snt') || id.includes('s&t')) role = 'snt'
     else if (id.includes('trd')) role = 'trd'
     else if (id.includes('tech')) role = 'technician'
+    else if (id.includes('controller')) role = 'controller'
 
     await login(role)
     setIsLoading(false)
-    navigate(role === 'admin' ? '/admin' : `/${role}`)
+    navigate(getRouteForRole(role))
   }
 
   const handleQuickLogin = async (role) => {
     setIsLoading(true)
     await login(role)
     setIsLoading(false)
-    navigate(role === 'admin' ? '/admin' : `/${role}`)
+    navigate(getRouteForRole(role))
   }
 
   return (
@@ -60,7 +63,7 @@ export default function Login() {
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-faint text-center">
             Instant Test Login (Click to open role)
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => handleQuickLogin('snt')}
@@ -84,10 +87,24 @@ export default function Login() {
             </button>
             <button
               type="button"
+              onClick={() => handleQuickLogin('controller')}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface py-2 text-xs font-bold text-ink hover:border-info hover:text-info transition-colors shadow-sm"
+            >
+              🚦 Controller
+            </button>
+            <button
+              type="button"
               onClick={() => handleQuickLogin('admin')}
               className="flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface py-2 text-xs font-bold text-ink hover:border-info hover:text-info transition-colors shadow-sm"
             >
               🛡️ Super Admin
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin('technician')}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface py-2 text-xs font-bold text-ink hover:border-info hover:text-info transition-colors shadow-sm"
+            >
+              👷 Technician
             </button>
           </div>
         </div>

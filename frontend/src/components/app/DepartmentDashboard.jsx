@@ -471,11 +471,6 @@ export default function DepartmentDashboard({ deptId, title, department }) {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
 
-  // Auth Guard
-  if (currentUser?.id !== deptId && currentUser?.id !== 'admin') {
-    return <Navigate to="/restricted" replace />
-  }
-
   // Load Tasks from API
   const loadTasks = useCallback(async () => {
     try {
@@ -696,6 +691,11 @@ export default function DepartmentDashboard({ deptId, title, department }) {
     if (s === 'SCHEDULED' || s === 'ESCALATED' || s === 'DEPARTMENT NOTIFIED' || s === 'AUTHORIZED') return 'bg-blue-500/15 text-blue-600 border-blue-500/30'
     if (s === 'REJECTED' || s === 'CANCELLED') return 'bg-red-500/15 text-red-600 border-red-500/30'
     return 'bg-raised text-muted border-line'
+  }
+
+  // Auth Guard sits after all hooks so hook ordering is identical on every render
+  if (currentUser?.id !== deptId && currentUser?.id !== 'admin') {
+    return <Navigate to="/restricted" replace />
   }
 
   return (

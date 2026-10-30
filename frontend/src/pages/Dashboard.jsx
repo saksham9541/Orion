@@ -29,7 +29,7 @@ import DecisionTrace from '@/components/optimize/DecisionTrace'
 import LiveSyncControl from '@/components/network/LiveSyncControl'
 import Toast from '@/components/common/Toast'
 import DemoDataBadge from '@/components/common/DemoDataBadge'
-import { useAppState } from '@/state/AppState'
+import { useAppState, roleById, ROLES } from '@/state/AppState'
 import { weeklyBlocks, planMeta } from '@/data/plan'
 import { tasks } from '@/data/tasks'
 import {
@@ -53,7 +53,11 @@ const axis = { stroke: 'rgb(var(--c-faint))', fontSize: 11, fontFamily: 'IBM Ple
  * it does not hide.
  */
 export default function Dashboard() {
-  const { role, optimised: revealed } = useAppState()
+  const { role, currentUser, optimised: revealed } = useAppState()
+  const activeRole = roleById[currentUser?.id] || roleById[role?.id] || role || ROLES[0]
+  const roleLabel = (activeRole?.label || 'Controller').toLowerCase()
+  const roleFocus = (activeRole?.focus || 'Operations').toLowerCase()
+  const rolePanels = activeRole?.panels || ['kpis', 'approval', 'conflicts', 'twin']
   const [toast, setToast] = useState(null)
   const [liveStats, setLiveStats] = useState(null)
   const [activePlan, setActivePlan] = useState(null)
@@ -106,10 +110,10 @@ export default function Dashboard() {
         <LiveSyncControl onSynced={(result) => setToast(`Synced ${result.trains_updated} live train delays`)} />
 
         <p className="text-[12.5px] text-muted">
-          Ordered for the <span className="text-ink">{role.label.toLowerCase()}</span> —{' '}
-          {role.focus.toLowerCase()}.
+          Ordered for the <span className="text-ink">{roleLabel}</span> —{' '}
+          {roleFocus}.
         </p>
-        {role.panels.map((id) => panels[id]).filter(Boolean)}
+        {rolePanels.map((id) => panels[id]).filter(Boolean)}
       </div>
 
       <Toast message={toast} />

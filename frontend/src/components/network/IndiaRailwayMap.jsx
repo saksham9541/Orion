@@ -124,6 +124,14 @@ const SEVERITY_RANK = {
   LOW: 1,
 }
 
+export function getRiskStyle(severity) {
+  const norm = (severity || '').toUpperCase().trim()
+  if (norm === 'CRITICAL' || norm === 'EMERGENCY') return RISK_STYLES.CRITICAL
+  if (norm === 'HIGH' || norm === 'URGENT') return RISK_STYLES.HIGH
+  if (norm === 'MEDIUM' || norm === 'MODERATE') return RISK_STYLES.MEDIUM
+  return RISK_STYLES.LOW
+}
+
 // Compute corridor risk based on active (unresolved) issues
 function getCorridorRisk(corridor, issues = []) {
   if (!issues || issues.length === 0) return 'LOW'
@@ -429,7 +437,7 @@ export default function IndiaRailwayMap({
           STATIONS.map((s) => {
             const issue = issuesByStation[s.id]
             if (!issue || issue.status === 'RESOLVED') return null
-            const style = RISK_STYLES[issue.severity] || RISK_STYLES.LOW
+            const style = getRiskStyle(issue.severity)
             const radius = issue.severity === 'CRITICAL' ? 32 : issue.severity === 'HIGH' ? 24 : 18
 
             return (
@@ -487,7 +495,7 @@ export default function IndiaRailwayMap({
           const isSelected = hasIssue && selectedIssueId === issue.id
 
           // Risk styling
-          const style = hasIssue && !isResolved ? RISK_STYLES[issue.severity] : null
+          const style = hasIssue && !isResolved ? getRiskStyle(issue.severity) : null
           const nodeColor = style ? style.dotColor : '#090d16'
           const outerBorder = isSelected
             ? '#ffffff'
@@ -569,8 +577,8 @@ export default function IndiaRailwayMap({
                     {hasIssue && !isResolved && (
                       <span
                         className="w-1.5 h-1.5 rounded-full inline-block animate-pulse ml-0.5"
-                        style={{ backgroundColor: style.dotColor }}
-                        title={`${issue.severity} Risk`}
+                        style={{ backgroundColor: style?.dotColor || '#f87171' }}
+                        title={`${issue.severity || 'Active'} Risk`}
                       />
                     )}
                   </div>
