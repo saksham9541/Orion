@@ -326,6 +326,9 @@ class MaintenanceTask(BaseModel):
     km_location: float                         # Kilometer marker
     km_start: float = 0.0                      # Start of affected stretch
     km_end: float = 0.0                        # End of affected stretch
+    latitude: Optional[float] = None           # Real track latitude (pilot sections)
+    longitude: Optional[float] = None          # Real track longitude (pilot sections)
+    chainage_km: Optional[float] = None        # Track chainage from start station (approximate)
 
     # Timing
     reported_date: date
@@ -421,10 +424,12 @@ class BlockWindow(BaseModel):
     block_type: BlockType = BlockType.TRAFFIC_BLOCK
     max_tasks: int = 5                         # Max tasks in this window
 
-    # ML-filled fields
+    # ML / Traffic impact fields
     ml_traffic_impact_score: float = 0.0       # 0-100
     ml_trains_affected: int = 0
     ml_cumulative_delay_minutes: float = 0.0
+    source: str = "synthetic"                  # "synthetic" | "timetable_derived"
+    delay_source: str = "ml_estimate"          # "computed" | "ml_estimate"
 
     def model_post_init(self, __context: object) -> None:
         if self.duration_hours == 0.0:

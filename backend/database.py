@@ -60,6 +60,9 @@ class TaskRecord(Base):
     km_location = Column(Float)
     km_start = Column(Float)
     km_end = Column(Float)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    chainage_km = Column(Float, nullable=True)
     reported_date = Column(Date)
     due_date = Column(Date, nullable=True)
     days_overdue = Column(Integer)
@@ -306,6 +309,9 @@ def init_db(engine):
             for table, col, col_type in [
                 ("corridors", "source", "VARCHAR(20) DEFAULT 'synthetic'"),
                 ("tasks", "source", "VARCHAR(20) DEFAULT 'synthetic'"),
+                ("tasks", "latitude", "FLOAT"),
+                ("tasks", "longitude", "FLOAT"),
+                ("tasks", "chainage_km", "FLOAT"),
                 ("plans", "source", "VARCHAR(20) DEFAULT 'synthetic'"),
                 ("login_attempts", "ip_address", "VARCHAR(64)"),
                 ("api_usage", "key_suffix", "VARCHAR(16)"),

@@ -418,7 +418,23 @@ def generate_full_dataset(
         valid_assets = [a for a, d in ASSET_DEPARTMENT_MAP.items() if d == dept]
         asset = random.choice(valid_assets)
         section = random.choice(sections)
-        km = round(section.start_km + random.random() * section.length_km, 1)
+
+        from traffic.section_map import is_pilot_section
+        from traffic.geo import locate
+
+        # For pilot sections, place task at realistic track coordinates along the polyline
+        if is_pilot_section(section.section_id):
+            chainage = round(random.uniform(0.2, max(0.5, section.length_km - 0.2)), 2)
+            lat, lon = locate(section.section_id, chainage)
+            km = round(section.start_km + chainage, 1)
+            task_lat = lat
+            task_lon = lon
+            task_chainage = chainage
+        else:
+            km = round(section.start_km + random.random() * section.length_km, 1)
+            task_chainage = round(km - section.start_km, 2)
+            task_lat = None
+            task_lon = None
 
         # Days overdue: exponential (most recent, some very old)
         days_overdue = int(random.expovariate(1 / 8.0))
@@ -433,12 +449,16 @@ def generate_full_dataset(
 
         task = MaintenanceTask(
             source_system={"ENGINEERING": "TMS", "SNT": "SMMS", "TRD": "TDMS"}[dept.value],
+            source="synthetic",
             department=dept,
             asset_type=asset,
             defect_category=defect,
             corridor_id=section.corridor_id,
             section_id=section.section_id,
             km_location=km,
+            latitude=task_lat,
+            longitude=task_lon,
+            chainage_km=task_chainage,
             reported_date=reported_date,
             due_date=reported_date + timedelta(days=random.choice([7, 14, 30])),
             days_overdue=days_overdue,
