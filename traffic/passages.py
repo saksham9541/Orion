@@ -490,6 +490,21 @@ def build_block_passages_from_timetable(
     pilot_id = block_sections[0].pilot_section_id or "SEC-93135bb9"
     sec_cfg = PILOT_SECTIONS.get(pilot_id, PILOT_SECTIONS["SEC-93135bb9"])
     corridor_stations = {s.code: s for s in sec_cfg.stations}
+    alias_map = {"ANVR": "ANVT", "ANVT": "ANVR"}
+    # Inherit station configs directly from block_sections (e.g. ANVR from live EMU)
+    for bs in block_sections:
+        for st_code in (bs.from_station, bs.to_station):
+            if st_code not in corridor_stations:
+                target_alias = alias_map.get(st_code)
+                if target_alias and target_alias in corridor_stations:
+                    alias_cfg = corridor_stations[target_alias]
+                    corridor_stations[st_code] = StationStopConfig(
+                        code=st_code,
+                        name=alias_cfg.name,
+                        km_from_start=alias_cfg.km_from_start,
+                        lat=alias_cfg.lat,
+                        lon=alias_cfg.lon,
+                    )
 
     speed = (speed_by_type or DEFAULT_SPEED_BY_TYPE).get(train_type, 80.0)
 
@@ -497,8 +512,11 @@ def build_block_passages_from_timetable(
     matched_stops: List[Tuple[int, dict, StationStopConfig]] = []
     for idx, r in enumerate(route_stops):
         code = r.get("station_code")
-        if code in corridor_stations:
-            matched_stops.append((idx, r, corridor_stations[code]))
+        matched_cfg = corridor_stations.get(code)
+        if not matched_cfg and code in alias_map:
+            matched_cfg = corridor_stations.get(alias_map[code])
+        if matched_cfg:
+            matched_stops.append((idx, r, matched_cfg))
 
     direction = "DN"
     if len(matched_stops) >= 2:
@@ -615,6 +633,12 @@ def build_block_passages_from_timetable(
         for bs in active_sections:
             f_code = bs.from_station
             t_code = bs.to_station
+
+            # Resolve ANVR/ANVT alias in station_times
+            if f_code not in station_times and alias_map.get(f_code) in station_times:
+                station_times[f_code] = station_times[alias_map[f_code]]
+            if t_code not in station_times and alias_map.get(t_code) in station_times:
+                station_times[t_code] = station_times[alias_map[t_code]]
 
             if f_code not in station_times or t_code not in station_times:
                 continue
