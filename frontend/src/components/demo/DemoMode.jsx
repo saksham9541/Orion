@@ -31,7 +31,7 @@ export const DEMO_STEPS = [
   },
   {
     title: '3 · Optimisation',
-    body: 'Press Run RailOpt optimisation. The pipeline reports real counts as it passes: requests in, conflicts found, constraints checked, windows priced, combinations found, impact simulated.',
+    body: 'Press Run ORION optimisation. The pipeline reports real counts as it passes: requests in, conflicts found, constraints checked, windows priced, combinations found, impact simulated.',
     to: '/dashboard',
   },
   {
@@ -61,7 +61,7 @@ export const DEMO_STEPS = [
   },
   {
     title: '9 · Approval',
-    body: 'The plan ends as a recommendation. A section controller approves it or sends it back with a note. RailOpt never grants a possession.',
+    body: 'The plan ends as a recommendation. A section controller approves it or sends it back with a note. ORION never grants a possession.',
     to: '/plan',
   },
 ]

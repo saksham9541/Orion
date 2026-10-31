@@ -39,7 +39,7 @@ export default function ExplainDrawer({ taskId, onClose }) {
       </div>
 
       <section className="mt-6">
-        <h3 className="text-[13px] text-muted">RailOpt selected this window because</h3>
+        <h3 className="text-[13px] text-muted">ORION selected this window because</h3>
         <ol className="mt-3 space-y-2.5">
           {reasons.map((r, i) => (
             <motion.li

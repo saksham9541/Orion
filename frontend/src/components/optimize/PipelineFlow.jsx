@@ -37,7 +37,7 @@ export default function PipelineFlow({
         <div>
           <h2 className="text-[15px] font-semibold">Optimisation pipeline</h2>
           <p className="mt-0.5 text-[12.5px] text-muted">
-            RailOpt recommends. Authorised railway personnel approve.
+            ORION recommends. Authorised railway personnel approve.
           </p>
         </div>
       </div>

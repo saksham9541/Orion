@@ -10,7 +10,7 @@ import HowItWorks from '@/components/landing/HowItWorks'
  */
 export default function Landing() {
   useEffect(() => {
-    document.title = 'RailOpt — one block plan for three departments'
+    document.title = 'ORION ? — one block plan for three departments'
   }, [])
 
   return (

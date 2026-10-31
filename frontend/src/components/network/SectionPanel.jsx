@@ -143,7 +143,7 @@ export default function SectionPanel({ section, day, minutes, onClose, onExplain
         <section className="rounded-panel border border-merge/25 bg-merge/[0.06] px-4 py-3.5">
           <p className="flex items-center gap-2 font-mono text-[11px] tracking-[0.14em] text-faint">
             <Lightbulb size={11} aria-hidden="true" />
-            RAILOPT RECOMMENDATION
+            ORION RECOMMENDATION
           </p>
           <p className="mt-2 text-[13.5px] leading-relaxed text-ink/90">{d.recommendation}</p>
           <p className="mt-2.5 text-[12px] text-faint">

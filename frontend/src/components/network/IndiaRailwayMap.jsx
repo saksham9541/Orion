@@ -532,30 +532,40 @@ export default function IndiaRailwayMap({
           onState={handleTrackState}
         />
 
-        {/* Fallback if the track data fails to load: the 15 named corridors, risk coloured */}
+        {/* Inbuilt railway track lines for Indian Rail corridors */}
         {showCorridors &&
-          track.error &&
           INDIAN_RAIL_CORRIDORS.map((corridor) => {
             const style = RISK_STYLES[getCorridorRisk(corridor, issues)] || RISK_STYLES.LOW
             return (
-              <Polyline
-                key={`fallback-${corridor.id}`}
-                positions={corridor.coords}
-                pathOptions={{
-                  color: style.coreColor,
-                  weight: style.coreWeight,
-                  opacity: style.coreOpacity,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              >
-                <Tooltip sticky direction="top" opacity={0.95}>
-                  <span className="font-sans text-xs">{corridor.name}</span>
-                </Tooltip>
-              </Polyline>
-            )
-          })}
+              <Fragment key={`corridor-track-${corridor.id}`}>
 
+                <Polyline
+                  positions={corridor.coords}
+                  pathOptions={{
+                    color: style.glowColor || style.coreColor,
+                    weight: 5.0,
+                    opacity: 0.35,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+                <Polyline
+                  positions={corridor.coords}
+                  pathOptions={{
+                    color: style.coreColor,
+                    weight: 2.4,
+                    opacity: 0.95,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                >
+                  <Tooltip sticky direction="top" opacity={0.95}>
+                    <span className="font-sans text-xs font-semibold">{corridor.name}</span>
+                  </Tooltip>
+                </Polyline>
+              </Fragment>
+            )
+          })}\n
         {/* 3. Risk Heatmap: Soft subtle circular wash on active issue stations */}
         {showHeatmap &&
           STATIONS.map((s) => {

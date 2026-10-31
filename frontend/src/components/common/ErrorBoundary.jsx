@@ -39,7 +39,7 @@ export default class ErrorBoundary extends React.Component {
                 ⚠️
               </span>
               <div>
-                <h1 className="text-base font-bold text-ink">RailOpt UI Recovered</h1>
+                <h1 className="text-base font-bold text-ink">ORION UI Recovered</h1>
                 <p className="text-xs text-muted">An unexpected interface exception was safely intercepted.</p>
               </div>
             </div>

@@ -135,7 +135,7 @@ function mapTaskForAdmin(t) {
       how: [],
       impact: 'Predicted Duration: ' + (t.ml_predicted_duration_hours || t.estimated_duration_hours || 2) + ' hrs',
       seriousness: severity,
-      recommendation: 'Use RailOpt Optimizer to generate maintenance schedule block.',
+      recommendation: 'Use ORION Optimizer to generate maintenance schedule block.',
       supporting: `Overdue: ${t.days_overdue ?? 0} days. Historical failures: ${t.historical_failure_count ?? 0}.`
     }
   }
@@ -442,7 +442,7 @@ export default function AdminDashboard() {
             </div>
             {showHeatmap && (
               <div className="bg-raised border-b border-line px-6 py-2 flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-muted uppercase tracking-widest">RailOpt Risk — geographic overlay</span>
+                <span className="text-xs font-mono font-bold text-muted uppercase tracking-widest">ORION Risk — geographic overlay</span>
                 <span className="text-xs font-mono font-bold text-warn uppercase tracking-widest">Simulation Data</span>
               </div>
             )}
@@ -747,7 +747,7 @@ export default function AdminDashboard() {
 
               {/* Recommendation */}
               <div className="mb-6 bg-info/10 border border-info/30 rounded p-4">
-                <h3 className="text-[10px] font-bold text-info uppercase tracking-wider mb-2">RAILOPT RECOMMENDATION</h3>
+                <h3 className="text-[10px] font-bold text-info uppercase tracking-wider mb-2">ORION RECOMMENDATION</h3>
                 <p className="text-sm text-ink font-medium">{selectedIssue.details.recommendation}</p>
               </div>
 

@@ -6,7 +6,7 @@ export default function Wordmark({ size = 'md', animated = false }) {
   return (
     <span className="inline-flex items-center gap-2.5">
       <Logo size={icon} animated={animated} />
-      <span className={`${s} font-semibold tracking-tight`}>Orion</span>
+      <span className={`${s} font-semibold tracking-tight`}>ORION</span>
     </span>
   )
 }

@@ -11,8 +11,8 @@ import Button from '@/components/common/Button'
  */
 const STAGES = [
   { n: '01', name: 'CAPTURE', line: 'Maintenance requests are collected.' },
-  { n: '02', name: 'ASSESS', line: 'RailOpt evaluates priority and risk.' },
-  { n: '03', name: 'OPTIMISE', line: 'RailOpt creates an efficient maintenance plan.' },
+  { n: '02', name: 'ASSESS', line: 'ORION evaluates priority and risk.' },
+  { n: '03', name: 'OPTIMISE', line: 'ORION creates an efficient maintenance plan.' },
   { n: '04', name: 'ACT', line: 'Teams receive clear operational actions.' },
 ]
 
@@ -26,7 +26,7 @@ export default function HowItWorks() {
     >
       <div className="mx-auto max-w-[1080px]">
         <h2 className="text-[clamp(1.5rem,3.4vw,2.1rem)] font-semibold leading-tight tracking-tight">
-          How RailOpt works
+          How ORION works
         </h2>
 
         <ol className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
@@ -55,7 +55,7 @@ export default function HowItWorks() {
             <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
           </Button>
           <p className="text-[12px] leading-relaxed text-faint">
-            Prototype with demonstration data. RailOpt recommends; a railway official approves.
+            Prototype with demonstration data. ORION recommends; a railway official approves.
           </p>
         </div>
       </div>

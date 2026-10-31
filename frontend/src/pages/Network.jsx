@@ -33,7 +33,7 @@ export default function Network() {
   const [activePlan, setActivePlan] = useState(null)
 
   useEffect(() => {
-    document.title = 'Digital twin — RailOpt'
+    document.title = 'Digital twin — ? ORION'
     fetchCorridors().then(res => res.data && setCorridors(res.data)).catch(() => {})
     fetchPlans().then(res => res.data && res.data.length > 0 && setActivePlan(res.data[0])).catch(() => {})
   }, [])

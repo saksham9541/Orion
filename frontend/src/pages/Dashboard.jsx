@@ -63,7 +63,7 @@ export default function Dashboard() {
   const [activePlan, setActivePlan] = useState(null)
 
   useEffect(() => {
-    document.title = 'Overview — RailOpt'
+    document.title = 'Overview — ? ORION'
     const reload = () => {
       fetchDashboardStats().then(res => res.data && setLiveStats(res.data)).catch(() => {})
       fetchPlans().then(res => res.data && res.data.length > 0 && setActivePlan(res.data[0])).catch(() => {})
@@ -397,7 +397,7 @@ function DepartmentSplit() {
  *
  * Put above everything a controller might act on, because the most important
  * fact about this plan is not any of its numbers — it is that nobody has
- * authorised it yet, and that RailOpt cannot.
+ * authorised it yet, and that ORION cannot.
  */
 function RecommendationBanner() {
   const { approvedCount, planDecision } = useAppState()
@@ -418,7 +418,7 @@ function RecommendationBanner() {
     >
       <div className="min-w-[180px]">
         <p className="font-mono text-[11px] tracking-[0.16em] text-faint">
-          RAILOPT RECOMMENDATION
+          ORION RECOMMENDATION
         </p>
         <p className="mt-1.5 text-[15px] leading-snug">
           {optimised.blocks} optimised blocks · {optimised.slaBreaches} SLA breaches
@@ -457,7 +457,7 @@ function RecommendationBanner() {
       </div>
 
       <p className="w-full text-[12px] leading-relaxed text-faint">
-        RailOpt recommends. Authorised railway personnel approve. No possession is granted from
+        ORION recommends. Authorised railway personnel approve. No possession is granted from
         this interface.
       </p>
     </motion.section>

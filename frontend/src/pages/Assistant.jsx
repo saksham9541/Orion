@@ -51,7 +51,7 @@ export default function Assistant() {
   const endRef = useRef(null)
 
   useEffect(() => {
-    document.title = 'Copilot — RailOpt'
+    document.title = 'Copilot — ? ORION'
   }, [])
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function Assistant() {
   return (
     <>
       <PageHeader
-        title="RailOpt control room copilot"
+        title="ORION control room copilot"
         description="Answers about this week's plan, its scores and its reason codes. If a record cannot be looked up, the question goes unanswered rather than guessed at."
       >
         <DataTag kind="prototype" />

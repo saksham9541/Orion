@@ -312,7 +312,7 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
 
           {/* 3. AI Optimizer Recommendation */}
           <div>
-            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#656A66] mb-2">3. RailOpt AI Recommendation</h3>
+            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#656A66] mb-2">3. ORION AI Recommendation</h3>
             <div className="rounded-xl border border-[#D99A2B]/30 bg-[#FFF3D9]/40 p-4 flex items-start gap-3">
               <Sparkles size={18} className="text-[#D99A2B] shrink-0 mt-0.5" />
               <div>

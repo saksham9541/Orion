@@ -194,7 +194,7 @@ export default function OptimizationRun({ onComplete }) {
                 </p>
                 <Button onClick={run} size="lg" className="group mt-6">
                   <Zap size={16} className="transition-transform group-hover:scale-110" />
-                  Run RailOpt optimisation
+                  Run ORION optimisation
                 </Button>
               </motion.div>
             )}

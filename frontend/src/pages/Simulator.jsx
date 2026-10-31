@@ -27,7 +27,7 @@ export default function Simulator() {
   const [activePlan, setActivePlan] = useState(null)
 
   useEffect(() => {
-    document.title = 'Scenario Lab — RailOpt'
+    document.title = 'Scenario Lab — ? ORION'
     fetchPlans()
       .then((res) => {
         if (res.data && res.data.length > 0) {

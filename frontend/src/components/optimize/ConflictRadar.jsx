@@ -163,7 +163,7 @@ export default function ConflictRadar({ compact = false }) {
 
             <div className="rounded-panel border border-merge/25 bg-merge/[0.06] px-4 py-4">
               <p className="font-mono text-[11px] tracking-[0.14em] text-faint">
-                RAILOPT RECOMMENDATION
+                ORION RECOMMENDATION
               </p>
               <ul className="mt-3 space-y-2">
                 {resolution.blocks.map((b, i) => (

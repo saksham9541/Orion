@@ -385,7 +385,7 @@ function mapBackendTask(t, deptId) {
       location: t.corridor_id || 'Mainline'
     },
     actions: ['Inspect on-site', 'Coordinate crew', 'Schedule maintenance block'],
-    recommendation: 'Schedule maintenance block via RailOpt Optimizer during off-peak window.',
+    recommendation: 'Schedule maintenance block via ORION Optimizer during off-peak window.',
     supporting: [
       { label: 'Overdue', value: `${t.days_overdue ?? 0} days` },
       { label: 'Historical Failures', value: `${t.historical_failure_count ?? 0} past records` },
@@ -1528,12 +1528,12 @@ export default function DepartmentDashboard({ deptId, title, department }) {
                 </div>
               </div>
 
-              {/* 7. RAILOPT RECOMMENDATION */}
+              {/* 7. ORION RECOMMENDATION */}
               <div className="md:col-span-2">
                 <div className="border border-info/30 rounded-lg overflow-hidden bg-info/5">
                   <div className="bg-info/20 text-info px-4 py-2 flex items-center gap-2">
                     <Sparkles size={14} />
-                    <span className="text-[11px] font-bold uppercase tracking-wider">7. RAILOPT RECOMMENDATION</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">7. ORION RECOMMENDATION</span>
                   </div>
                   <div className="p-4 text-xs font-medium text-ink">
                     {selectedTask.recommendation}

@@ -60,15 +60,11 @@ export default function PortalLayout({ children, role }) {
               <ArrowLeft size={15} />
             </button>
 
-            <Link to={home} className="flex items-center gap-3 rounded-xl px-2 py-1 hover:bg-surface/50 transition-colors" aria-label="RailOpt home">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#282D2A] text-[#D99A2B] border border-[#3A403B] font-mono font-bold text-xs shadow-sm">
-                R1
-              </span>
+            <Link to={home} className="flex items-center gap-3 rounded-xl px-2 py-1 hover:bg-surface/50 transition-colors" aria-label="ORION home">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#282D2A] text-[#D99A2B] border border-[#3A403B] font-mono font-bold text-xs shadow-sm">O1</span>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[17px] font-bold tracking-tight text-ink font-sans">
-                    RailOpt
-                  </span>
+                  <span className="text-[17px] font-bold tracking-tight text-ink font-sans">ORION</span>
                   <span className="h-2 w-2 rounded-full bg-[#D99A2B] inline-block" />
                 </div>
                 <span className="text-[9.5px] font-mono uppercase tracking-wider text-muted">
@@ -116,7 +112,7 @@ export default function PortalLayout({ children, role }) {
               type="button"
               onClick={() => setIsAssistantOpen(true)}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted hover:text-ink hover:bg-base transition-colors shadow-sm"
-              title="RailOpt AI Assistant"
+              title="ORION AI Assistant"
             >
               <MessageSquare size={15} />
             </button>

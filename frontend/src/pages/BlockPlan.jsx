@@ -31,7 +31,7 @@ export default function BlockPlan() {
   const [solverResult, setSolverResult] = useState(null)
 
   useEffect(() => {
-    document.title = 'Block plan — RailOpt'
+    document.title = 'Block plan — ? ORION'
     // Fetch latest plans on mount
     fetchPlans()
       .then(res => {

@@ -6,7 +6,7 @@ import { queryNL } from '@/api'
 export default function AssistantPanel({ isOpen, onClose }) {
   const { currentUser } = useAppState()
   const [messages, setMessages] = useState([
-    { role: 'assistant', text: `Hello. I am the RailOpt Operational Assistant. I can help with information related to ${currentUser?.label || 'all departments'}.` }
+    { role: 'assistant', text: `Hello. I am the ORION Operational Assistant. I can help with information related to ${currentUser?.label || 'all departments'}.` }
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -57,7 +57,7 @@ export default function AssistantPanel({ isOpen, onClose }) {
         <div>
           <h2 className="font-semibold tracking-wide uppercase flex items-center gap-2">
             <MessageSquare size={16} />
-            RAILOPT ASSISTANT
+            ORION ASSISTANT
           </h2>
           <span className="mt-0.5 block text-[10px] uppercase tracking-widest text-barmuted">AI Co-pilot</span>
         </div>

@@ -108,7 +108,7 @@ export default function Hero() {
               size="cta"
               className="tracking-wide"
             >
-              SEE HOW RAILOPT WORKS
+              SEE HOW ORION WORKS
             </Button>
           </motion.div>
         </div>

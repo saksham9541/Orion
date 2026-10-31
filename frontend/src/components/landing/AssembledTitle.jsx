@@ -25,7 +25,7 @@ export default function AssembledTitle({ delay = 0, reduce = false }) {
   return (
     <h1
       className="flex justify-center text-[clamp(2.6rem,9vw,6.2rem)] font-bold leading-[0.94] tracking-[-0.03em]"
-      aria-label="RailOpt"
+      aria-label="ORION"
     >
       {LETTERS.map((letter, i) => (
         <motion.span

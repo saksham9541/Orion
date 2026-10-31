@@ -32,7 +32,7 @@ export default function Sources() {
   const [showItemizedDetails, setShowItemizedDetails] = useState(false)
 
   useEffect(() => {
-    document.title = 'Data sources — RailOpt'
+    document.title = 'Data sources — ? ORION'
 
     // Fetch live backend corridors and snapshots provenance
     fetchCorridors()

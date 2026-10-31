@@ -29,7 +29,7 @@ export default function ObjectivePanel({ className = '' }) {
     <section className={`panel overflow-hidden ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hair px-5 py-4 sm:px-6">
         <div>
-          <h2 className="text-[15px] font-semibold">What does RailOpt optimise?</h2>
+          <h2 className="text-[15px] font-semibold">What does ORION optimise?</h2>
           <p className="mt-0.5 text-[12.5px] text-muted">Optimisation framework</p>
         </div>
         <DataTag kind="prototype" />

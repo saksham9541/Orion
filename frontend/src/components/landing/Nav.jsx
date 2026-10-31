@@ -28,7 +28,7 @@ export default function Nav() {
       }`}
     >
       <div className="mx-auto flex max-w-[1180px] items-center justify-between px-5 py-4">
-        <Link to="/" className="rounded-panel" aria-label="RailOpt home">
+        <Link to="/" className="rounded-panel" aria-label="ORION home">
           <Wordmark />
         </Link>
         <div className="flex items-center gap-3">

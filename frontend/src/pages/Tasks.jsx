@@ -41,7 +41,7 @@ export default function Tasks() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    document.title = 'Pending work — RailOpt'
+    document.title = 'Pending work — ? ORION'
     let isMounted = true
     Promise.all([
       fetchTasks().catch(() => null),

@@ -47,7 +47,7 @@ export default function PreventedPanel() {
     <section className="panel overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hair px-5 py-4 sm:px-6">
         <div>
-          <h2 className="text-[15px] font-semibold">What RailOpt prevented</h2>
+          <h2 className="text-[15px] font-semibold">What ORION prevented</h2>
           <p className="mt-0.5 text-[12.5px] text-muted">
             The difference between the same work coordinated and uncoordinated.
           </p>
