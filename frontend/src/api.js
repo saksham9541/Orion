@@ -5,6 +5,9 @@ import { getStoredToken, getStoredEmail, setStoredToken } from '@/state/AppState
 const RENDER_PROD_API = 'https://orion-backend-q2q3.onrender.com';
 
 const getInitialApiBase = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
@@ -35,7 +38,7 @@ export async function loginApi(email, password = 'password123') {
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
-  timeout: 10000,
+  timeout: 60000, // 60s timeout to allow heavy batch operations and Render cold-starts
 });
 
 // Token management: use stored token from login, with lazy refresh
@@ -152,7 +155,10 @@ export const submitComplaint = (data) => api.post('/tasks/complaint', data);
 export const fetchLiveTrains = () => api.get('/trains/live');
 export const fetchSyncPreview = (sectionId = 'SEC-93135bb9') => api.get('/trains/live/sync-preview', { params: { section_id: sectionId } });
 export const fetchApiBudget = () => api.get('/trains/live/budget');
-export const syncLiveTrains = (sectionId = 'SEC-93135bb9', force = false) => api.post('/trains/live/sync', null, { params: { section_id: sectionId, force: force || undefined } });
+export const syncLiveTrains = (sectionId = 'SEC-93135bb9', force = false) => api.post('/trains/live/sync', null, { 
+  params: { section_id: sectionId, force: force || undefined },
+  timeout: 60000 
+});
 
 // Multi-Agent System
 export const fetchAgentsStatus = () => api.get('/agents/status');
