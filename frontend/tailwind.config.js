@@ -15,6 +15,13 @@ export default {
     },
     extend: {
       colors: {
+        // Palette-derived scales: every hardcoded blue-*/purple-*/amber-* class
+        // in the code now resolves to the supplied palette.
+        blue:   { 50:'#EEF1F3',100:'#C9D3D9',200:'#A9B8C1',300:'#8FA3AD',400:'#8FA3AD',500:'#5F7580',600:'#4A5E69',700:'#33444D',800:'#222D33',900:'#11171A' },
+        purple: { 50:'#F4F1EC',100:'#DDD5C8',200:'#C9BFAE',300:'#B5A998',400:'#B5A998',500:'#8C806F',600:'#6B5F4E',700:'#51473A',800:'#383128',900:'#1E1A15' },
+        violet: { 50:'#F4F1EC',100:'#DDD5C8',400:'#B5A998',500:'#8C806F',600:'#6B5F4E',700:'#51473A' },
+        indigo: { 50:'#EEF1F3',100:'#C9D3D9',400:'#A9B8C1',500:'#8FA3AD',600:'#5F7580',700:'#33444D' },
+        amber:  { 50:'#FFF6EC',100:'#FFE5C9',200:'#FFD0A1',300:'#FFB36B',400:'#FFA94D',500:'#F28C28',600:'#D9701A',700:'#D9500A',800:'#B84A0B',900:'#4A1D05' },
         // Every token resolves through a CSS variable (set in index.css for
         // .dark / .light on <html>) so opacity modifiers like bg-base/90
         // keep working while the whole palette repaints on theme toggle.

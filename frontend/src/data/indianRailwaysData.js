@@ -4,6 +4,8 @@
  * No tracks or trains rendered across foreign nations (China, Pakistan, Nepal, etc.)
  */
 
+import RAIL_TRACKS from './railTracks.json'
+
 export const INDIAN_STATIONS = [
   { id: 'NDLS', name: 'Delhi', lat: 28.6435, lng: 77.2197, zone: 'NR' },
   { id: 'LDH', name: 'Ludhiana', lat: 30.9010, lng: 75.8573, zone: 'NR' },
@@ -17,7 +19,12 @@ export const INDIAN_STATIONS = [
   { id: 'SC', name: 'Hyderabad', lat: 17.4399, lng: 78.5011, zone: 'SCR' },
 ]
 
-export const INDIAN_RAIL_CORRIDORS = [
+// Hand-placed station waypoints per corridor. These are only a *skeleton*
+// (a few points per ~1000 km) and are NOT drawn directly any more: straight
+// lines between them cut across towns and roads. They are kept for reference
+// and as the input to tools/railtracks/route.py, which snaps them onto real
+// track geometry. See INDIAN_RAIL_CORRIDORS below for what the map renders.
+export const CORRIDOR_WAYPOINTS = [
   // 1. Delhi - Ludhiana - Amritsar - Jammu (Northern Trunk)
   {
     id: 'COR-NDLS-ASR-JAT',
@@ -318,6 +325,18 @@ export const INDIAN_RAIL_CORRIDORS = [
     ],
   },
 ]
+
+/**
+ * Corridors as rendered on the map. `coords` follows the real railway
+ * alignment (src/data/railTracks.json, generated from OpenStreetMap-derived
+ * rail geometry by tools/railtracks/). If a corridor has no generated track
+ * it falls back to its raw waypoints so nothing disappears from the map.
+ */
+export const INDIAN_RAIL_CORRIDORS = CORRIDOR_WAYPOINTS.map((corridor) => ({
+  ...corridor,
+  waypoints: corridor.coords,
+  coords: RAIL_TRACKS[corridor.id] ?? corridor.coords,
+}))
 
 export const ACTIVE_INDIAN_FLEET = []
 

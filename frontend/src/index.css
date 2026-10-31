@@ -418,3 +418,90 @@
 .railopt-map-container .leaflet-popup-close-button:hover {
   color: #ffffff !important;
 }
+
+
+/* Hover card for the whole-network track layer (drawn by lib/RailCanvasLayer.js) */
+.railopt-track-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 800;
+  pointer-events: none;
+  min-width: 150px;
+  max-width: 260px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(10, 15, 29, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  color: #f8fafc;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  will-change: transform;
+}
+.railopt-track-tip__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.railopt-track-tip__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+}
+.railopt-track-tip__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  color: #94a3b8;
+}
+.railopt-track-tip__badge {
+  padding: 1px 5px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.04);
+}
+.railopt-track-tip__sub {
+  margin-top: 3px;
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+
+.railopt-station-label::before {
+  display: none !important;
+}
+
+.railopt-map-container .leaflet-popup-content-wrapper {
+  background: rgba(13, 19, 33, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+  padding: 0 !important;
+  color: #f8fafc !important;
+}
+.railopt-map-container .leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.4 !important;
+}
+.railopt-map-container .leaflet-popup-tip {
+  background: rgba(13, 19, 33, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: none !important;
+}
+.railopt-map-container .leaflet-popup-close-button {
+  color: #94a3b8 !important;
+  padding: 6px 8px !important;
+}
+.railopt-map-container .leaflet-popup-close-button:hover {
+  color: #ffffff !important;
+}

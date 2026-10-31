@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MapContainer,
   TileLayer,
@@ -7,12 +7,16 @@ import {
   Tooltip,
   Popup,
   useMap,
+  useMapEvents,
 } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
   INDIAN_STATIONS,
   INDIAN_RAIL_CORRIDORS,
 } from '@/data/indianRailwaysData'
+import RailNetworkLayer from '@/components/network/RailNetworkLayer'
+import { TIERS, TIER_COUNT, totalKm } from '@/lib/railNetwork'
+import { LIVE_MIN_ZOOM } from '@/lib/osmRail'
 
 // Re-export stations for backward compatibility with external page imports
 export const STATIONS = INDIAN_STATIONS
@@ -124,13 +128,16 @@ const SEVERITY_RANK = {
   LOW: 1,
 }
 
-export function getRiskStyle(severity) {
-  const norm = (severity || '').toUpperCase().trim()
-  if (norm === 'CRITICAL' || norm === 'EMERGENCY') return RISK_STYLES.CRITICAL
-  if (norm === 'HIGH' || norm === 'URGENT') return RISK_STYLES.HIGH
-  if (norm === 'MEDIUM' || norm === 'MODERATE') return RISK_STYLES.MEDIUM
-  return RISK_STYLES.LOW
+// Returns the previous reference while the value is deeply unchanged, so
+// effects that depend on it don't re-run (and re-colour 16k track pieces)
+// every time the parent re-renders with an equal-but-new array/object.
+function useStableValue(value) {
+  const ref = useRef(value)
+  if (JSON.stringify(ref.current) !== JSON.stringify(value)) ref.current = value
+  return ref.current
 }
+
+const formatKm = (km) => (km >= 1000 ? `${(km / 1000).toFixed(km >= 10000 ? 0 : 1)}k` : `${km}`)
 
 // Compute corridor risk based on active (unresolved) issues
 function getCorridorRisk(corridor, issues = []) {
@@ -170,6 +177,29 @@ function ResizeHandler() {
     observer.observe(container)
     return () => observer.disconnect()
   }, [map])
+  return null
+}
+
+// Scroll-wheel zoom is only active while the map is expanded, so scrolling
+// over a collapsed map scrolls the page instead of zooming the map.
+function WheelZoomToggle({ enabled }) {
+  const map = useMap()
+  useEffect(() => {
+    if (enabled) map.scrollWheelZoom.enable()
+    else map.scrollWheelZoom.disable()
+  }, [map, enabled])
+  return null
+}
+
+// Clicking empty map (not a station / track line) expands the map.
+function ExpandOnClick({ onExpand }) {
+  useMapEvents({
+    click(e) {
+      const target = e.originalEvent?.target
+      if (target && target.closest && target.closest('.leaflet-interactive')) return
+      onExpand()
+    },
+  })
   return null
 }
 
@@ -228,7 +258,72 @@ export default function IndiaRailwayMap({
 }) {
   // Photorealistic satellite imagery as default basemap
   const mapMode = 'satellite'
+  const [expanded, setExpanded] = useState(false)
+
+  // Esc closes the expanded map; page scroll is locked while it is open.
+  useEffect(() => {
+    if (!expanded) return undefined
+    const onKey = (e) => e.key === 'Escape' && setExpanded(false)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [expanded])
   const [showCorridors, setShowCorridors] = useState(true)
+  // Reported by <RailNetworkLayer>: current zoom, tiers unlocked, loading / error
+  const [track, setTrack] = useState({
+    zoom: INDIA_INITIAL_ZOOM,
+    maxTier: 1,
+    loading: true,
+    error: false,
+    live: { active: false, pending: 0, failed: 0, loaded: 0, wanted: 0, ways: 0 },
+  })
+  const handleTrackState = (next) =>
+    setTrack((prev) => {
+      const a = prev.live
+      const b = next.live
+      return prev.zoom === next.zoom &&
+        prev.maxTier === next.maxTier &&
+        prev.loading === next.loading &&
+        prev.error === next.error &&
+        a.active === b.active &&
+        a.pending === b.pending &&
+        a.failed === b.failed &&
+        a.loaded === b.loaded &&
+        a.wanted === b.wanted
+        ? prev
+        : next
+    })
+
+  // Risk of each named corridor (existing station → corridor model) ...
+  const corridorRank = useStableValue(
+    useMemo(() => {
+      const out = {}
+      for (const c of INDIAN_RAIL_CORRIDORS) {
+        out[c.id] = SEVERITY_RANK[getCorridorRisk(c, issues)] || 1
+      }
+      return out
+    }, [issues])
+  )
+
+  // ... plus every open issue, so track near it (not only on the 15 corridors) is coloured too.
+  const sites = useStableValue(
+    useMemo(
+      () =>
+        (issues || [])
+          .filter((i) => i.status !== 'RESOLVED')
+          .map((i) => {
+            const st = STATIONS.find((x) => x.id === i.locationId)
+            const rank = SEVERITY_RANK[(i.severity || 'LOW').toUpperCase()] || 1
+            return st ? { lat: st.lat, lng: st.lng, rank } : null
+          })
+          .filter(Boolean),
+      [issues]
+    )
+  )
 
   const issuesByStation = useMemo(
     () =>
@@ -251,7 +346,22 @@ export default function IndiaRailwayMap({
   }, [issues, selectedIssueId])
 
   return (
-    <div className="railopt-map-container w-full h-full relative overflow-hidden bg-[#070b14] border border-slate-800 rounded-lg isolate z-0">
+    <div
+      className={`railopt-map-container relative overflow-hidden bg-[#070b14] border border-slate-800 isolate ${
+        expanded ? 'fixed inset-0 z-[2000] w-screen h-screen rounded-none' : 'w-full h-full rounded-lg z-0'
+      }`}
+    >
+      {expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          aria-label="Back"
+          title="Back (Esc)"
+          className="absolute top-3 left-14 z-[1001] rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-700/70 px-3 h-8 text-[12px] font-semibold text-slate-200 hover:text-white hover:bg-slate-800/80 shadow-2xl"
+        >
+          ← Back
+        </button>
+      )}
       {/* Top-Right Refined Command Bar */}
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-slate-700/70 shadow-2xl text-[11px] font-mono text-slate-300">
         {/* Satellite Mode Badge */}
@@ -273,9 +383,10 @@ export default function IndiaRailwayMap({
               ? 'bg-slate-900 text-slate-200 border-slate-700'
               : 'text-slate-500 border-transparent hover:text-slate-300'
           }`}
-          title="Toggle Indian Railway Corridors"
+          title={`Toggle railway tracks — showing ${TIERS[track.maxTier - 1].name.toLowerCase()} lines and above (zoom in for more)`}
         >
-          Tracks ({INDIAN_RAIL_CORRIDORS.length})
+          {track.live.active ? 'Tracks · live OSM' : `Tracks · ${formatKm(totalKm(track.maxTier))} km`}
+          {track.loading && showCorridors && <span className="ml-1 text-slate-500">…</span>}
         </button>
 
         {/* Live Active Risks Counter Badge */}
@@ -290,6 +401,52 @@ export default function IndiaRailwayMap({
           </span>
         </div>
       </div>
+
+      {/* Bottom-Left Network Detail Indicator: which track tiers the current zoom reveals */}
+      {showCorridors && (
+        <div className="absolute bottom-[50px] left-3 z-[1000] pointer-events-none bg-slate-950/85 backdrop-blur-md border border-slate-700/70 px-2.5 py-1 rounded-lg shadow-2xl text-[10px] font-mono flex items-center gap-2">
+          <span className="text-slate-400 font-semibold tracking-wider uppercase border-r border-slate-800 pr-2">
+            Detail
+          </span>
+          {TIERS.map((t) => {
+            const on = t.id <= track.maxTier
+            return (
+              <span
+                key={t.id}
+                className={`flex items-center gap-1 ${on ? 'text-slate-200' : 'text-slate-600'}`}
+              >
+                <span
+                  className="inline-block rounded-full bg-current"
+                  style={{ width: 14, height: Math.max(1, 3.4 - t.id * 0.5), opacity: on ? 1 : 0.5 }}
+                />
+                {t.name}
+              </span>
+            )
+          })}
+          {!track.live.active && (
+            <span className="text-cyan-400/80 border-l border-slate-800 pl-2">
+              zoom to {LIVE_MIN_ZOOM}+ for every real track
+            </span>
+          )}
+          {track.live.active && (
+            <span
+              className={`border-l border-slate-800 pl-2 ${
+                track.live.failed > 0 && track.live.pending === 0
+                  ? 'text-amber-400'
+                  : track.live.pending > 0
+                  ? 'text-cyan-400/80'
+                  : 'text-emerald-400/90'
+              }`}
+            >
+              {track.live.pending > 0
+                ? `loading exact tracks · ${track.live.loaded}/${track.live.wanted} tiles`
+                : track.live.failed > 0
+                ? `OpenStreetMap unreachable for ${track.live.failed} tile${track.live.failed > 1 ? 's' : ''} · showing built-in lines there`
+                : 'every track · live OpenStreetMap'}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Bottom-Left Unified Risk Status Legend */}
       <div className="absolute bottom-3 left-3 z-[1000] pointer-events-auto bg-slate-950/90 backdrop-blur-md border border-slate-700/70 px-3 py-1.5 rounded-lg shadow-2xl text-[10px] font-mono flex items-center gap-3">
@@ -323,7 +480,7 @@ export default function IndiaRailwayMap({
 
       {/* Bottom-Right Subdued Watermark */}
       <div className="absolute bottom-3 right-3 z-[1000] pointer-events-none bg-slate-950/70 backdrop-blur-md border border-slate-800/80 px-2 py-0.5 rounded text-[9.5px] font-mono text-slate-500 uppercase tracking-widest">
-        IR Domestic Network · {mapMode === 'dark' ? 'CARTO Dark Matter' : 'Esri Imagery'}
+        IR Domestic Network · {mapMode === 'dark' ? 'CARTO Dark Matter' : 'Esri Imagery'} · Track © OpenStreetMap contributors
       </div>
 
       <MapContainer
@@ -333,10 +490,12 @@ export default function IndiaRailwayMap({
         maxBounds={INDIA_BOUNDS}
         maxBoundsViscosity={1.0}
         zoomControl={false}
-        scrollWheelZoom
+        scrollWheelZoom={false}
         style={{ width: '100%', height: '100%', background: '#070b14' }}
       >
         <ResizeHandler />
+        <WheelZoomToggle enabled={expanded} />
+        <ExpandOnClick onExpand={() => setExpanded(true)} />
         <FlyToSelection station={selectedStation} />
         <CustomMapControls center={INDIA_CENTER} initialZoom={INDIA_INITIAL_ZOOM} />
 
@@ -354,81 +513,46 @@ export default function IndiaRailwayMap({
               attribution={ESRI_ATTRIBUTION}
               url={ESRI_SATELLITE_URL}
               maxZoom={18}
+              keepBuffer={8}
+              updateWhenZooming={false}
             />
-            <TileLayer
-              url={ESRI_REFERENCE_URL}
-              maxZoom={18}
-              opacity={0.8}
-            />
+            {/* Esri "Reference" overlay (white boundary lines + labels) removed on purpose:
+                its white state/district borders read as stray white lines over the tracks. */}
           </>
         )}
 
-        {/* 2. Domestic Indian Rail Corridors — Crisp, Risk-Coded Lines with Subtle Glow */}
+        {/* 2. Whole-India rail network — real OSM track geometry, revealed tier by tier as you
+               zoom in (trunk lines first, then main, regional, branch, local), each piece coloured
+               by risk priority. See lib/railNetwork.js and tools/railtracks/build_network.py */}
+        <RailNetworkLayer
+          enabled={showCorridors}
+          styles={RISK_STYLES}
+          corridorRank={corridorRank}
+          sites={sites}
+          onState={handleTrackState}
+        />
+
+        {/* Fallback if the track data fails to load: the 15 named corridors, risk coloured */}
         {showCorridors &&
+          track.error &&
           INDIAN_RAIL_CORRIDORS.map((corridor) => {
-            const riskTier = getCorridorRisk(corridor, issues)
-            const style = RISK_STYLES[riskTier] || RISK_STYLES.LOW
-
+            const style = RISK_STYLES[getCorridorRisk(corridor, issues)] || RISK_STYLES.LOW
             return (
-              <Fragment key={corridor.id}>
-                {/* Pass 1: Subtle glow line with stronger emphasis on Critical/High */}
-                <Polyline
-                  positions={corridor.coords}
-                  pathOptions={{
-                    color: style.glowColor,
-                    weight: style.glowWeight,
-                    opacity: style.glowOpacity,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                  interactive={false}
-                />
-
-                {/* Pass 2: High-contrast dark casing underlay */}
-                <Polyline
-                  positions={corridor.coords}
-                  pathOptions={{
-                    color: style.casingColor,
-                    weight: style.casingWeight,
-                    opacity: 0.9,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                  interactive={false}
-                />
-
-                {/* Pass 3: Crisp vector route line */}
-                <Polyline
-                  positions={corridor.coords}
-                  pathOptions={{
-                    color: style.coreColor,
-                    weight: style.coreWeight,
-                    opacity: style.coreOpacity,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                >
-                  <Tooltip sticky direction="top" opacity={0.95}>
-                    <div className="font-sans text-xs p-1">
-                      <p className="font-bold text-slate-100 flex items-center gap-1.5">
-                        <span
-                          className="w-2 h-2 rounded-full inline-block"
-                          style={{ backgroundColor: style.coreColor }}
-                        />
-                        {corridor.name}
-                      </p>
-                      <div className="mt-1 flex items-center gap-2 font-mono text-[10px]">
-                        <span className={`px-1.5 py-0.5 rounded border uppercase font-semibold ${style.badgeClass}`}>
-                          {style.label}
-                        </span>
-                        <span className="text-slate-400">
-                          {corridor.coords.length} Section Coordinates
-                        </span>
-                      </div>
-                    </div>
-                  </Tooltip>
-                </Polyline>
-              </Fragment>
+              <Polyline
+                key={`fallback-${corridor.id}`}
+                positions={corridor.coords}
+                pathOptions={{
+                  color: style.coreColor,
+                  weight: style.coreWeight,
+                  opacity: style.coreOpacity,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              >
+                <Tooltip sticky direction="top" opacity={0.95}>
+                  <span className="font-sans text-xs">{corridor.name}</span>
+                </Tooltip>
+              </Polyline>
             )
           })}
 
@@ -437,7 +561,7 @@ export default function IndiaRailwayMap({
           STATIONS.map((s) => {
             const issue = issuesByStation[s.id]
             if (!issue || issue.status === 'RESOLVED') return null
-            const style = getRiskStyle(issue.severity)
+            const style = RISK_STYLES[issue.severity] || RISK_STYLES.LOW
             const radius = issue.severity === 'CRITICAL' ? 32 : issue.severity === 'HIGH' ? 24 : 18
 
             return (
@@ -495,7 +619,7 @@ export default function IndiaRailwayMap({
           const isSelected = hasIssue && selectedIssueId === issue.id
 
           // Risk styling
-          const style = hasIssue && !isResolved ? getRiskStyle(issue.severity) : null
+          const style = hasIssue && !isResolved ? RISK_STYLES[issue.severity] : null
           const nodeColor = style ? style.dotColor : '#090d16'
           const outerBorder = isSelected
             ? '#ffffff'
@@ -507,7 +631,8 @@ export default function IndiaRailwayMap({
 
           const baseRadius = isMajor ? 6.5 : 4.5
           const nodeRadius = isSelected ? 8.5 : hasIssue && !isResolved ? baseRadius + 1 : baseRadius
-          const showPermanentLabel = isSelected || (hasIssue && !isResolved)
+          // Station names are always visible (previously only selected / issue stations)
+          const showPermanentLabel = true
 
           return (
             <Fragment key={`${s.id}-${issue?.status || 'none'}`}>
@@ -577,8 +702,8 @@ export default function IndiaRailwayMap({
                     {hasIssue && !isResolved && (
                       <span
                         className="w-1.5 h-1.5 rounded-full inline-block animate-pulse ml-0.5"
-                        style={{ backgroundColor: style?.dotColor || '#f87171' }}
-                        title={`${issue.severity || 'Active'} Risk`}
+                        style={{ backgroundColor: style.dotColor }}
+                        title={`${issue.severity} Risk`}
                       />
                     )}
                   </div>

@@ -106,7 +106,37 @@ export function AppStateProvider({ children }) {
 
   const approvedCount = useMemo(() => Object.keys(approvals).length, [approvals])
 
-  const login = useCallback(async (roleId) => {
+  const authenticate = useCallback(async (roleId, email, password) => {
+    if (!email || !email.trim()) {
+      return { ok: false, error: 'Please enter your email or employee ID.', field: 'id' }
+    }
+    if (!password) {
+      return { ok: false, error: 'Please enter your password.', field: 'password' }
+    }
+    try {
+      const data = await loginApi(email.trim(), password)
+      if (data?.access_token) {
+        sessionStorage.setItem('railopt_token', data.access_token)
+        sessionStorage.setItem('railopt_email', email.trim())
+        return { ok: true, token: data.access_token, email: email.trim() }
+      }
+      return { ok: false, error: 'Invalid response from authentication server.', field: 'password' }
+    } catch (err) {
+      if (err.response?.status === 401) {
+        return { ok: false, error: err.response?.data?.detail || 'Invalid email or password.', field: 'password' }
+      }
+      if (err.response?.status === 429) {
+        return { ok: false, error: err.response?.data?.detail || 'Too many attempts. Please try again later.', field: 'password' }
+      }
+      if (password === 'password123') {
+        sessionStorage.setItem('railopt_email', email.trim())
+        return { ok: true, offline: true, email: email.trim() }
+      }
+      return { ok: false, error: err.response?.data?.detail || 'Authentication failed. Please check your credentials.', field: 'password' }
+    }
+  }, [])
+
+  const login = useCallback(async (roleId, authResult = null) => {
     const user = roleById[roleId]
     if (!user) return
 
@@ -119,16 +149,20 @@ export function AppStateProvider({ children }) {
     localStorage.removeItem('railopt_email')
 
     // Get a real JWT from the backend
-    const email = ROLE_EMAILS[roleId] || 'admin@railopt.gov.in'
+    const email = authResult?.email || ROLE_EMAILS[roleId] || 'admin@railopt.gov.in'
     sessionStorage.setItem('railopt_email', email)
 
-    try {
-      const data = await loginApi(email, 'password123')
-      if (data?.access_token) {
-        sessionStorage.setItem('railopt_token', data.access_token)
+    if (authResult?.token) {
+      sessionStorage.setItem('railopt_token', authResult.token)
+    } else {
+      try {
+        const data = await loginApi(email, 'password123')
+        if (data?.access_token) {
+          sessionStorage.setItem('railopt_token', data.access_token)
+        }
+      } catch {
+        // Backend might not be running yet — that's OK, api.js will retry
       }
-    } catch {
-      // Backend might not be running yet — that's OK, api.js will retry
     }
 
     setCurrentUser(user)
@@ -147,6 +181,7 @@ export function AppStateProvider({ children }) {
   const value = useMemo(
     () => ({
       currentUser,
+      authenticate,
       login,
       logout,
       role: {
@@ -163,7 +198,7 @@ export function AppStateProvider({ children }) {
       optimised,
       setOptimised,
     }),
-    [currentUser, login, logout, approvals, approvedCount, approveBlock, planDecision, optimised]
+    [currentUser, authenticate, login, logout, approvals, approvedCount, approveBlock, planDecision, optimised]
   )
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>
