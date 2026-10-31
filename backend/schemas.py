@@ -171,6 +171,9 @@ class NotificationResponse(BaseModel):
     created_at: datetime
     read_at: Optional[datetime] = None
     acknowledged_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+    resolved_by: Optional[str] = None
+    action_taken: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

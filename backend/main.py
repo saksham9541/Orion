@@ -1202,7 +1202,7 @@ class DeclineTaskRequest(BaseModel):
 
 
 @app.post("/api/tasks/{task_id}/acknowledge")
-def acknowledge_task(
+async def acknowledge_task(
     task_id: str,
     current_user: User = Depends(require_dept_or_above),
 ):
@@ -1268,12 +1268,12 @@ def acknowledge_task(
         # Mark notifications resolved for all recipients
         notifs = session.query(NotificationRecord).filter(
             NotificationRecord.issue_id == task_id,
-            NotificationRecord.resolved_at.is_(None),
         ).all()
         for n in notifs:
             n.resolved_at = now
             n.resolved_by = current_user.email
             n.action_taken = "ACKNOWLEDGED"
+            n.acknowledged_at = now
             n.read_at = now
 
         session.commit()
@@ -1286,6 +1286,19 @@ def acknowledge_task(
                 t.acknowledged_by = current_user.email
                 t.acknowledged_at = now
                 break
+
+        # Broadcast over WebSocket to all active connections
+        try:
+            await manager.broadcast_to_all({
+                "type": "NOTIFICATION_RESOLVED",
+                "issue_id": task_id,
+                "task_id": task_id,
+                "action": "ACKNOWLEDGED",
+                "resolved_by": current_user.email,
+                "acknowledged_at": now.isoformat(),
+            })
+        except Exception as ws_err:
+            logger.warning("Failed to broadcast acknowledgment via WS: %s", ws_err)
 
         # C2: When an emergency task is enlisted or reported, notify controller and super admin with affected train count
         is_emergency = (
@@ -1313,7 +1326,7 @@ def acknowledge_task(
         event_bus.publish_sync(
             event_type="NOTIFICATION_RESOLVED",
             task_id=task_id,
-            details={"action": "ACKNOWLEDGED", "resolved_by": current_user.email},
+            details={"action": "ACKNOWLEDGED", "resolved_by": current_user.email, "acknowledged_at": now.isoformat()},
         )
 
         return {
@@ -1328,7 +1341,7 @@ def acknowledge_task(
 
 
 @app.post("/api/tasks/{task_id}/decline")
-def decline_task(
+async def decline_task(
     task_id: str,
     request: DeclineTaskRequest = DeclineTaskRequest(),
     current_user: User = Depends(require_dept_or_above),
@@ -1394,7 +1407,6 @@ def decline_task(
         # Resolve notifications
         notifs = session.query(NotificationRecord).filter(
             NotificationRecord.issue_id == task_id,
-            NotificationRecord.resolved_at.is_(None),
         ).all()
         for n in notifs:
             n.resolved_at = now
@@ -1422,6 +1434,19 @@ def decline_task(
                 session.add(reporter_notif)
 
         session.commit()
+
+        # Broadcast over WebSocket
+        try:
+            await manager.broadcast_to_all({
+                "type": "NOTIFICATION_RESOLVED",
+                "issue_id": task_id,
+                "task_id": task_id,
+                "action": "DECLINED",
+                "resolved_by": current_user.email,
+                "acknowledged_at": now.isoformat(),
+            })
+        except Exception as ws_err:
+            logger.warning("Failed to broadcast decline via WS: %s", ws_err)
 
         # Update in-memory state
         for t in getattr(app.state, "tasks", []):
@@ -1545,8 +1570,8 @@ async def submit_complaint(
         km_location=request.km_location,
         estimated_duration_hours=2.0,
         inspector_remarks=request.description,
-        status=TaskStatus.REPORTED if current_user.role in (UserRole.ADMIN, UserRole.CONTROLLER) else TaskStatus.AWAITING_ACK,
-        awaiting_acknowledgement=(current_user.role not in (UserRole.ADMIN, UserRole.CONTROLLER)),
+        status=TaskStatus.AWAITING_ACK,
+        awaiting_acknowledgement=True,
         reported_date=datetime.now().date(),
         ml_predicted_severity=None,
         ml_predicted_duration_hours=0.0,
@@ -1567,7 +1592,7 @@ async def submit_complaint(
         await dispatch_issue_alert(
             session=session,
             issue_id=task.task_id,
-            title=f"New Defect Enlisted: {category.value}" if not task.awaiting_acknowledgement else f"Defect Awaiting Acknowledgement: {category.value}",
+            title=f"Defect Awaiting Acknowledgement: {category.value}",
             message=f"Defect reported on {task.corridor_id} ({task.section_id}) at KM {task.km_location:.1f}. Severity: {severity.value}.",
             severity="EMERGENCY" if getattr(severity, "value", str(severity)).upper() in ("EMERGENCY", "CRITICAL") else severity.value,
             department_designated=department.value,
@@ -4032,6 +4057,7 @@ async def websocket_notifications(
 @app.get("/api/notifications", response_model=list[NotificationResponse])
 def list_notifications(
     unread_only: bool = False,
+    include_resolved: bool = False,
     limit: int = 50,
     offset: int = 0,
     current_user: User = Depends(get_current_user),
@@ -4042,6 +4068,7 @@ def list_notifications(
             session=session,
             user_id=str(current_user.id),
             unread_only=unread_only,
+            include_resolved=include_resolved,
             limit=limit,
             offset=offset,
         )
@@ -4076,7 +4103,7 @@ def mark_read(
 
 
 @app.post("/api/notifications/{notification_id}/acknowledge", response_model=NotificationResponse)
-def acknowledge_notif(
+async def acknowledge_notif(
     notification_id: str,
     current_user: User = Depends(get_current_user),
 ):
@@ -4085,6 +4112,15 @@ def acknowledge_notif(
         notif = acknowledge_notification(session, notification_id, str(current_user.id))
         if not notif:
             raise HTTPException(status_code=404, detail="Notification not found")
+        
+        # If notification is linked to an issue, acknowledge the task as well
+        if notif.issue_id:
+            try:
+                await acknowledge_task(notif.issue_id, current_user=current_user)
+            except Exception as e:
+                logger.debug("Task %s already acknowledged or cannot be acknowledged: %s", notif.issue_id, e)
+        
+        session.refresh(notif)
         return notif
     finally:
         session.close()

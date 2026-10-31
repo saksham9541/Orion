@@ -47,7 +47,13 @@ export default function NotificationBell() {
     if (targetTaskId) {
       const res = await liveAcknowledge(targetTaskId)
       if (!res.success) {
-        alert(res.error || 'Acknowledgement rejected')
+        if (res.error?.toLowerCase().includes('already acknowledged')) {
+          markAsRead(notif.id)
+        } else {
+          alert(res.error || 'Acknowledgement rejected')
+        }
+      } else {
+        markAsRead(notif.id)
       }
     } else {
       acknowledge(notif.id)
@@ -178,7 +184,17 @@ export default function NotificationBell() {
                           {notif.severity} {notif.department_designated ? `• ${notif.department_designated}` : ''}
                         </span>
 
-                        {!notif.acknowledged_at && (
+                        {(notif.acknowledged_at || notif.action_taken === 'ACKNOWLEDGED' || notif.resolved_by) ? (
+                          <span className="rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1 shadow-sm">
+                            <Check size={12} />
+                            <span>Acknowledged{notif.resolved_by ? ` by ${notif.resolved_by.split('@')[0]}` : ''}</span>
+                          </span>
+                        ) : notif.action_taken === 'DECLINED' ? (
+                          <span className="rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1 shadow-sm">
+                            <X size={12} />
+                            <span>Declined</span>
+                          </span>
+                        ) : (
                           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"

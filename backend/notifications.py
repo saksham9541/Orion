@@ -118,11 +118,8 @@ def resolve_issue_recipients(
         is_super_admin = u_role in ("admin", "super_admin")
         is_designated_dept = bool(dept_norm and (u_dept == dept_norm))
 
-        # The creator of the issue must NEVER receive an alert/notification for their own submission,
-        # regardless of role (including Super Admin).
-        if creator_id and str(u.id) == str(creator_id):
-            continue
-        if creator_email and u.email and creator_email.strip().lower() == u.email.strip().lower():
+        # Do not send defect notification back to pure field technicians
+        if u_role == "technician" and ((creator_id and str(u.id) == str(creator_id)) or (creator_email and u.email and creator_email.strip().lower() == u.email.strip().lower())):
             continue
 
         if is_super_admin or is_designated_dept:

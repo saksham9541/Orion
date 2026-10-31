@@ -46,7 +46,7 @@ export function NotificationProvider({ children }) {
     const token = getStoredToken()
     if (!token) return
     try {
-      const res = await fetch(`${getBackendBase()}/notifications?limit=30`, {
+      const res = await fetch(`${getBackendBase()}/notifications?include_resolved=true&limit=30`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
@@ -161,6 +161,34 @@ export function NotificationProvider({ children }) {
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('railopt:task-updated', { detail: data }))
             }
+          } else if (data.type === 'NOTIFICATION_RESOLVED' || data.type === 'TASK_ACKNOWLEDGED' || data.type === 'TASK_DECLINED') {
+            const targetId = data.issue_id || data.task_id || data.notification_id
+            const action = data.action || (data.type === 'TASK_DECLINED' ? 'DECLINED' : 'ACKNOWLEDGED')
+            const resolvedBy = data.resolved_by || data.actor || 'Operator'
+            const resolvedAt = data.acknowledged_at || new Date().toISOString()
+
+            setNotifications((prev) =>
+              prev.map((n) => {
+                if (n.issue_id === targetId || n.id === targetId || n.id === data.notification_id) {
+                  return {
+                    ...n,
+                    action_taken: action,
+                    resolved_by: resolvedBy,
+                    acknowledged_at: action === 'ACKNOWLEDGED' ? resolvedAt : n.acknowledged_at,
+                    resolved_at: resolvedAt,
+                    read_at: n.read_at || resolvedAt,
+                  }
+                }
+                return n
+              })
+            )
+            fetchUnreadCount()
+            if (activePopup?.issue_id === targetId || activePopup?.id === targetId) {
+              setActivePopup(null)
+            }
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('railopt:task-updated', { detail: data }))
+            }
           }
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err)
@@ -202,7 +230,19 @@ export function NotificationProvider({ children }) {
     const handleResolved = (e) => {
       const issueId = e.detail?.issue_id || e.detail?.task_id
       if (issueId) {
-        setNotifications((prev) => prev.filter((n) => n.issue_id !== issueId && n.id !== issueId))
+        const nowIso = new Date().toISOString()
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.issue_id === issueId || n.id === issueId
+              ? {
+                  ...n,
+                  action_taken: 'ACKNOWLEDGED',
+                  resolved_at: nowIso,
+                  acknowledged_at: nowIso,
+                }
+              : n
+          )
+        )
         fetchUnreadCount()
       }
     }
@@ -213,8 +253,26 @@ export function NotificationProvider({ children }) {
       const evtType = evt.type || evt.event_type
       if (['NOTIFICATION_RESOLVED', 'TASK_ACKNOWLEDGED', 'TASK_DECLINED'].includes(evtType)) {
         const targetId = evt.task_id || evt.payload?.task_id || evt.issue_id
+        const action = evtType === 'TASK_DECLINED' ? 'DECLINED' : (evt.details?.action || 'ACKNOWLEDGED')
+        const resolvedBy = evt.actor || evt.details?.resolved_by || evt.details?.acknowledged_by || 'Operator'
+        const resolvedAt = evt.details?.acknowledged_at || new Date().toISOString()
+
         if (targetId) {
-          setNotifications((prev) => prev.filter((n) => n.issue_id !== targetId && n.id !== targetId))
+          setNotifications((prev) =>
+            prev.map((n) => {
+              if (n.issue_id === targetId || n.id === targetId) {
+                return {
+                  ...n,
+                  action_taken: action,
+                  resolved_by: resolvedBy,
+                  acknowledged_at: action === 'ACKNOWLEDGED' ? resolvedAt : n.acknowledged_at,
+                  resolved_at: resolvedAt,
+                  read_at: n.read_at || resolvedAt,
+                }
+              }
+              return n
+            })
+          )
           fetchUnreadCount()
         }
       } else if (evtType === 'TASK_AWAITING_ACK' || evtType === 'TASK_CREATED') {

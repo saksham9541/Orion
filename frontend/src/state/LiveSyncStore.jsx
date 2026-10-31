@@ -97,6 +97,9 @@ export function LiveSyncProvider({ children }) {
       if (status === 409) {
         // Someone else acknowledged it first! Refresh list immediately
         await Promise.all([refreshCounts(), refreshPendingAck()])
+        if (detail.toLowerCase().includes('already acknowledged')) {
+          return { success: true, alreadyAcknowledged: true, message: detail }
+        }
       }
       return { success: false, error: detail, status }
     }

@@ -839,18 +839,22 @@ def get_user_notifications(
     session: Session,
     user_id: str,
     unread_only: bool = False,
+    include_resolved: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[NotificationRecord]:
     query = session.query(NotificationRecord).filter(
         NotificationRecord.recipient_user_id == user_id,
-        NotificationRecord.resolved_at.is_(None)
     )
     if unread_only:
-        query = query.filter(NotificationRecord.read_at.is_(None))
+        query = query.filter(
+            NotificationRecord.read_at.is_(None),
+            NotificationRecord.resolved_at.is_(None),
+        )
+    elif not include_resolved:
+        query = query.filter(NotificationRecord.resolved_at.is_(None))
     
     query = query.order_by(
-        NotificationRecord.read_at.is_(None).desc(),
         NotificationRecord.created_at.desc(),
     )
     return query.offset(offset).limit(limit).all()

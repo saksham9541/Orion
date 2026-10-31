@@ -325,11 +325,11 @@ def test_decline_flow_with_reason_and_reporter_notification(ack_env):
     assert "Duplicate report" in tech_notifs[0].message
 
 
-def test_super_admin_report_skips_acknowledgement(ack_env):
+def test_super_admin_report_requires_acknowledgement_by_dept_or_admin(ack_env):
     client = ack_env["client"]
     tokens = ack_env["tokens"]
 
-    # Admin reports defect directly
+    # Admin reports defect
     resp = client.post(
         "/api/tasks/complaint",
         json={
@@ -344,11 +344,22 @@ def test_super_admin_report_skips_acknowledgement(ack_env):
     )
     assert resp.status_code == 200
     task_data = resp.json()
-    # Direct enlistment: status is REPORTED, not AWAITING_ACK
-    assert task_data["status"] == "REPORTED"
-    assert task_data["awaiting_acknowledgement"] is False
+    assert task_data["status"] == "AWAITING_ACK"
+    assert task_data["awaiting_acknowledgement"] is True
+    task_id = task_data["task_id"]
 
-    # Appears immediately in dashboard counts
+    # Excluded from main counts before acknowledgement
+    counts_pre = client.get("/api/dashboard/counts", headers={"Authorization": f"Bearer {tokens['admin']}"})
+    assert counts_pre.json()["total"] == 0
+
+    # Acknowledged by designated department (or admin)
+    ack_resp = client.post(
+        f"/api/tasks/{task_id}/acknowledge",
+        headers={"Authorization": f"Bearer {tokens['trd']}"},
+    )
+    assert ack_resp.status_code == 200
+
+    # Appears immediately in dashboard counts after acknowledgement
     counts_resp = client.get("/api/dashboard/counts", headers={"Authorization": f"Bearer {tokens['admin']}"})
     assert counts_resp.json()["total"] == 1
 
