@@ -24,6 +24,7 @@ export default function CannotStartModal({
   onClose,
   errorData,
   onRequestNewWindow,
+  onOpenControllerOverride,
 }) {
   if (!isOpen || !errorData) return null
 
@@ -148,6 +149,20 @@ export default function CannotStartModal({
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>
+
+          {onOpenControllerOverride && (
+            <Button
+              variant='secondary'
+              onClick={() => {
+                onClose()
+                onOpenControllerOverride()
+              }}
+              className='flex items-center gap-1.5 border-[#D99A2B] text-[#D99A2B] hover:bg-[#D99A2B]/10'
+            >
+              <ShieldAlert size={13} />
+              <span>Controller Override</span>
+            </Button>
+          )}
 
           {code === 'WINDOW_TOO_LATE' && onRequestNewWindow && (
             <Button

@@ -23,6 +23,7 @@ import ReportComplaintModal from '@/components/app/ReportComplaintModal'
 import AwaitingAckInbox from '@/components/tasks/AwaitingAckInbox'
 import { fetchDashboardCounts, fetchTasks, updateTaskStatus } from '@/api'
 import CannotStartModal from '@/components/tasks/CannotStartModal'
+import ControllerOverrideModal from '@/components/tasks/ControllerOverrideModal'
 import { useAppState } from '@/state/AppState'
 
 const PRE_WORK_CHECKLIST_ITEMS = [
@@ -42,6 +43,7 @@ export default function TechnicianDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isReportOpen, setIsReportOpen] = useState(false)
   const [cannotStartError, setCannotStartError] = useState(null)
+  const [overrideModalTask, setOverrideModalTask] = useState(null)
   const { role, currentUser } = useAppState()
   const isControllerOrAdmin = ['admin', 'controller'].includes((role?.id || '').toLowerCase()) || ['admin', 'controller'].includes((currentUser?.role || '').toLowerCase())
   const [searchQuery, setSearchQuery] = useState('')
@@ -777,7 +779,7 @@ export default function TechnicianDashboard() {
                       </button>
                     )}
 
-                    {isControllerOrAdmin && (task.window_status === 'EXPIRED' || task.window_status === 'UPCOMING' || task.window_status === 'DELAYED' || task.status === 'IN_PROGRESS') && (
+                    {task.status !== 'COMPLETED' && (
                       <button
                         type="button"
                         onClick={() => setOverrideModalTask(task)}
@@ -859,6 +861,16 @@ export default function TechnicianDashboard() {
         onRequestNewWindow={() => {
           setCannotStartError(null)
           alert('Rescheduling request submitted to Section Controller.')
+        }}
+      />
+
+      <ControllerOverrideModal
+        isOpen={!!overrideModalTask}
+        task={overrideModalTask}
+        onClose={() => setOverrideModalTask(null)}
+        onOverrideSuccess={() => {
+          loadTasks()
+          setOverrideModalTask(null)
         }}
       />
 

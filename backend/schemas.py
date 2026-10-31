@@ -179,6 +179,17 @@ class UnreadCountResponse(BaseModel):
     unread_count: int
 
 
+# ── Controller Override ─────────────────────────────────────────────
+
+class ControllerOverrideRequest(BaseModel):
+    override_type: str = "EXTEND_WINDOW"
+    reason: str
+    extension_minutes: Optional[int] = 30
+    new_start_time: Optional[datetime] = None
+    new_end_time: Optional[datetime] = None
+
+
+
 # ── Multi-Agent System ──────────────────────────────────────────────
 
 class AgentNegotiationRequest(BaseModel):

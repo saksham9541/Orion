@@ -122,6 +122,8 @@ export const importTasks = (data) => api.post('/tasks/import', data);
 export const updateTaskStatus = (id, data) => api.put(`/tasks/${id}/status`, data);
 export const overrideTaskWindow = (taskId, data) => api.post(`/tasks/${taskId}/controller-override`, data);
 export const fetchTaskWindowStatus = (taskId) => api.get(`/tasks/${taskId}/window-status`);
+export const fetchTaskTrainDelays = (taskId, windowId) => api.get(`/tasks/${taskId}/train-delays`, { params: { window_id: windowId || undefined } });
+export const fetchTaskEmergencyImpact = (taskId, durationHours) => api.get(`/tasks/${taskId}/emergency-impact`, { params: { planned_duration_hours: durationHours || undefined } });
 
 export const generatePlan = (config) => api.post('/plans/generate', config);
 export const fetchPlans = () => api.get('/plans');

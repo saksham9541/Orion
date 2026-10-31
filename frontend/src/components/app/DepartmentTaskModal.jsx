@@ -15,8 +15,10 @@ import {
   Layers,
   Wrench,
   Sparkles,
-  Loader2
+  Loader2,
+  Train
 } from 'lucide-react'
+import { fetchTaskEmergencyImpact } from '@/api'
 
 const STEPPER_STAGES = [
   { key: 'REPORTED', label: 'Reported' },
@@ -40,11 +42,25 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
   const [updatingStatus, setUpdatingStatus] = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
+  const [impactData, setImpactData] = useState(null)
+  const [loadingImpact, setLoadingImpact] = useState(false)
+  const [showImpactDetails, setShowImpactDetails] = useState(false)
 
   useEffect(() => {
     setSuccessMsg(null)
     setErrorMsg(null)
-  }, [task?.id, isOpen])
+    if (!isOpen || !task) {
+      setImpactData(null)
+      return
+    }
+    const tId = task.task_id || task.id
+    if (!tId) return
+    setLoadingImpact(true)
+    fetchTaskEmergencyImpact(tId)
+      .then((res) => setImpactData(res.data))
+      .catch(() => setImpactData(null))
+      .finally(() => setLoadingImpact(false))
+  }, [task?.id, task?.task_id, isOpen])
 
   // Close on Escape key
   useEffect(() => {
@@ -286,29 +302,87 @@ export default function DepartmentTaskModal({ isOpen, onClose, task, onStatusCha
             </div>
           )}
 
-          {/* Emergency Train Delay Impact (Item C2) */}
-          {severity === 'EMERGENCY' && onOpenEmergencyImpact && (
-            <div className="rounded-xl border border-[#DC3030]/30 bg-[#FCE8E8]/60 p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <ShieldAlert size={16} className="text-[#DC3030]" />
-                <div>
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#DC3030] block">
-                    EMERGENCY DEFECT — IMMEDIATE TRAIN DELAY IMPACT
-                  </span>
-                  <span className="text-xs text-[#252A27]">
-                    Calculates real-time timetable delays across affected passenger and freight trains.
-                  </span>
-                </div>
+          {/* Estimated Train Movement & Delay Impact */}
+          <div className="rounded-xl border border-line bg-surface/40 p-4">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <Train size={16} className="text-[#F7861E]" />
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-ink">
+                  Train Movement Impact ({task.section_id || 'Corridor'})
+                </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => onOpenEmergencyImpact(task.id)}
-                className="rounded-lg bg-[#DC3030] hover:bg-[#b82626] text-white px-3 py-1.5 font-mono text-xs font-bold transition-colors shadow-sm"
-              >
-                Inspect Train Delays
-              </button>
+              {impactData && (
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-surface/80 border border-hair text-ink">
+                  {impactData.trains_affected || 0} trains affected · +{impactData.total_delay_minutes || 0}m delay
+                </span>
+              )}
             </div>
-          )}
+
+            {loadingImpact ? (
+              <div className="flex items-center gap-2 text-xs text-muted py-2">
+                <Loader2 size={13} className="animate-spin text-[#F7861E]" />
+                <span>Simulating corridor timetable passages and holding delays...</span>
+              </div>
+            ) : impactData ? (
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="p-2 rounded-lg border border-hair/50 bg-surface/60">
+                    <div className="text-[10px] text-muted">Trains Hit</div>
+                    <div className="text-base font-bold font-mono text-ink">{impactData.trains_affected || 0}</div>
+                  </div>
+                  <div className="p-2 rounded-lg border border-hair/50 bg-surface/60">
+                    <div className="text-[10px] text-muted">Hold Delay</div>
+                    <div className="text-base font-bold font-mono text-[#D99A2B]">+{impactData.total_delay_minutes || 0}m</div>
+                  </div>
+                  <div className="p-2 rounded-lg border border-hair/50 bg-surface/60">
+                    <div className="text-[10px] text-muted">Passenger / Freight</div>
+                    <div className="text-xs font-bold font-mono text-muted mt-1">
+                      {impactData.passenger_delay_minutes || 0}m / {impactData.freight_delay_minutes || 0}m
+                    </div>
+                  </div>
+                </div>
+
+                {impactData.affected_trains && impactData.affected_trains.length > 0 ? (
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between text-[11px] text-muted mb-1">
+                      <span className="font-semibold text-ink">Affected Trains Breakdown:</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowImpactDetails(!showImpactDetails)}
+                        className="text-[#F7861E] hover:underline text-[10.5px]"
+                      >
+                        {showImpactDetails ? 'Collapse' : `View all (${impactData.affected_trains.length})`}
+                      </button>
+                    </div>
+
+                    <div className={`space-y-1.5 overflow-y-auto ${showImpactDetails ? 'max-h-48' : 'max-h-24'}`}>
+                      {impactData.affected_trains.map((tr, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-md bg-surface border border-hair/60 text-xs font-mono">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-ink">{tr.train_number}</span>
+                            <span className="text-muted text-[11px] truncate max-w-[130px]">{tr.train_name}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[#D99A2B] font-semibold">Held {tr.hold_minutes}m</span>
+                            <span className="text-muted text-[10px] ml-1">at {tr.wait_station || 'Station'}</span>
+                            {tr.expected_destination_delay > 0 && (
+                              <span className="text-muted text-[9.5px] block">Dest +{tr.expected_destination_delay}m</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11.5px] text-muted italic">
+                    Zero conflicting train movements during this maintenance window.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted">Impact simulation data unavailable for this section.</p>
+            )}
+          </div>
 
           {/* 3. AI Optimizer Recommendation */}
           <div>

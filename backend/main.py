@@ -106,6 +106,7 @@ from backend.schemas import (
     TimetableImportResponse,
     NotificationResponse,
     UnreadCountResponse,
+    ControllerOverrideRequest,
     AgentNegotiationRequest,
     AgentNegotiationResponse,
     AgentStatusResponse,
@@ -1685,6 +1686,25 @@ def sync_live_trains(
             emergency_block_id=emergency_block_id,
             emergency_task_id=emergency_task_id,
         )
+
+        # Immediately revalidate all maintenance tasks and windows taking live train status and delays into consideration
+        try:
+            from traffic.task_revalidation import run_scheduled_revalidations
+            reval_results = run_scheduled_revalidations(horizon="T-1h", session=session, app_state=app.state)
+            result["revalidated_tasks_count"] = len(reval_results)
+            result["revalidation_summary"] = {
+                "tasks_checked": len(reval_results),
+                "conflicts_found": sum(1 for r in reval_results if r.get("has_conflict")),
+                "high_confidence": sum(1 for r in reval_results if r.get("confidence") == "HIGH"),
+                "low_confidence": sum(1 for r in reval_results if r.get("confidence") == "LOW"),
+            }
+            event_bus.publish_sync(
+                event_type="TASKS_REVALIDATED",
+                actor=current_user.email,
+                details=result["revalidation_summary"],
+            )
+        except Exception as e:
+            logger.warning("Post-sync task revalidation failed: %s", e)
         event_bus.publish_sync(
             event_type="SYNC_COMPLETED",
             actor=current_user.email,
@@ -2920,6 +2940,132 @@ def get_task_affected_trains(
             ],
             "cascade_chains": [],
         }
+
+
+@app.post("/api/tasks/{task_id}/controller-override")
+def controller_override_endpoint(
+    task_id: str,
+    request: ControllerOverrideRequest,
+    current_user: User = Depends(require_controller),
+    x_test_server_time: Optional[str] = Header(None, alias="X-Test-Server-Time"),
+):
+    """
+    Controller Schedule Override.
+    Authorized controllers/admins can override task schedule windows (early start, late start, extend window, force start).
+    Requires a valid reason (>= 5 chars) and records controller identity, timestamp, and schedule changes to the audit log.
+    """
+    if not request.reason or len(request.reason.strip()) < 5:
+        raise HTTPException(status_code=400, detail="A valid reason (minimum 5 characters) is required for controller override.")
+
+    session = get_session(engine)
+    try:
+        t = next((task for task in getattr(app.state, "tasks", []) if task.task_id == task_id), None)
+        if not t:
+            db_tasks, _ = load_tasks(session)
+            t = next((task for task in db_tasks if task.task_id == task_id), None)
+            if t:
+                if not hasattr(app.state, "tasks") or app.state.tasks is None:
+                    app.state.tasks = []
+                app.state.tasks.append(t)
+
+        if not t:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        server_now = None
+        if x_test_server_time:
+            try:
+                server_now = datetime.fromisoformat(x_test_server_time)
+            except Exception:
+                pass
+        if not server_now:
+            server_now = datetime.now(KOLKATA_TZ)
+        if server_now.tzinfo is None:
+            server_now = server_now.replace(tzinfo=KOLKATA_TZ)
+
+        prev_schedule = {
+            "start_allowed_from": t.start_allowed_from.isoformat() if getattr(t, "start_allowed_from", None) else None,
+            "start_allowed_until": t.start_allowed_until.isoformat() if getattr(t, "start_allowed_until", None) else None,
+            "planned_end": t.planned_end.isoformat() if getattr(t, "planned_end", None) else None,
+            "status": t.status.value if hasattr(t.status, "value") else str(t.status),
+            "designated_period_clock": getattr(t, "designated_period_clock", None),
+        }
+
+        ovr_type = request.override_type.upper().strip()
+        dur_m = getattr(t, "maintenance_duration_minutes", None) or int((t.estimated_duration_hours or 1.5) * 60)
+
+        if ovr_type == "EARLY_START":
+            t.start_allowed_from = request.new_start_time or server_now
+            if not getattr(t, "planned_end", None) or t.planned_end < t.start_allowed_from:
+                t.planned_end = t.start_allowed_from + timedelta(minutes=dur_m)
+            t.window_status = "ACTIVE"
+        elif ovr_type == "LATE_START":
+            new_until = request.new_end_time or (server_now + timedelta(minutes=30))
+            t.start_allowed_until = new_until
+            if not getattr(t, "planned_end", None) or t.planned_end < new_until:
+                t.planned_end = new_until + timedelta(minutes=dur_m)
+            t.window_status = "ACTIVE"
+        elif ovr_type == "EXTEND_WINDOW":
+            mins = request.extension_minutes or 30
+            base_end = getattr(t, "planned_end", None) or server_now
+            t.planned_end = base_end + timedelta(minutes=mins)
+            t.start_allowed_until = t.planned_end
+            t.maintenance_duration_minutes = dur_m + mins
+            t.window_status = "ACTIVE"
+        elif ovr_type == "FORCE_START":
+            t.status = TaskStatus.IN_PROGRESS
+            t.actual_start = server_now
+            t.start_allowed_from = server_now
+            t.planned_end = server_now + timedelta(minutes=dur_m)
+            t.start_allowed_until = t.planned_end
+            t.window_status = "ACTIVE"
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported override type: {request.override_type}")
+
+        t.start_allowed_from_clock = format_clock_ist(t.start_allowed_from)
+        t.start_allowed_until_clock = format_clock_ist(t.start_allowed_until)
+        t.planned_end_clock = format_clock_ist(t.planned_end)
+        t.designated_period_clock = f"{t.start_allowed_from_clock} - {t.start_allowed_until_clock}, finish by {t.planned_end_clock}"
+        t.scheduled_start_time = t.start_allowed_from
+        t.scheduled_end_time = t.planned_end
+
+        audit_entry = {
+            "id": f"OVR-{uuid.uuid4().hex[:8]}",
+            "timestamp": server_now.isoformat(),
+            "timestamp_ist": server_now.strftime("%I:%M %p IST, %d %b %Y"),
+            "action": "CONTROLLER_OVERRIDE",
+            "override_type": ovr_type,
+            "authorized_by": current_user.email,
+            "authorized_by_name": getattr(current_user, "name", current_user.email),
+            "role": current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
+            "reason": request.reason.strip(),
+            "previous_schedule": prev_schedule,
+            "new_schedule": {
+                "start_allowed_from": t.start_allowed_from.isoformat() if t.start_allowed_from else None,
+                "start_allowed_until": t.start_allowed_until.isoformat() if t.start_allowed_until else None,
+                "planned_end": t.planned_end.isoformat() if t.planned_end else None,
+                "designated_period_clock": t.designated_period_clock,
+                "status": t.status.value if hasattr(t.status, "value") else str(t.status),
+            },
+            "note": f"Controller Override [{ovr_type}]: {request.reason.strip()}",
+        }
+        if not hasattr(t, "history") or not isinstance(t.history, list):
+            t.history = []
+        t.history.append(audit_entry)
+
+        save_tasks(session, [t])
+
+        event_bus.publish_sync(
+            event_type="TASK_WINDOW_OVERRIDDEN",
+            task_id=task_id,
+            new_status=t.status.value if hasattr(t.status, "value") else str(t.status),
+            department=getattr(t, "department", None),
+            actor=current_user.email,
+            details=audit_entry,
+        )
+
+        return t
+    finally:
+        session.close()
 
 
 # ──────────────────────────────────────────────────────────────────────
