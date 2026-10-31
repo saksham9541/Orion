@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://api.railradar.in/v1"
 DEFAULT_KEY_LIMIT = 90
+DEFAULT_DEMO_KEYS = [
+    "rg_dbb7250fefce448d8a2b904a0a09be14",
+    "rg_83e1a56bb8fd4dee9018401ebbf5183b",
+    "rg_91ef0b8241344e8382acffbd9df52875",
+]
 FAILING_COOLDOWN_SECONDS = 3600      # 1 hour penalty for 429 / 401 / 403
 SERVER_ERROR_COOLDOWN_SECONDS = 300  # 5 minutes cooldown for 5xx / connection errors
 
@@ -85,6 +90,8 @@ class RailRadarClient:
                     k_env = os.environ.get(f"RAILRADAR_API_KEY_{idx}")
                     if k_env and k_env.strip():
                         collected_keys.append(k_env.strip())
+            if not collected_keys:
+                collected_keys = list(DEFAULT_DEMO_KEYS)
             self.keys = collected_keys
         else:
             self.keys = [k.strip() for k in keys if k.strip()]

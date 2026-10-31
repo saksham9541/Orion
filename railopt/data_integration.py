@@ -180,10 +180,7 @@ class DataIntegrationService:
         keys_str = os.environ.get("RAILRADAR_API_KEYS", "")
         keys = [k.strip() for k in keys_str.split(",") if k.strip()]
         base_url = os.environ.get("RAILRADAR_BASE_URL", "https://api.railradar.in/v1")
-        if keys:
-            self.railradar_adapter = RailRadarClient(keys=keys, base_url=base_url)
-        else:
-            self.railradar_adapter = None
+        self.railradar_adapter = RailRadarClient(keys=keys if keys else None, base_url=base_url)
         
     def integrate_maintenance_data(
         self, 

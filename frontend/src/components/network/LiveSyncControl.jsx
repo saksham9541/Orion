@@ -107,7 +107,7 @@ export default function LiveSyncControl({ sectionId = 'SEC-93135bb9', onSynced }
     }
   }
 
-  const keysBudget = preview?.keys_budget || budget?.keys || []
+  const keysBudget = (preview?.keys_budget && preview.keys_budget.length > 0) ? preview.keys_budget : (budget?.keys || [])
   const availableForSync = preview?.available_for_sync ?? budget?.available_for_sync ?? 0
   const reservedBudget = preview?.reserved_budget ?? budget?.reserved_budget ?? 30
   const cooldownActive = preview?.cooldown_active || false
